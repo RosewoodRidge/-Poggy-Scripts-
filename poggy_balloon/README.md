@@ -27,7 +27,7 @@ A comprehensive hot air balloon system for RedM featuring NPC-piloted taxi servi
 - **Easy to Extend**: Add new languages in `translations.lua`
 - **Change Language**: Set `Config.Language` in translations.lua
 
-### 🔔 VORP Notification System
+### 🔔 Notifications
 - **Context-Aware Icons**:
   - `blip_location_higher` - Ascending
   - `blip_location_lower` - Descending/landing
@@ -47,16 +47,14 @@ A comprehensive hot air balloon system for RedM featuring NPC-piloted taxi servi
 - **Prompt System**: Clear UI prompts for entering/exiting and controlling the balloon
 - **Boost & Brake Controls**: Fine-tune your balloon's speed with dedicated controls
 
-## Dependencies
+## Requirements
 
-- **poggy_core**: Money, character checks and UI prompts
-- **vorp_core**: Bottom and right-hand notifications
-- **vorp_menu**: For NPC interaction menus
+- **poggy_core** 0.14.0 or newer. It provides money, character checks, prompts, notifications and the station menu, so the script runs on any framework poggy_core supports. No `vorp_menu` or other menu resource is needed.
 
 ## Installation
 
 1. Extract the `poggy_balloon` folder into your server's `resources` directory
-2. Add `ensure poggy_balloon` to your server.cfg (after poggy_core and the vorp dependencies)
+2. Add `ensure poggy_balloon` to your server.cfg (after poggy_core)
 3. Configure settings in `config.lua`
 4. Set your preferred language in `translations.lua`
 5. Restart your server

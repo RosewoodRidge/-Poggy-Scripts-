@@ -1,5 +1,9 @@
 # Poggy Balloon Changelog
 
+## v1.6.0
+
+- **Framework-agnostic.** The station menu and all notifications now go through poggy_core (`menu.open`, `notify.styled`); nothing calls vorp_core or vorp_menu any more. Requires poggy_core 0.14.0. `vorp_menu` is no longer a dependency.
+
 ## v1.5.1
 
 ### Core Changes
