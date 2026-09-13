@@ -90,9 +90,11 @@ list under `files {}` in `fxmanifest.lua`). With no logo set, nothing is shown.
 ### Government stipend
 Pays unemployed characters (`UnemployedJobName`) cash every `IntervalMinutes`,
 once they have been on the server `MinimumTenureDays`, rising with tenure. It
-reads `characters.created_at`, which `sql/install.sql` adds. VORP is the
-supported framework today: on a framework without a `characters` table the
-stipend statements in `sql/install.sql` fail (see [Database](#database)).
+reads `characters.created_at`, which `sql/install.sql` adds. That table is
+VORP's, so **the stipend is VORP-only**: on any other framework it prints one
+yellow console line at start and stays off, and the stipend statements in
+`sql/install.sql` fail harmlessly (see [Database](#database)). Every other
+utility goes through poggy_core and works on any framework it supports.
 
 ## Commands
 
@@ -144,9 +146,24 @@ the second changes its default so new characters get their creation time. To
 use another legacy date, change it in `sql/install.sql` before poggy_util first
 starts. A column that is already there is left alone.
 
-VORP is the supported framework today. On a framework without a `characters`
-table those two statements error; they are the last ones in the file, so the
-rest still installs. Remove them if you do not use the stipend there.
+`items` and `characters` belong to VORP, so those statements are marked
+`-- poggy: only-if-table` and poggy_core skips them on a framework without
+the table (the summary line says so in grey). On a framework without an
+`items` table (RSG), the `armor_kit` item must be added to the framework's
+item list by hand (RSG: `rsg-core/shared/items.lua`); poggy_util prints one
+yellow line at start while it is missing. The stipend is VORP-only anyway (it
+is the one utility that reads a framework table directly) and disables itself
+with a console line elsewhere.
+
+## Changelog
+
+- **2.0.4** — Runs on frameworks without `items` / `characters` tables (RSG):
+  those statements in `sql/install.sql` are skipped there instead of erroring,
+  and the armor kit prints one yellow line at start while the item is missing
+  from your framework's item list.
+- **2.0.3** — The stipend checks `core.framework` at start and disables itself
+  with one console line on anything but VORP instead of erroring on the tenure
+  query; README says which utility is VORP-only and why.
 
 To manage the database yourself, set `PoggyCoreConfig.Sql.AutoInstall = false` in
 `poggy_core/config.lua`, or run `poggycore sql install poggy_util` in the console.

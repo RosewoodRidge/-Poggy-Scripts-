@@ -21,17 +21,7 @@ CREATE TABLE IF NOT EXISTS `poggy_util_armor_hud` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------------------------------------------------------
---  2. Armor repair kit item
---  ---------------------------------------------------------------------------
---  Config.ArmorProtection.RepairKitItem. The icon is docs/armor_kit.png; copy
---  it into your inventory's item image folder. Change the table name if your
---  framework keeps its item list somewhere other than `items`.
--- ----------------------------------------------------------------------------
-INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`, `desc`, `weight`)
-VALUES ('armor_kit', 'Armor Repair Kit', 5, 1, 'item_standard', 1, 'A toolkit used to repair damaged body armor.', 1.00);
-
--- ----------------------------------------------------------------------------
---  3. Government stipend tenure (Config.Stipend; off by default)
+--  2. Government stipend tenure (Config.Stipend; off by default)
 --  ---------------------------------------------------------------------------
 --  The stipend reads `characters`.`created_at` to work out how many days a
 --  character has been on the server. VORP's `characters` table has no such
@@ -52,10 +42,27 @@ VALUES ('armor_kit', 'Armor Repair Kit', 5, 1, 'item_standard', 1, 'A toolkit us
 --  and neither step is sent again. A server whose column was already DATETIME
 --  (added by an earlier poggy_util) is left alone by both steps.
 --
---  These are the last statements in this file on purpose: on a framework
---  without a `characters` table they fail, and a failure stops the file, so
---  everything above still installs. VORP is the supported framework today.
+--  `characters` is VORP's table. Each step is marked `-- poggy: only-if-table
+--  characters`, so on a framework without it (RSG) poggy_core skips the step
+--  instead of failing. The stipend is VORP-only anyway (it reads this table
+--  directly); server/stipend.lua disables itself on other frameworks.
 -- ----------------------------------------------------------------------------
+-- poggy: only-if-table characters
 ALTER TABLE `characters` ADD COLUMN `created_at` TIMESTAMP NULL DEFAULT '2025-11-01 00:00:00';
 
+-- poggy: only-if-table characters
 ALTER TABLE `characters` MODIFY COLUMN `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- ----------------------------------------------------------------------------
+--  3. Armor repair kit item
+--  ---------------------------------------------------------------------------
+--  Config.ArmorProtection.RepairKitItem. The icon is docs/armor_kit.png; copy
+--  it into your inventory's item image folder.
+--
+--  `items` is VORP's table. On a framework that keeps its items elsewhere
+--  (RSG: rsg-core/shared/items.lua) poggy_core skips this statement and
+--  poggy_util prints the item name to add by hand.
+-- ----------------------------------------------------------------------------
+-- poggy: only-if-table items
+INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`, `desc`, `weight`)
+VALUES ('armor_kit', 'Armor Repair Kit', 5, 1, 'item_standard', 1, 'A toolkit used to repair damaged body armor.', 1.00);
