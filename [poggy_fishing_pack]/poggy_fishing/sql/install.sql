@@ -14,8 +14,14 @@
 --
 -- Only missing items are added. Rows already present are never changed, so
 -- your own edits to labels, limits and the rest are kept on every start.
+--
+-- `items` belongs to VORP. On a framework that keeps its items elsewhere (RSG:
+-- rsg-core/shared/items.lua) there is no such table, so each block below is
+-- marked `-- poggy: only-if-table items` and poggy_core skips it; the script
+-- then prints the item names you need to add to that file by hand.
 
 -- FISH, BAIT AND RODS
+-- poggy: only-if-table items
 INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`) VALUES
     -- FISH
     ('a_c_fishbluegil_01_sm', 'Bluegill (Small)', 10, 1, 'item_standard', 0),
@@ -61,6 +67,7 @@ INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usa
 -- LOOT DROPS (Config.LootDrops)
 -- These are generic valuables many servers already define, so existing rows
 -- are left alone and only missing ones are added.
+-- poggy: only-if-table items
 INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`) VALUES
     ('whitepearl', 'White Pearl', 10, 1, 'item_standard', 0),
     ('redpearl', 'Red Pearl', 10, 1, 'item_standard', 0),

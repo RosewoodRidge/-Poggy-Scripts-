@@ -17,7 +17,11 @@ A skillcheck-based fishing system for RedM (VORP framework) featuring zone-speci
 3. Configure `config.lua` to taste. Water zones and the fish found in each are built into the script.
 4. Copy the item icons from `docs/item_images/` into your inventory's item image folder (on VORP: `vorp_inventory/html/img/items/`), so fish, bait and rods show their pictures. The journal's icon is in `poggy_fishing_journal/docs/item_images/`.
 
+## Database
+
 The fish, bait, rod and loot items are added to the database automatically when the script starts (`sql/install.sql`); items you already have are never changed. To import the file yourself instead, set `PoggyCoreConfig.Sql.AutoInstall = false` in `poggy_core/config.lua`.
+
+On a framework without an `items` table (RSG), poggy_core skips those rows and the items must be added to the framework's item list by hand (RSG: `rsg-core/shared/items.lua`): the two rods (`fishingrod`, `fishingrod_pro`), the baits and lures (`bait_worm`, `bait_cricket`, `bait_bread`, `bait_crawdad`, `p_lgoc_spinner_v4`, `p_finishedragonflylegendary01x`), every fish in `Config.Fish` (`a_c_fish…`) and the loot drops (`whitepearl`, `redpearl`, `bluepearl`, `goldpearl`, `blackpearl`, `golden_nugget`, `diamond_uncut`). At start the script prints one yellow line naming any of these your item list does not have.
 
 ## Controls
 
@@ -203,3 +207,7 @@ poggy_fishing/
 ## Debug
 
 Set `Config.Debug = true` for console logging. Set `Config.DebugState = true` to print state-transition audits to the F8 console.
+
+## Changelog
+
+- **1.2.1** — Runs on frameworks without an `items` table (RSG): the item rows in `sql/install.sql` are skipped there instead of stopping the install, and the script prints one yellow line at start naming the items your framework's item list lacks.

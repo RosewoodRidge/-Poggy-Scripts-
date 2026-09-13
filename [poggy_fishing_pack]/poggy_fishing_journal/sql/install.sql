@@ -13,7 +13,7 @@
 --   catch_counts: { "fish_key": count, ... }
 --   weight_data:  { "fish_key": { best, total, bestDate, firstCaught, lastCaught }, ... }
 CREATE TABLE IF NOT EXISTS `poggy_fishing_journal` (
-    `charid`       INT NOT NULL PRIMARY KEY,
+    `charid`       VARCHAR(64) NOT NULL PRIMARY KEY,
     `discoveries`  LONGTEXT DEFAULT ('{}'),
     `catch_counts` LONGTEXT DEFAULT ('{}'),
     `weight_data`  LONGTEXT DEFAULT ('{}'),
@@ -24,7 +24,16 @@ CREATE TABLE IF NOT EXISTS `poggy_fishing_journal` (
 ALTER TABLE `poggy_fishing_journal`
     ADD COLUMN `weight_data` LONGTEXT DEFAULT ('{}');
 
+-- Character ids are strings on RSG (citizenid); VORP's numeric ids fit too.
+-- poggy_core sends this only while the column is still INT.
+ALTER TABLE `poggy_fishing_journal`
+    MODIFY COLUMN `charid` VARCHAR(64) NOT NULL;
+
 -- Journal item (usable = 1 so the inventory triggers the callback).
 -- Only added when missing; an existing row is never changed.
+-- `items` is VORP's table. On a framework without it (RSG keeps items in
+-- rsg-core/shared/items.lua) poggy_core skips this statement and the script
+-- prints the item name to add by hand.
+-- poggy: only-if-table items
 INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`)
 VALUES ('fishing_journal_fn', 'Fishing Journal', 1, 1, 'item_standard', 1);
