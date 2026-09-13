@@ -30,6 +30,7 @@ PM.Locale = {
     cannot_buy_own   = "You cannot buy from your own shop.",
     cannot_sell_own  = "You cannot sell to your own shop.",
     transaction_failed = "That transaction could not be completed.",
+    item_unavailable = "That item is not available on this server.",
     store_joblocked  = "You are not permitted in this store.",
 
     -- ── Shop ownership ─────────────────────────────────────────────────────

@@ -109,16 +109,7 @@ ALTER TABLE `shop_sales_log`
 ALTER TABLE `shop_sales_log` ADD COLUMN `shop_type` TINYINT NOT NULL DEFAULT 1;
 
 -- ----------------------------------------------------------------------------
---  4. Shop deed
---  ---------------------------------------------------------------------------
---  Only needed when Config.PlayerShops.creationItem is set.  Change the table
---  name if your framework keeps its item list somewhere other than `items`.
--- ----------------------------------------------------------------------------
-INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`)
-VALUES ('shoptoken', 'Shop Deed', 5, 1, 'item_standard', 1);
-
--- ----------------------------------------------------------------------------
---  5. Dynamic pricing
+--  4. Dynamic pricing
 --  ---------------------------------------------------------------------------
 --  Used by modules/pricing when Config.Modules.dynamicPricing is true.  One row
 --  per tracked item, plus the snapshots behind the price charts.
@@ -149,7 +140,7 @@ CREATE TABLE IF NOT EXISTS `poggy_markets_price_history` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------------------------------------------------------
---  6. Commodities exchange
+--  5. Commodities exchange
 --  ---------------------------------------------------------------------------
 --  Used by modules/exchange when Config.Modules.exchange and dynamicPricing are
 --  both true: each character's exchange balance, open positions and trades.
@@ -189,3 +180,16 @@ CREATE TABLE IF NOT EXISTS `poggy_markets_trades` (
     PRIMARY KEY (`id`),
     KEY `idx_char_time` (`char_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+--  6. Shop deed
+--  ---------------------------------------------------------------------------
+--  Only needed when Config.PlayerShops.creationItem is set. `items` is VORP's
+--  table: on a framework that keeps its items elsewhere (RSG:
+--  rsg-core/shared/items.lua) poggy_core skips this statement and the script
+--  names the item at start so you can add it by hand. Last in the file so the
+--  script's own tables above are created whatever the framework.
+-- ----------------------------------------------------------------------------
+-- poggy: only-if-table items
+INSERT IGNORE INTO `items` (`item`, `label`, `limit`, `can_remove`, `type`, `usable`)
+VALUES ('shoptoken', 'Shop Deed', 5, 1, 'item_standard', 1);

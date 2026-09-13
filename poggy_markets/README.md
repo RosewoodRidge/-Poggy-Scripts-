@@ -49,8 +49,13 @@ setting to change.
 2. Add `ensure poggy_markets` to your server config.
 3. Start the server and read the console.
 
+### Database
+
 The shop deed item (`shoptoken`) is added by `sql/install.sql`; its inventory
-icon is `docs/shoptoken.png`, to copy into your inventory's image folder.
+icon is `docs/shoptoken.png`, to copy into your inventory's image folder. On a
+framework without an `items` table (RSG), poggy_core skips that row and the
+`shoptoken` item must be added to the framework's item list by hand (RSG:
+`rsg-core/shared/items.lua`); the script warns at start while it is missing.
 
 The database tables are created automatically when the script starts
 (`sql/install.sql`). To import it yourself instead, set
@@ -58,8 +63,8 @@ The database tables are created automatically when the script starts
 
 On first boot the script prints which framework it found, how many stores it
 loaded, and — importantly — any items in the catalog that do not exist in your
-`items` table. **Expect that last list to be long.** Every server names items
-differently. See the next section.
+framework's item list. **Expect that last list to be long.** Every server names
+items differently. See the next section.
 
 ### Coming from syn_stores
 
@@ -269,3 +274,10 @@ A few decisions that are easier to read here than to infer from the code:
 - **A missing clerk model is skipped, not fatal.** A model name that does not
   exist is reported once and replaced with a generic clerk, rather than leaving
   an empty counter and a repeating console error.
+
+---
+
+## Changelog
+
+- **1.2.2** — Buying a weapon on RSG works: poggy_core's RSG adapter now maps the catalog's `WEAPON_...` names to rsg-core's lower-case weapon items (needs poggy_core 0.14.0). When a hand-over is refused the console names the item and the reason, and the player is told "not available on this server" for an item the framework does not know, instead of a vague "could not be completed". The start-up item check now covers weapons on frameworks that list them as items (RSG), and shelving a gun from your loadout matches its name regardless of case.
+- **1.2.1** — Runs on frameworks without an `items` table (RSG): the shop deed row in `sql/install.sql` moved to the end of the file and is skipped there instead of stopping the install (which left `poggy_markets_prices` and the other tables uncreated); the start-up check now also names the deed item when your framework's item list lacks it.

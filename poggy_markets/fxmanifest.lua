@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_markets'
 author 'Poggy'
 description 'Player-owned stores, dynamic pricing and a commodities exchange for RedM.'
-version '1.2.0'
+version '1.2.2'
 poggy_core_min '0.13.0'
 
 dependencies {
