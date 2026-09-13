@@ -30,12 +30,13 @@ layer. There is no setting to change.
 
 | | |
 |---|---|
-| **poggy_core** 0.12.0 or newer | Character data, money, containers and notifications. Free. |
+| **poggy_core** 0.14.0 or newer | Character data, money, containers, notifications, menus and text prompts. Free. |
 | **[oxmysql](https://github.com/overextended/oxmysql)** | Database access. |
-| **VORP Core** with `vorp_inventory` | The framework poggy_core drives, and the inventory the stashes live in. |
+| **A framework poggy_core supports** | The inventory the stashes live in. VORP Core today; the RSG Core and QBCore adapters follow in poggy_core, and this resource needs no change for them. |
 
-`vorp_menu` and `vorp_inputs` are **not required**. The menu and the text
-prompts are part of this resource.
+Nothing in this resource is framework-specific. `vorp_menu`, `vorp_inputs` and
+`vorp_inventory` are **not** dependencies: every menu, prompt, container and
+shop goes through poggy_core.
 
 ---
 
@@ -44,10 +45,11 @@ prompts are part of this resource.
 The `character_storage` table holds each storage's **metadata** — who owns it,
 where it is, who may open it, its capacity, its balance and its ledger.
 
-The **items** live in `vorp_inventory` as a custom inventory keyed
-`character_storage_<id>`. That means item handling, weights and the grid window
-are whatever your players already know. poggy_core registers the containers
-under those same ids, so existing stashes keep their contents.
+The **items** live in your framework's inventory as a container keyed
+`character_storage_<id>` (on VORP, a `vorp_inventory` custom inventory). That
+means item handling, weights and the grid window are whatever your players
+already know. poggy_core registers the containers under those same ids, so
+existing stashes keep their contents.
 
 ---
 
@@ -66,7 +68,7 @@ and import `sql/install.sql`.
 A healthy start prints one line:
 
 ```
-✅ [Poggy] poggy_character_storage  v1.3.0  ready · poggy_core v0.12.0 · <framework>
+✅ [Poggy] poggy_character_storage  v1.4.0  ready · poggy_core v0.14.0 · <framework>
 ```
 
 ### Upgrading from `character_storage`
@@ -128,9 +130,11 @@ withdraw money, and read the ledger.
 
 ## The in-game shop
 
-The optional armory shop and `/adminshop` are drawn by `vorp_inventory`'s store
-window, which poggy_core does not abstract. Without VORP the shop declines with
-a message rather than failing silently. Storage itself is unaffected.
+The optional armory shops and `/adminshop` are poggy_core menus: every item is
+a row with its price on the right and its description underneath. Pick one,
+say how many (weapons are always one), and the server takes the money before
+it hands the item over. A purchase the inventory refuses is refunded, and the
+armory's job lock is checked again on every take.
 
 ---
 
@@ -150,6 +154,8 @@ Discord tracking stays off for any storage or armory whose `webhook` is empty.
 ---
 
 ## Version history
+
+- **1.4.0** — Framework-agnostic: menus, prompts and the shops are drawn by poggy_core; no `vorp_menu`, `vorp_inputs` or `vorp_inventory` dependency. Needs poggy_core 0.14.0.
 
 See [CHANGELOG.md](CHANGELOG.md) for full change logs.
 

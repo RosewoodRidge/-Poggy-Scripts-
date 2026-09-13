@@ -185,7 +185,7 @@ Config.WeaponArmoryItems = {
         }
 
 -- ============================================================
--- Admin Armory Shops (VORP-style inventory buy menu, job-locked)
+-- Admin Armory Shops (job-locked buy menus, drawn by poggy_core)
 -- ============================================================
 Config.ArmoryShops = {
     {
@@ -463,7 +463,9 @@ Config.Translations = {
         ["armory_category_weapons"] = "Weapons",
         ["armory_category_ammo"] = "Ammunition & Supplies",
         ["armory_back"] = "Back",
-        
+        ["armory_quantity"] = "How many?",
+        ["armory_no_space"] = "You cannot carry that",
+
         -- Admin Shop
         ["adminshop_not_admin"] = "You must be an admin to use this command",
         ["adminshop_loading"] = "Loading all items...",
@@ -636,7 +638,9 @@ Config.Translations = {
         ["armory_category_weapons"] = "Armas",
         ["armory_category_ammo"] = "Munición y Suministros",
         ["armory_back"] = "Atrás",
-        
+        ["armory_quantity"] = "¿Cuántos?",
+        ["armory_no_space"] = "No puedes llevar eso",
+
         -- Admin Shop
         ["adminshop_not_admin"] = "Debes ser administrador para usar este comando",
         ["adminshop_loading"] = "Cargando todos los artículos...",
@@ -808,7 +812,9 @@ Config.Translations = {
         ["armory_category_weapons"] = "Waffen",
         ["armory_category_ammo"] = "Munition & Zubehör",
         ["armory_back"] = "Zurück",
-        
+        ["armory_quantity"] = "Wie viele?",
+        ["armory_no_space"] = "Das kannst du nicht tragen",
+
         -- Admin Shop
         ["adminshop_not_admin"] = "Du musst Admin sein, um diesen Befehl zu verwenden",
         ["adminshop_loading"] = "Alle Gegenstände werden geladen...",

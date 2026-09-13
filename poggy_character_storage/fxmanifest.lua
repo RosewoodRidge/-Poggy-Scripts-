@@ -6,13 +6,11 @@ lua54 'yes'
 poggy_id 'poggy_character_storage'
 author 'Poggy'
 description 'Poggy Storage - Player-owned storage for RedM.'
-version '1.3.0'
-poggy_core_min '0.13.0'
+version '1.4.0'
+poggy_core_min '0.14.0'
 
--- poggy_core provides character data, money, containers and notifications.
--- The menu and the text prompts are this resource's own, so vorp_menu and
--- vorp_inputs are not needed. The armory and /adminshop use vorp_inventory's
--- store window directly.
+-- poggy_core provides character data, money, containers, notifications, the
+-- menus and the text prompts. Nothing here talks to a framework directly.
 dependencies {
     'poggy_core',
     'oxmysql',
@@ -24,7 +22,6 @@ shared_scripts {
 }
 
 client_scripts {
-    'client/ui.lua',
     'client/storage.lua',
     'client/menu.lua',
     'client/npc.lua',
@@ -38,14 +35,6 @@ server_scripts {
     'server/storage.lua',
     'server/shop.lua',
     'server/discord.lua',
-}
-
-ui_page 'ui/index.html'
-
-files {
-    'ui/index.html',
-    'ui/style.css',
-    'ui/script.js',
 }
 
 -- Readable by owners and by the updater's config merge. The translations live

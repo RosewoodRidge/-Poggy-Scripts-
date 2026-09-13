@@ -1,3 +1,11 @@
+<1.4.0>
+- Requires poggy_core 0.14.0 or newer
+- Framework-agnostic: nothing in the resource talks to VORP any more
+- The storage menus and text prompts are drawn by poggy_core (menu.open / input.text); the resource's own NUI (ui/, client/ui.lua) is gone
+- The armory shops and /adminshop are poggy_core menus: price on the right, description underneath, a quantity prompt for stackable items. The purchase logic is unchanged (money before item, job re-checked on every take, refund when the give fails) and now also checks the player can carry the item before charging
+- /adminshop lists every item in the registry, not only those with an icon
+- Removed the "needs VORP" gate on the shops, and vorp_inputs / vorp_inventory / vorp_menu from the dependencies
+
 <1.3.0>
 - Requires poggy_core 0.11.0 or newer; poggy_util is no longer used
 - Removed the old per-framework fallbacks; every framework call goes through poggy_core
