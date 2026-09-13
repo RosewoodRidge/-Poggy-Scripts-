@@ -139,21 +139,42 @@ Config.Auction = {
 }
 
 -- ============================================================================
--- CATEGORIES (for filtering in the UI)
+-- CATEGORIES (the browse filter)
 -- ============================================================================
+-- Categories come from poggy_core's item registry (Poggy('inv.items')), not from
+-- a database table, so the same list works on VORP and RSG. Each item carries a
+-- `group`: on VORP it is the item_group id (stock rows are 1-11, below); on RSG
+-- it is rsg-core's item `category` ('resource', 'ammo_pistol', 'weapon_revolver'
+-- ...). `groups` says which of those land in a category; a string ending in `*`
+-- matches by prefix. `key` is what a listing stores, so keep it stable.
+--
+-- A group not listed here still gets a category of its own (its name, or
+-- "group_<id>" for a VORP id), so nothing is hidden. Add a row here to give it
+-- a proper label and icon. On VORP every category below is shown, as the
+-- item_group table was; on RSG only the ones that hold at least one item.
 Config.Categories = {
-    { key = "all",        label = "All Items",     icon = "🏷️" },
-    { key = "weapons",    label = "Weapons",       icon = "🔫" },
-    { key = "ammo",       label = "Ammunition",    icon = "💥" },
-    { key = "consumable", label = "Consumables",   icon = "🍖" },
-    { key = "material",   label = "Materials",     icon = "🪵" },
-    { key = "herb",       label = "Herbs",         icon = "🌿" },
-    { key = "animal",     label = "Animal Parts",  icon = "🦌" },
-    { key = "clothing",   label = "Clothing",      icon = "👕" },
-    { key = "misc",       label = "Miscellaneous", icon = "📦" },
+    { key = "default",   label = "Default",   icon = "📦", groups = { 1, "financial" } },
+    { key = "medical",   label = "Medical",   icon = "💊", groups = { 2, "medical" } },
+    { key = "foods",     label = "Foods",     icon = "🍖", groups = { 3, "consumable" } },
+    { key = "tools",     label = "Tools",     icon = "🔧", groups = { 4, "tools" } },
+    { key = "weapons",   label = "Weapons",   icon = "🔫", groups = { 5, "weapon_*" } },
+    { key = "ammo",      label = "Ammo",      icon = "💥", groups = { 6, "ammo_*" } },
+    { key = "documents", label = "Documents", icon = "📜", groups = { 7 } },
+    { key = "animals",   label = "Animals",   icon = "🦌", groups = { 8 } },
+    { key = "valuables", label = "Valuables", icon = "💎", groups = { 9 } },
+    { key = "horse",     label = "Horse",     icon = "🐴", groups = { 10, "horse" } },
+    { key = "herbs",     label = "Herbs",     icon = "🌿", groups = { 11 } },
 }
 
--- Map item names → categories (items not listed here default to "misc")
+-- Icon for a group that is not in Config.Categories (RSG's own categories, or a
+-- VORP group you added). Keyed by the group name; anything else gets 📦.
+Config.CategoryIcons = {
+    resource = "🪵",
+    fishing  = "🎣",
+}
+
+-- Map item names → category keys, overriding the item's group
+-- (an item not listed here, and not in the registry, lands in "default")
 Config.ItemCategories = {
     -- Populate with your server's items, e.g.:
     -- ["item_ammo_rifle"]         = "ammo",

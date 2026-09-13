@@ -85,11 +85,18 @@
     var IMG_BASE = 'nui://vorp_inventory/html/img/items/';
 
     /**
-     * Item image URL.
-     * Falls back to a transparent pixel if the image doesn't load.
+     * Icons whose file is not <IMG_BASE><name>.png (RSG's `image` field),
+     * by item name. Sent with the open message from poggy_core's registry.
+     */
+    var ITEM_IMAGES = {};
+
+    /**
+     * Item image URL. Every icon in the UI goes through here, so the base
+     * and the odd file names come from poggy_core, never from a guess.
      */
     function itemImageUrl(itemName) {
         if (!itemName) return '';
+        if (ITEM_IMAGES[itemName]) return ITEM_IMAGES[itemName];
         return IMG_BASE +encodeURIComponent(itemName) + '.png';
     }
 
@@ -260,6 +267,7 @@
         State.translations = data.translations || {};
         State.categories = data.categories || [];
         if (data.imageBase) IMG_BASE = data.imageBase;
+        ITEM_IMAGES = data.itemImages || {};
         State.config = data.auctionConfig || data.config || {};
         State.durations = data.durations || (State.config.durations) || [];
         State.charId = data.charId || '';
@@ -1340,7 +1348,7 @@
             var sourceInfo  = sources[item.source] || {};
             var sourceName  = sourceInfo.name  || (item.source || '');
             var sourceColor = sourceInfo.color || '#8b7355';
-            var imgSrc = IMG_BASE +item.name + '.png';
+            var imgSrc = itemImageUrl(item.name);
 
             return '<div class="catalogue-card" data-catalog-idx="' + origIdx + '">'
                 + '<div class="card-img-wrapper">'
@@ -1371,7 +1379,7 @@
 
         var imgEl = $('#order-modal-img');
         if (imgEl) {
-            imgEl.src = IMG_BASE +item.name + '.png';
+            imgEl.src = itemImageUrl(item.name);
             imgEl.onerror = function () { this.style.display = 'none'; };
         }
         var nameEl = $('#order-modal-name');
@@ -1562,7 +1570,7 @@
                 + (isDelivered  ? ' order-delivered'  : '')
                 + (isCancelled  ? ' order-cancelled'  : '');
             var badgeCls = 'order-status-badge order-status-' + (order.status || 'processing');
-            var imgSrc = IMG_BASE +escapeHtml(order.item_name || '') + '.png';
+            var imgSrc = itemImageUrl(order.item_name);
             var cancelBtn = (order.status === 'processing')
                 ? '<button class="btn-order-cancel" onclick="AuctionUI.cancelOrder(' + order.id + ')">Cancel</button>'
                 : '';
@@ -1655,7 +1663,7 @@
             var expiry     = req.is_persistent == '1' || req.is_persistent === 1
                 ? '<span class="badge-persistent">Persistent</span>'
                 : (req.expires_at ? req.expires_at.replace('T', ' ').substring(0, 16) : '—');
-            var imgSrc = IMG_BASE +(req.item_name || '') + '.png';
+            var imgSrc = itemImageUrl(req.item_name);
 
             return '<tr>'
                 + '<td class="col-req-img"><img src="' + imgSrc + '" style="width:28px;height:28px;object-fit:contain;image-rendering:pixelated;vertical-align:middle" onerror="this.style.display=\'none\'"></td>'
@@ -1744,7 +1752,7 @@
             var img = new Image();
             img.onload  = function () { resolve(true); };
             img.onerror = function () { resolve(false); };
-            img.src = IMG_BASE +itemName + '.png';
+            img.src = itemImageUrl(itemName);
         });
     }
 
@@ -1773,7 +1781,7 @@
                     return;
                 }
                 resultsEl.innerHTML = valid.map(function (item) {
-                    var imgSrc = IMG_BASE +item.item + '.png';
+                    var imgSrc = itemImageUrl(item.item);
                     var label  = escapeHtml(item.label || item.item);
                     var desc   = escapeHtml(item.desc  || '');
                     return '<div class="req-item-card" onclick="AuctionUI.selectRequestItem(' + JSON.stringify(item).replace(/"/g, '&quot;') + ')">'
@@ -1794,7 +1802,7 @@
         if (searchStep) searchStep.classList.add('hidden');
         if (formStep)   formStep.classList.remove('hidden');
         if (preview) {
-            var imgSrc = IMG_BASE +item.item + '.png';
+            var imgSrc = itemImageUrl(item.item);
             preview.innerHTML = '<img src="' + imgSrc + '" onerror="this.style.display=\'none\'">'
                 + '<div class="req-selected-info">'
                 + '<div class="req-selected-label">' + escapeHtml(item.label || item.item) + '</div>'

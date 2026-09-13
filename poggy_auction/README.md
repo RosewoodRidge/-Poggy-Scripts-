@@ -4,7 +4,7 @@ An auction house for RedM on VORP. Players list goods, bid, buy out and collect 
 
 ## Requirements
 
-- `poggy_core` 0.12.0 or newer, on VORP
+- `poggy_core` 0.13.0 or newer, on VORP or RSG
 - `oxmysql`
 - Optional: `poggy_markets`, to ship catalogue orders straight into a shop's storage
 
@@ -32,13 +32,14 @@ Everything is in `config.lua`.
 | `Config.Locations` | Where the auction houses are, the NPC and the blip |
 | `Config.Interaction` | Prompt key, prompt distance, NPC spawn distance |
 | `Config.Auction` | Durations and deposits, sales tax, price limits, bid steps, listing and mailbox limits |
+| `Config.Categories` | The browse categories, and which item groups land in each |
 | `Config.BlacklistedItems` | Items that can never be listed |
 | `Config.Discord` | Webhook logging, per event |
 | `Config.Shipment` | Shipping fee, order limits, how long each stage takes, price swing, shop delivery |
 | `Config.ShipmentCatalog` | What can be ordered, with prices and descriptions. Items your server doesn't have are left out on their own. |
 | `Config.Requests` | Want-request tax, limits and durations |
 
-The browse categories come from the item groups in your database. Player-facing messages are in `translations.lua`.
+The browse categories are built from poggy_core's item registry. Each item has a group (on VORP its `item_group` id, on RSG the item's `category` in `rsg-core/shared/items.lua`), and `Config.Categories` says which category each group belongs to. The stock VORP groups are already mapped; a group that is not mapped shows as a category of its own, so add a row to give it a label and an icon. Player-facing messages are in `translations.lua`.
 
 ## Poggy Markets
 
@@ -57,3 +58,7 @@ Without `poggy_markets` the box is hidden and every order goes to the mailbox. S
 | `/auctiondiscord` | Sends a test message to the Discord webhook |
 
 Admins are characters in the groups `admin`, `superadmin` and `god`. Each command also works from the server console.
+
+## Changelog
+
+- **1.2.1** — Categories and item icons come from poggy_core's item registry instead of VORP's `items` / `item_group` tables, so the auction house opens on RSG (it failed with "Table 'item_group' doesn't exist"). `Config.Categories` maps item groups to categories; the stock VORP list is unchanged.
