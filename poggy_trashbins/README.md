@@ -1,11 +1,11 @@
 # Poggy Trash Bins
 
-A fully-featured trash bin interaction system for RedM (VORP). Players can search bins for randomised loot and use them as shared world storage — all managed through a single, easy-to-edit config file.
+A fully-featured trash bin interaction system for RedM. Players can search bins for randomised loot and use them as shared world storage — all managed through a single, easy-to-edit config file. Works on every framework poggy_core supports.
 
 ## Features
 
 - **Search & Loot** — Players search trash bins with a timed animation and progress bar. Loot is rolled from a shared, configurable loot table with per-item drop chances.
-- **Persistent Storage** — Each bin has its own VORP custom inventory that any player can access, enabling emergent gameplay like dead-drops and stash spots.
+- **Persistent Storage** — Each bin has its own shared container (a custom inventory on VORP, a stash on RSG) that any player can access, enabling emergent gameplay like dead-drops and stash spots.
 - **Auto-Detection** — Optionally scans the world for existing trash bin props and registers them as interactable bins automatically — no manual coordinate entry needed.
 - **33 Pre-configured Locations** — Ships with bins placed across Valentine, Annesburg, Strawberry, Blackwater, Saint Denis, Tumbleweed, Armadillo, and more.
 - **Anti-Exploit** — Proximity check prevents interaction while another player is too close. Server-side distance and cooldown validation.
@@ -21,8 +21,9 @@ A fully-featured trash bin interaction system for RedM (VORP). Players can searc
 | Dependency | Required |
 |---|---|
 | **poggy_core** | Yes |
-| A framework poggy_core supports ([vorp_core](https://github.com/VORPCORE/vorp-core-lua) + [vorp_inventory](https://github.com/VORPCORE/vorp_inventory-lua) verified) | Yes |
-| [oxmysql](https://github.com/overextended/oxmysql) | Yes |
+| A framework poggy_core supports ([vorp_core](https://github.com/VORPCORE/vorp-core-lua) + [vorp_inventory](https://github.com/VORPCORE/vorp_inventory-lua) verified; rsg-core + rsg-inventory supported) | Yes |
+
+The script has no database tables of its own and never queries the framework's inventory tables; every container operation goes through poggy_core.
 
 ## Installation
 
@@ -52,6 +53,11 @@ All settings are in `config.lua`:
 - **Search Duration** (`Config.SearchTimeMin` / `Config.SearchTimeMax`) — How long the search animation plays.
 - **Staff Command** (`Config.WipeCommand`) — In-game command for authorised staff to wipe all bin inventories.
 - **Translations** (`translations.lua`) — All player-facing text is configurable for localisation.
+
+## Changelog
+
+- **1.5.1** — The startup wipe and the staff wipe command no longer query the framework's inventory table directly (`character_inventories` does not exist on RSG, so the script errored at start). A wipe now registers the bin, destroys its contents with poggy_core's `storage.delete`, registers it again and confirms it is empty through `storage.items`, sweeping any leftovers with `storage.removeItem`. `oxmysql` is no longer a direct dependency (poggy_core still needs it). Behaviour on VORP is unchanged.
+- **1.5.0** — Layout to the owner's standard; every framework call through poggy_core.
 
 ## Support
 

@@ -6,12 +6,11 @@ lua54 'yes'
 poggy_id 'poggy_trashbins'
 author 'Poggy'
 description 'Poggy Trash Bins'
-version '1.5.0'
+version '1.5.1'
 poggy_core_min '0.13.0'
 
 dependencies {
     'poggy_core',
-    'oxmysql',
 }
 
 shared_scripts {
