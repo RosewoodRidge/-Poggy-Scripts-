@@ -141,6 +141,25 @@ PoggyCore.Verbs = {
                                                                           "location", "audioRef", "audioName", "quality", "showQuality"},
                             returns = "true" },
 
+    -- ------------------------------------------------------------- ui (0.14.0) --
+    -- poggy_core draws these itself (ui/ in poggy_core), so no script needs
+    -- vorp_menu or vorp_inputs and every framework gets the same screens.
+    --
+    -- menu.open: a list menu. items = array of { label, value, desc?, right?,
+    -- disabled? }. Yields until the player picks an item (value = { value,
+    -- index, item }) or closes it (false, 'closed'). Opening a menu while one
+    -- is open replaces it. On the server, src names the player and the verb
+    -- round-trips through poggy_core's callbacks.
+    ["menu.open"]       = { side = "both", yields = true, args = {"title", "items"},
+                            optional = {"src", "subtitle", "cursor", "closeText"},
+                            returns = "{ value, index, item }" },
+    ["menu.close"]      = { side = "both", args = {}, optional = {"src"},                              returns = "true" },
+    -- input.text: one text (or number) box. Yields until submitted (the string,
+    -- or a number when numeric = true) or cancelled (false, 'closed').
+    ["input.text"]      = { side = "both", yields = true, args = {"title"},
+                            optional = {"src", "placeholder", "default", "maxLength", "numeric", "submitText"},
+                            returns = "string | number" },
+
     -- -------------------------------------------------------- permissions --
     -- ---------------------------------------------------------- callbacks --
     ["callback.register"] = { side = "server", args = {"name", "fn"},                                      returns = "true" },

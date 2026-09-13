@@ -49,6 +49,10 @@ PoggyCore.Frameworks = {
     rsg = {
         resource = "rsg-core",
         label    = "RSG Core",
+        -- Where rsg-inventory keeps item icons: the NUI loads "images/" ..
+        -- item.image (html/app.js). Note the file name is the item's `image`
+        -- field, which is usually, not always, name .. '.png'.
+        itemImageBase = "nui://rsg-inventory/html/images/",
         probe    = function()
             local ok, core = pcall(function()
                 return exports["rsg-core"]:GetCoreObject()

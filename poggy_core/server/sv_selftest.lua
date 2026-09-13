@@ -207,12 +207,36 @@ local function runTests(src, full)
         return ("%d stack(s)"):format(type(v) == "table" and #v or 0)
     end)
 
-    local probe = (okInv and type(items) == "table" and items[1]) and items[1].name or nil
+    -- The probe item is used for the add/remove round trips below. Skip the
+    -- items that ARE money on a framework which represents cash as inventory
+    -- items (RSG: dollar, cent, blood_dollar, blood_cent, gold): adding one of
+    -- those changes the balance, and the money checks further down would then
+    -- be measuring this test rather than the framework. Weapons are skipped
+    -- too, because a unique item does not stack and the count arithmetic
+    -- assumes it does.
+    local MONEY_ITEMS = { dollar = true, cent = true, blood_dollar = true, blood_cent = true, gold = true }
+    local probeStack = nil
+    if okInv and type(items) == "table" then
+        for _, it in ipairs(items) do
+            if it.name and not MONEY_ITEMS[it.name] and it.type ~= "weapon" then
+                probeStack = it
+                break
+            end
+        end
+        probeStack = probeStack or items[1]
+    end
+    local probe = probeStack and probeStack.name or nil
     if probe then
+        -- inv.count sums every stack of the item; inv.get lists stacks. Compare
+        -- against the sum, not the first stack, or a split stack fails this.
+        local expected = 0
+        for _, it in ipairs(items) do
+            if it.name == probe then expected = expected + (tonumber(it.amount) or 0) end
+        end
         local _, n = check("inv.count", { src = src, item = probe }, "ok", UNSUPPORTED,
             function(v) return ("%s x%s"):format(probe, tostring(v)) end)
-        if n ~= nil and items[1].amount and n ~= items[1].amount then
-            note("fail", "inv.count", ("said %s, inv.get said %s"):format(tostring(n), tostring(items[1].amount)))
+        if n ~= nil and expected > 0 and n ~= expected then
+            note("fail", "inv.count", ("said %s, inv.get said %s"):format(tostring(n), tostring(expected)))
         end
         check("inv.has", { src = src, item = probe, qty = 1 }, "ok", UNSUPPORTED)
         check("inv.canCarry", { src = src, item = probe, qty = 1 }, "ok", UNSUPPORTED)
@@ -267,8 +291,9 @@ local function runTests(src, full)
     local okReg = check("storage.register", {
         id = scratch,
         -- Shared, because vorp_inventory refuses a remove from a non-shared
-        -- container without an identifier the storage API cannot pass.
-        opts = { label = "poggy_core self-test", slots = 4, shared = true },
+        -- container without an identifier the storage API cannot pass. On RSG
+        -- a stash is one flat container and the flag is ignored.
+        opts = { label = "poggy_core self-test", slots = 4, maxWeight = 200000, shared = true },
     }, "ok", UNSUPPORTED)
 
     if okReg then
@@ -287,7 +312,8 @@ local function runTests(src, full)
         end)
 
         -- charId is not decoration: vorp_inventory refuses a container add
-        -- outright without a valid one ("charid is not valid").
+        -- outright without a valid one ("charid is not valid"). Other
+        -- frameworks (RSG) accept and ignore it.
         local cid = (type(char) == "table") and char.charId or nil
         if full and probe and cid then
             local base = amountOf(opening, probe)
@@ -489,6 +515,13 @@ function PoggyCore.SelfTest(src, full, chat)
         ["callback.await"] = "client-side; this self-test runs on the server",
         ["char.reloadSkin"] = "client-side, and it re-dresses the player's ped",
         ["core.register"]  = "every script's bridge calls it at start; poggycore scripts lists the result",
+        ["sql.install"]    = "every script's bridge runs it at start; poggycore sql check all covers it",
+        ["sql.check"]      = "same; run poggycore sql check all to see it",
+        -- 0.14.0: the three ui verbs wait for a person to press something, so
+        -- there is no way to exercise them without one. Open a menu in game.
+        ["menu.open"]      = "opens a menu on the player's screen and waits for a choice",
+        ["menu.close"]     = "only meaningful after menu.open or input.text",
+        ["input.text"]     = "opens a text box on the player's screen and waits for an answer",
     }
     if #untested > 0 then
         reply(("^3%d verb(s) deliberately not exercised:^7"):format(#untested))

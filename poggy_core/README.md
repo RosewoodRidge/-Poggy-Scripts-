@@ -3,15 +3,18 @@
 One documented framework API for RedM. Write a script once; run it on VORP, RSG
 Core, QBCore RedM, RedEM:RP or RPX.
 
-**Version 0.13.1.** The VORP adapter is complete and every Poggy resource runs
+**Version 0.14.0.** The VORP adapter is complete and every Poggy resource runs
 on it through `Poggy(verb, payload)`; see [Verbs added in 0.11.0](#verbs-added-in-0110).
 Scripts are known by their `poggy_id`, so a server owner may rename any
 script's folder; see [Script identity](#script-identity).
 poggy_core is a hard dependency of every script, and it no longer needs
-poggy_util for anything: it draws notifications itself. The other four
-frameworks are detected but fall back to standalone, which refuses every
-framework call honestly rather than pretending to succeed, and reports
-`Core.HasAdapter() == false`. See [What is not built yet](#what-is-not-built-yet).
+poggy_util, vorp_menu or vorp_inputs for anything: it draws notifications,
+menus and text boxes itself; see [Menu and input](#menu-and-input-0140). The RSG
+adapter is written against rsg-core 2.3.13 / rsg-inventory 2.8.5 and **not yet
+verified in game**; see [RSG](#rsg). QBR, RedEM:RP and RPX are detected but fall
+back to standalone, which refuses every framework call honestly rather than
+pretending to succeed, and reports `Core.HasAdapter() == false`.
+See [What is not built yet](#what-is-not-built-yet).
 
 ```lua
 local Core = exports.poggy_core:Get()
@@ -186,11 +189,20 @@ because the spread is wide:
 |---|---|---|---|---|---|
 | `cash` | yes | yes | yes | yes | yes |
 | `bank` | **no** | yes | yes | yes | yes |
-| `gold` | yes | yes | no | **no** | **no** |
-| `rol` | yes | no | no | no | no |
+| `gold` | yes | yes, integers only | no | **no** | **no** |
+| `rol` | yes | **no** | no | no | no |
 
 `Remove` refuses and returns `false, 'no_funds'` rather than taking a player
-negative, on every framework, including the ones that would allow it.
+negative, on every framework, including the ones that would allow it (RSG lets
+the bank reach -5000; poggy_core does not).
+
+**Money items on RSG.** With rsg-core's `EnableMoneyItems` (on by default) cash
+is re-derived from `dollar` and `cent` inventory items, and `AddMoney` ends in
+an inventory add that rsg-inventory drops on the ground when it does not fit.
+`Core.Money.Add` therefore capacity-checks the money items first and returns
+`false, 'no_space'` instead. Gold is the same when `EnableGoldItems` is on. RSG's
+other five account types (`valbank`, `rhobank`, `blkbank`, `armbank`,
+`bloodmoney`) are not exposed; use `Core.Native()` for them.
 
 ### Jobs
 
@@ -219,7 +231,18 @@ client, the same way `poggy_core:charLoadedLocal` works.
 Before 0.11.0 the adapter called an export name that does not exist, so
 `onDuty` was `nil` for everyone. It is still `nil` when neither resource runs.
 
-Which jobs count as law or medical is in `config.lua`, not in code.
+**On RSG** duty is part of the job (`PlayerData.job.onduty`), so `onDuty` is
+always a boolean and `Core.Job.SetDuty` works. `jobGradeLabel` is the grade's
+name from `RSGShared.Jobs`. `Core.Job.Set` takes the label from that table, not
+from the caller, and returns `false, 'not_found'` for a job the table does not
+list. A grade left `nil` keeps the player's current grade when the job name is
+unchanged (RSG itself would reset it to 0). `persist = true` writes the `job`
+JSON column of `players` immediately; RSG also saves the row itself every few
+minutes and on disconnect.
+
+Which jobs count as law or medical is in `config.lua`, not in code. RSG's stock
+job names (`vallaw`, `rholaw`, `blklaw`, `strlaw`, `stdenlaw`) are not in the
+default `LawJobs` list; add them there on an RSG server.
 
 ### Inventory — server
 
@@ -251,12 +274,25 @@ in your script** — that is done here, once, for everyone. One handler per item
 registering an item another script already handles replaces it, with one yellow
 line naming both scripts. `/poggycore usables` lists item → script.
 
-Weapons are a separate namespace, deliberately: only VORP and RSG model them as
-first-class objects.
+Weapons are a separate namespace, deliberately: VORP models them as first-class
+objects with their own loadout table.
 
 ```lua
 Core.Weapons.Get(src) / Core.Weapons.Add(src, name, ammo, comps) / Core.Weapons.Remove(src, id)
 ```
+
+**On RSG a weapon is an inventory item** (`type = 'weapon'`, a serial in
+`info.serie`). `Core.Weapons` is a view over those items: `Get` lists them with
+`id` = the serial (the slot when there is none), `Remove` takes that id, `Add`
+gives the item after a capacity check. `ammo` and `components` are accepted and
+**not applied** on RSG: ammunition is a separate item the player loads and
+components belong to rsg-weaponcomp; neither has a server export. The same
+weapons also appear in `Core.Inventory.Get` and `inv.items` there.
+
+**Usable-item handlers on RSG** are held by rsg-core (`CreateUseableItem`),
+which calls them as `(source, itemData)`. poggy_core wraps the call so the
+handler always receives one table with `source`, `name`, `amount`, `slot`,
+`metadata` and `item`, the shape the Poggy scripts already read on VORP.
 
 ### Storage — server
 
@@ -297,6 +333,18 @@ both and the script works on every framework.
 **Register on every boot.** VORP keeps container definitions in memory only, so
 they vanish on restart. Register is idempotent and cheap, and poggy_core replays
 every registration automatically if `vorp_inventory` restarts underneath you.
+
+**On RSG** a container is an rsg-inventory stash (`CreateInventory`). Its
+contents persist in the `inventories` table; its label, slots and maxweight do
+not, so Register on every boot is just as necessary there, and poggy_core
+replays registrations when `rsg-inventory` restarts. `storage.persist` is false.
+`AddItem` and `RemoveItem` write the row at once (rsg-inventory itself only
+writes when a player closes the stash). A stash is single-occupancy: `Open`
+returns `false, 'framework_error'` while another player has it open, or while
+the opener's own inventory is busy. `jobAccess`, `charAccess`, `shared`,
+`allowWeapons` and `whitelistItems` have no counterpart and are ignored
+(`storage.permissions` is false). `Delete` empties the stash, drops it and
+removes its row; `Unregister` saves and drops it, leaving the row.
 
 **Ids are namespaced per script** as `pg_<poggy_id>_<id>`, so renaming a folder
 does not hide what is stored (a script without a `poggy_id` uses its folder
@@ -407,12 +455,147 @@ Delegates to the framework's own prompt system on RSG, QBR and RPX; uses a nativ
 implementation on VORP and RedEM. Registration is idempotent by name, and every
 prompt a resource registered is cleaned up when it stops.
 
+### Menu and input (0.14.0)
+
+poggy_core draws its own list menu and text box (`ui/` in this resource), so
+no Poggy script needs `vorp_menu` or `vorp_inputs`, and every framework gets
+the same screens: a titled list with an optional subtitle, each row a label
+with an optional right-hand text and a description line for the highlighted
+row, disabled rows greyed, a close button, keyboard (arrows or W/S, Enter,
+Escape or Backspace to close) and mouse (hover highlights, click picks,
+right-click closes), and a scrolling list when it is long. The look matches
+the other Poggy UIs: dark panel, parchment text, gold accents, serif headings.
+Nothing in it loads from the internet.
+
+Three verbs. The two that wait for the player need a thread (a `CreateThread`,
+an event handler, or a callback), the same rule as `callback.await`.
+
+| Verb | Side | Payload | Value |
+|---|---|---|---|
+| `menu.open` | both, thread | `title`, `items`; `src?` (server), `subtitle?`, `cursor?`, `closeText?` | `{ value, index, item }` — or `false, 'closed'` when the player backs out |
+| `menu.close` | both | `src?` (server) | `true` (also when nothing was open) |
+| `input.text` | both, thread | `title`; `src?` (server), `placeholder?`, `default?`, `maxLength?`, `numeric?`, `submitText?` | the text, or a number when `numeric = true` — or `false, 'closed'` |
+
+`items` is an array of `{ label, value?, desc?, right?, disabled? }`. The
+answer's `item` is your own table for the chosen row, `index` its 1-based
+position and `value` its `value` (the index when it has none). One menu or
+input at a time: opening another replaces it, and the earlier caller gets
+`false, 'closed'`. `cursor` shows the mouse (default `PoggyCoreConfig.Ui.Cursor`,
+`true`); keyboard navigation works either way. Escape always closes.
+
+**Where it sits.** `PoggyCoreConfig.Ui.Position` places the menu and the text
+box for every Poggy script at once: `'center'` (default), `'left'`, `'right'`
+(centred vertically, against that side), `'top-left'`, `'top-right'`,
+`'bottom-left'` or `'bottom-right'`. `PoggyCoreConfig.Ui.Margin` is the gap in
+pixels from the screen edge (`40`). The panel is pinned by its edge rather than
+centred by a transform, and the description area under the list is reserved
+at three to five lines (longer text is cut with an ellipsis), so moving the
+highlight never shifts the rows: centre and top positions grow downward, and
+the bottom ones hold the description at its full five lines so the panel's
+height never changes. The config is read on every open, so an edit shows on the
+next menu without a restart. Colours are not configurable yet; the palette is
+one block of CSS variables at the top of `ui/style.css` for when a shared theme
+layer arrives.
+
+**Client**, from any script:
+
+```lua
+CreateThread(function()
+    local ok, pick = Poggy('menu.open', {
+        title    = 'Stable',
+        subtitle = 'Pick a horse',
+        items    = {
+            { label = 'Arabian',  value = 'horse_arabian',  right = '$120', desc = 'Fast and nervous.' },
+            { label = 'Shire',    value = 'horse_shire',    right = '$80',  desc = 'Strong and steady.' },
+            { label = 'Mustang',  value = 'horse_mustang',  right = 'sold', disabled = true },
+        },
+    })
+    if not ok then return end                 -- 'closed': the player backed out
+    print(pick.value, pick.index, pick.item.label)
+
+    local okName, name = Poggy('input.text', { title = 'Name your horse', placeholder = 'Buttercup', maxLength = 24 })
+    if okName then print('named ' .. name) end
+
+    local okQty, qty = Poggy('input.text', { title = 'How many?', default = 1, numeric = true })
+    if okQty then print(qty + 1) end          -- a number, not a string
+end)
+
+Poggy('menu.close', {})                       -- take down whatever is open
+```
+
+**Server**, naming the player. The request rides poggy_core's own callback
+transport to that client and returns the client's answer. It waits up to
+`PoggyCoreConfig.Ui.Timeout` (five minutes by default; `RpcTimeout` when the
+config has no `Ui` block), then closes the page and returns `false, 'timeout'`.
+A player who disconnects mid-menu answers `false, 'closed'` at once.
+
+```lua
+RegisterNetEvent('mystable:browse', function()
+    local src = source                        -- an event handler is a thread already
+    local ok, pick = Poggy('menu.open', { src = src, title = 'Stable', items = horsesFor(src) })
+    if not ok then return end
+    if not Poggy('money.remove', { src = src, amount = pick.item.price }) then
+        return Poggy('notify', { src = src, text = 'You cannot afford that.', kind = 'error' })
+    end
+    Poggy('notify', { src = src, text = 'Bought ' .. pick.item.label, kind = 'success' })
+end)
+
+Poggy('menu.close', { src = src })
+```
+
+Because the items travel to the client and back, a `value` on the server side
+must be plain data: a string, number, boolean, or a table of those. A function
+cannot cross.
+
+The same thing on the Core object: `Core.Menu.Open(opts)`, `Core.Menu.Close()`,
+`Core.Input.Text(opts)` on the client; `Core.Menu.Open(src, opts)`,
+`Core.Menu.Close(src)`, `Core.Input.Text(src, opts)` on the server. `Open` and
+`Text` return the value, or `false, err`. `Core.Menu.Native()` still hands over
+the framework's own menu object for scripts that have not moved yet.
+
+A script using these declares `poggy_core_min '0.14.0'`.
+
 ### Permissions — server
 
 ```lua
 Core.Perms.GetGroup(src)   --> string
 Core.Perms.IsAdmin(src)    --> boolean
 ```
+
+On VORP the group is the character's `group` column. On RSG it is ACE: the
+highest of `RSGCore.Config.Server.Permissions` (`god`, `developer`, `headadmin`,
+`admin`, `mod`, `helper`) that `IsPlayerAceAllowed` grants, the same test
+rsg-core's `HasPermission` makes; `perms.groups` lists every level held. A
+player with none is `user`. The levels are granted in `server.cfg`
+(`add_ace rsgcore.<level> <level> allow` plus `add_principal` lines); a server
+without those lines has no admins as far as rsg-core or poggy_core can tell.
+
+---
+
+## RSG
+
+The adapter (`server/adapters/rsg.lua`) is written against rsg-core 2.3.13 and
+rsg-inventory 2.8.5, read from source, and **has not yet run on an RSG server**.
+Until it has, treat every RSG line in this file as a claim to be checked with
+`poggycore test` and `poggycore selftest full`. What it does differently from
+VORP is noted section by section above; in one place:
+
+| Area | On RSG |
+|---|---|
+| Character | `charId` is the `citizenid`; `ownerId` the Rockstar licence; `group` the ACE level |
+| Money | `cash`, `bank`, `gold` (integer); money items are capacity-checked first; no `rol` |
+| Jobs | duty and grade labels from `RSGShared.Jobs`; `Job.Set` refuses unknown jobs; `SetDuty` works; one job-change event, relayed only when name or grade changes |
+| Inventory | `CanAddItem` / `AddItem` / `RemoveItem` / `GetItemCount`; `meta` matched by poggy_core on remove and count; `SetMeta` takes the slot as `itemId` |
+| Weapons | a view over `type = 'weapon'` items; ids are serials; ammo and components not applied |
+| Storage | rsg-inventory stashes; contents persist, definitions do not; single-occupancy; no permissions |
+| Offline | `players` table (JSON `charinfo` and `job`); appearance from `playerskins` as `{ skin, clothes }` |
+| Item registry | `RSGShared.Items`, no database; weapons included; images under `nui://rsg-inventory/html/images/` by the item's `image` field |
+| Notifications | poggy_core's native renderer as everywhere; the `framework` renderer sends `ox_lib:notify` |
+| Menus | `Core.Menu.Native()` returns ox_lib's `lib` when it is started |
+
+Detection: `exports['rsg-core']:GetCoreObject()` must answer with a table that
+has `Functions`. The core object is a copy (every export result is), so the
+adapter re-fetches the player on every call and never writes to `PlayerData`.
 
 ---
 
@@ -433,7 +616,7 @@ a thread or an event handler.
 | `job.set` with `persist = true` | server | `persist` | `true` | after the in-memory set, `UPDATE characters SET job, jobgrade, joblabel` (grade and label only when given). On a thread a failed write returns `false` with the job already set in memory; off a thread the write runs on its own and a failure is logged |
 | `inv.items` | server, thread | `search?`, `limit?`, `checkImages?` | array of `{ name, label, desc, weight, limit, type, usable, group, image }`, plus `hasImage` with `checkImages` | `SELECT * FROM items`, cached for `ItemCacheSeconds` and dropped when vorp_inventory restarts. Items only, no weapons |
 | `inv.itemInfo` | server, thread | `item`, `checkImages?` | one item, as above | the same cache; `not_found` for an unknown item |
-| `inv.imageBase` | both | none | a URL prefix | `nui://vorp_inventory/html/img/items/`; an icon is prefix .. name .. `.png` |
+| `inv.imageBase` | both | none | a URL prefix | `nui://vorp_inventory/html/img/items/`; an icon is prefix .. name .. `.png` (RSG: `nui://rsg-inventory/html/images/` and the item's `image` field, which `inv.items` already resolves into `image`) |
 | `inv.close` | server | `src` | `true` | `closeInventory(src)`: the player's own inventory, not a container |
 | `weapon.canCarry` | server, thread | `src`, `qty?`, `weapon?` | boolean; `false` comes with err `no_space` | `canCarryWeapons(src, qty, cb, weapon)` |
 | `storage.weapons` | server, thread | `id` | array of `{ id, name, label, serial, desc }` | `getCustomInventoryWeapons`; `not_found` for a container that is not registered. The id is namespaced like every storage verb |
@@ -441,9 +624,24 @@ a thread or an event handler.
 
 `char.offline`, `char.list`, `inv.items`, `inv.itemInfo` and `job.set` with
 `persist` read or write VORP's tables through oxmysql's exports. Without
-oxmysql they refuse with `unsupported`; poggy_core does not depend on it. On the
-standalone adapter every one of these refuses with `unsupported`, and
-`players.onDuty` returns an empty list.
+oxmysql they refuse with `unsupported`; poggy_core does not depend on it. On
+RSG the same is true of `char.offline`, `char.list` and `job.set` with
+`persist` (the `players` table); `inv.items` and `inv.itemInfo` read
+`RSGShared.Items` and need no database. On the standalone adapter every one of
+these refuses with `unsupported`, and `players.onDuty` returns an empty list.
+
+## Verbs added in 0.14.0
+
+Drawn by poggy_core itself, so they behave the same on every framework; see
+[Menu and input](#menu-and-input-0140) for the item shape and examples.
+"thread" means the verb waits for the player, so call it from a thread or an
+event handler.
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `menu.open` | both, thread | `title`, `items`; `src?` on the server, `subtitle?`, `cursor?`, `closeText?` | `{ value, index, item }` | `false, 'closed'` when the player backs out; on the server also `timeout` (after `Ui.Timeout`) and `not_found` (no such player) |
+| `menu.close` | both | `src?` on the server | `true` | the waiting caller gets `false, 'closed'` |
+| `input.text` | both, thread | `title`; `src?` on the server, `placeholder?`, `default?`, `maxLength?`, `numeric?`, `submitText?` | string, or number when `numeric` | `false, 'closed'` when cancelled |
 
 ---
 
@@ -588,6 +786,16 @@ again; rows recorded under the current folder name still count. A migration may 
 `-- poggy: only-if-table <name>` to count as done, without running, when that
 table does not exist.
 
+The same line works on a single statement, in `install.sql` as well as in a
+migration: written on the comment line before a statement, it runs that
+statement only when the table exists and otherwise skips it, quietly. Use it
+for rows a script seeds into a table the *framework* owns, such as VORP's
+`items` or `characters`, which RSG does not have (its items live in
+`rsg-core/shared/items.lua`); put those statements last so the script's own
+tables come first. Skips are counted in grey on the summary line, e.g.
+`created 2 tables, skipped 3 statements (no items table)`; a start with nothing
+else to do stays silent.
+
 A normal start with nothing to do prints nothing. Changes print one green line,
 e.g. `poggy_scene  database: created 2 tables`; problems print in red or yellow.
 
@@ -654,14 +862,15 @@ Honest list. Phase 0 was scoped to everything except menus.
 
 | Area | Status |
 |---|---|
-| `Core.Menu.Open` / `Core.Input` | **Not implemented.** Returns `false, 'not_implemented'` and logs once. Use `Core.Menu.Native()` for the framework's own menu handle in the meantime. |
-| RSG, QBR, RedEM, RPX adapters | **Not written.** Detection knows about them, and `Core.HasAdapter()` returns false so a consumer can keep its own path; without an adapter the core falls back to standalone and refuses framework calls. |
+| `Core.Menu.Open` / `Core.Input` | **Built in 0.14.0** (`menu.open`, `menu.close`, `input.text`); a list menu and a text box. Sliders, grids, tick boxes and item images from `vorp_menu` are not abstracted; `Core.Menu.Native()` still hands over the framework's own menu for those. |
+| RSG adapter | **Proven in game (14 September 2026).** `poggycore selftest full` passes 64/64 on the RSG test server (rsg-core 2.3.13 / rsg-inventory 2.8.5); every Poggy script starts and its menus, shops, storage and auctions work there. |
+| QBR, RedEM, RPX adapters | **Not written.** Detection knows about them, and `Core.HasAdapter()` returns false so a consumer can keep its own path; without an adapter the core falls back to standalone and refuses framework calls. |
 | `Core.Job.SetDuty` on VORP | Unsupported. `vorp_core` has no duty concept and `vorp_police` exposes no setter. |
 | `money.bank` on VORP | Unsupported. `vorp_core` genuinely has no bank. |
 | Client prompt natives | Written but **not yet verified in game.** Nothing consumes `Core.Prompt` yet, so the risk is contained; test before relying on it. |
 | Kind-specific notification styling | Notifications render, but `kind` does not yet change icon or colour. Icon dictionaries differ per framework and were not guessable from source alone. |
-| VORP store window, menus | Not abstracted. vorp_inventory's store window (the `syn_store` events) and `vorp_menu` are used directly by the scripts that need them. |
-| Weapons in `inv.items` | Not included; the registry lists items only. |
+| VORP store window | Not abstracted. vorp_inventory's store window (the `syn_store` events) is used directly by the scripts that need it. |
+| Weapons in `inv.items` | Not included on VORP; the registry lists items only. Included on RSG, where weapons are items (`type = 'weapon'`). |
 
 Nothing outside this folder has been modified. No existing script calls
 poggy_core yet; that is Phase 1.
@@ -685,7 +894,7 @@ their original adapters for any framework poggy_core cannot drive.
 | `poggy_fishing_pack` | character id, items, capacity checks, notifications | — |
 | `poggy_multijob` | admin groups, notifications | job persistence (writes VORP's `characters` columns; see below) |
 | `poggy_trashbins` | containers, items, groups, names, notifications | — |
-| `poggy_balloon` | money, character presence | the menu (`vorp_menu`, until `Core.Menu` exists) |
+| `poggy_balloon` | money, character presence | the menu (`vorp_menu`; `menu.open` exists since 0.14.0 and the script has not moved yet) |
 | `poggy_badge` | character | — |
 | `poggy_transform` | framework, jobs, admin groups | — |
 | `poggy_scene` | character id, notifications | — |
@@ -714,4 +923,9 @@ else, so an adapter cannot silently miss one; `/poggycore caps` will show what
 you declared.
 
 `server/adapters/vorp.lua` is the worked example, and the comments at the top of
-it list the framework traps that shaped the interface.
+it list the framework traps that shaped the interface. `server/adapters/rsg.lua`
+is the second one, written the same way; its header lists the RSG traps, with
+the rsg-core and rsg-inventory line numbers each was read from.
+
+An adapter may also define `permGroups(src)` (an array of every group the
+player holds, highest first); `perms.groups` adds them when it is present.

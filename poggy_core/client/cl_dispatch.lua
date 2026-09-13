@@ -107,6 +107,32 @@ H["callback.await"] = function(_, p)
     return true, results, nil
 end
 
+-- ui (0.14.0) ----------------------------------------------------------------
+-- Drawn by poggy_core's own page (ui/, client/cl_menu.lua). Both wait for the
+-- player, so like callback.await they need a thread; PoggyCore.Ui says so
+-- itself and answers needs_thread. The calling resource rides along so the
+-- page can be taken down if that script stops while it is up. `src` is
+-- meaningless here and ignored, as everywhere on the client.
+
+H["menu.open"] = function(_, p, resource)
+    return PoggyCore.Ui.Menu({
+        title = p.title, items = p.items, subtitle = p.subtitle,
+        cursor = p.cursor, closeText = p.closeText,
+    }, resource)
+end
+
+H["menu.close"] = function()
+    return true, PoggyCore.Ui.Close(), nil
+end
+
+H["input.text"] = function(_, p, resource)
+    return PoggyCore.Ui.Input({
+        title = p.title, placeholder = p.placeholder, default = p.default,
+        maxLength = p.maxLength, numeric = p.numeric, submitText = p.submitText,
+        cursor = p.cursor,
+    }, resource)
+end
+
 -- core -----------------------------------------------------------------------
 
 H["core.ready"]   = function(C) return true, (C.IsReady() and C.HasAdapter()) and true or false, nil end
@@ -124,7 +150,10 @@ end
 
 -- ---------------------------------------------------------------------------
 
-local function dispatch(verb, payload)
+--- Run one verb. Returns ok, value, err.
+--- @param resource string the calling resource; handlers that must know who
+---   asked (the ui verbs, for cleanup) read it, and a payload cannot fake it
+local function dispatch(verb, payload, resource)
     if type(verb) ~= "string" then return false, nil, Err.BAD_ARG end
 
     local allowed, why = PoggyCore.VerbAllowed(verb, "client")
@@ -152,7 +181,7 @@ local function dispatch(verb, payload)
     if not Core or not Core.IsReady() then return false, nil, Err.NOT_READY end
     if not Core.HasAdapter() then return false, nil, Err.UNSUPPORTED end
 
-    local ok, a, b, c = pcall(handler, Core, payload or {})
+    local ok, a, b, c = pcall(handler, Core, payload or {}, resource or "poggy_core")
     if not ok then
         print(("[poggy_core] ^3WARN^7 dispatch: '%s' errored: %s"):format(verb, tostring(a)))
         return false, nil, Err.FRAMEWORK_ERR
@@ -161,9 +190,9 @@ local function dispatch(verb, payload)
 end
 
 exports("Do", function(verb, payload)
-    return dispatch(verb, payload)
+    return dispatch(verb, payload, GetInvokingResource() or "poggy_core")
 end)
 
 function PoggyCore.Do(verb, payload)
-    return dispatch(verb, payload)
+    return dispatch(verb, payload, "poggy_core")
 end

@@ -259,18 +259,28 @@ local function buildCore(resource)
 
     Core.Prompt = PoggyCore.BuildPromptApi(tag)
 
-    -- --- menus (not implemented in Phase 0) ---------------------------------
+    -- --- menus and input (0.14.0) -------------------------------------------
+    -- poggy_core's own page (ui/, client/cl_menu.lua): the same screens on
+    -- every framework, no vorp_menu or vorp_inputs needed. Both Open and Text
+    -- wait for the player, so they need a thread.
 
     Core.Menu = {
-        Open = function()
-            print(("[poggy_core] [%s] Core.Menu.Open is not implemented yet (Phase 0). Use Core.Menu.Native().")
-                :format(tag))
-            return false, PoggyCore.Err.NOT_IMPL
+        --- Open a list menu and wait. Returns { value, index, item }, or
+        --- false plus 'closed' (the player backed out), 'bad_argument' or
+        --- 'needs_thread'. Opening one while another is up replaces it.
+        ---@param opts table { title, items = { { label, value?, desc?, right?, disabled? } }, subtitle?, cursor?, closeText? }
+        Open = function(opts)
+            local ok, value, err = PoggyCore.Ui.Menu(opts, tag)
+            if not ok then return false, err end
+            return value, nil
         end,
-        Close = function() return false, PoggyCore.Err.NOT_IMPL end,
+        --- Take down whatever is open; its caller gets false, 'closed'.
+        Close = function() return PoggyCore.Ui.Close(), nil end,
+        --- Is a poggy_core menu or input on screen?
+        IsOpen = function() return PoggyCore.Ui.IsOpen() end,
 
-        --- The framework's own menu handle, so nothing is blocked while
-        --- Core.Menu is being built. Using it makes your code framework-specific.
+        --- The framework's own menu handle, kept for scripts that still use
+        --- it. Using it makes your code framework-specific.
         Native = function()
             if State.framework == "vorp" and GetResourceState("vorp_menu") == "started" then
                 return exports.vorp_menu:GetMenuData()
@@ -290,10 +300,19 @@ local function buildCore(resource)
         end,
     }
 
-    Core.Input = function()
-        print(("[poggy_core] [%s] Core.Input is not implemented yet (Phase 0)."):format(tag))
-        return nil, PoggyCore.Err.NOT_IMPL
+    --- One text box. Returns the text (a number when numeric = true), or
+    --- false plus 'closed', 'bad_argument' or 'needs_thread'. Core.Input(opts)
+    --- still works and does the same as Core.Input.Text(opts).
+    ---@param opts table { title, placeholder?, default?, maxLength?, numeric?, submitText?, cursor? }
+    local function inputText(opts)
+        local ok, value, err = PoggyCore.Ui.Input(opts, tag)
+        if not ok then return false, err end
+        return value, nil
     end
+
+    Core.Input = setmetatable({ Text = inputText }, {
+        __call = function(_, opts) return inputText(opts) end,
+    })
 
     return Core
 end

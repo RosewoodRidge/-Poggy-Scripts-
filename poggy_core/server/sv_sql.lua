@@ -39,6 +39,19 @@
 
     MODIFY compares types only. A change to NOT NULL, a default or a comment alone
     never triggers it; put that in a migration.
+
+    0.14.0: the same directive works per STATEMENT, in install.sql and in
+    migrations. A comment line
+
+        -- poggy: only-if-table <name>
+
+    before a statement means "run this only when that table exists". When it
+    does not, the statement is skipped without a database error and the summary
+    says so in grey: "created 2 tables, skipped 3 statements (no items table)".
+    Scripts use it for rows they seed into a table the FRAMEWORK owns, such as
+    VORP's `items` or `characters`: RSG keeps its items in a Lua file and has no
+    such table, and without the guard the failed INSERT stopped the file before
+    the script's own tables were created.
 ]]
 
 PoggyCore = PoggyCore or {}
@@ -117,14 +130,23 @@ Sql.Db = {
 
 --- Split a file into statements. Semicolons inside quotes, backticks and comments
 --- do not end a statement. Returns statements, directives (the text after
---- "-- poggy:" on comment lines).
+--- "-- poggy:" on comment lines, in file order) and attached: for each statement
+--- index, the directives written between the previous statement and this one,
+--- so a directive applies to the statement that follows it. A directive with no
+--- statement after it is in directives only.
 function Sql.Split(text)
-    local statements, directives = {}, {}
-    local buf, i, n = {}, 1, #text
+    local statements, directives, attached = {}, {}, {}
+    local buf, pending, i, n = {}, {}, 1, #text
 
     local function flush()
         local s = table.concat(buf):match("^%s*(.-)%s*$")
-        if s ~= "" then statements[#statements + 1] = s end
+        if s ~= "" then
+            statements[#statements + 1] = s
+            if #pending > 0 then
+                attached[#statements] = pending
+                pending = {}
+            end
+        end
         buf = {}
     end
 
@@ -133,7 +155,10 @@ function Sql.Split(text)
         if c == "-" and text:sub(i + 1, i + 1) == "-" and (i + 2 > n or text:sub(i + 2, i + 2):match("%s")) then
             local j = text:find("\n", i, true) or (n + 1)
             local d = text:sub(i, j - 1):match("^%-%-%s*poggy:%s*(.-)%s*$")
-            if d and d ~= "" then directives[#directives + 1] = d end
+            if d and d ~= "" then
+                directives[#directives + 1] = d
+                pending[#pending + 1] = d
+            end
             buf[#buf + 1] = " "
             i = j + 1
         elseif c == "#" then
@@ -168,7 +193,16 @@ function Sql.Split(text)
         end
     end
     flush()
-    return statements, directives
+    return statements, directives, attached
+end
+
+--- The table named by an only-if-table directive in a list, or nil.
+local function onlyIfTable(directives)
+    for _, d in ipairs(directives or {}) do
+        local name = d:match("^only%-if%-table%s+`?([%w_%$]+)`?")
+        if name then return name end
+    end
+    return nil
 end
 
 --- Read an identifier (`quoted` or bare) at pos. schema.table gives the table.
@@ -321,8 +355,9 @@ local INDEX_FORMS = {
 local IF_NOT_EXISTS = "^%s*IF%s+NOT%s+EXISTS%f[^%w_]"
 
 --- Run (or, when dry, plan) a list of statements. context is "install" or a
---- migration id; migrations may run what install.sql may not.
-local function runStatements(db, statements, context, dry, out)
+--- migration id; migrations may run what install.sql may not. attached is
+--- Sql.Split's third result: the directives written before each statement.
+local function runStatements(db, statements, context, dry, out, attached)
     local migration = context ~= "install"
     local tag = migration and ("migration %s: "):format(context) or ""
     local newTables = {}         -- tables a dry run would create (their ALTERs are not checked)
@@ -431,10 +466,30 @@ local function runStatements(db, statements, context, dry, out)
             "not repeatable on every start; put it in sql/migrations/")
     end
 
-    for _, stmt in ipairs(statements) do
+    for idx, stmt in ipairs(statements) do
         local up = stmt:upper()
 
-        if up:find("^DELIMITER%f[^%w_]") then
+        -- "-- poggy: only-if-table <name>" before the statement: skip it, quietly,
+        -- when that table is not on this server (a framework-owned table such
+        -- as VORP's `items`, which RSG does not have). Counted for the summary.
+        local skip = false
+        local guard = onlyIfTable(attached and attached[idx])
+        if guard and not (dry and newTables[guard:lower()]) then
+            local has, err = hasTable(db, guard)
+            if has == nil then
+                fail("read tables", err)
+                break
+            end
+            if not has then
+                out.skipped[#out.skipped + 1] = { table = guard, label = tag .. snippet(stmt) }
+                skip = true
+            end
+        end
+
+        if skip then
+            -- nothing to send
+
+        elseif up:find("^DELIMITER%f[^%w_]") then
             refuse(snippet(stmt), "DELIMITER is not supported; write plain statements")
 
         elseif up:find("^CREATE%s+TABLE%f[^%w_]") then
@@ -583,11 +638,8 @@ local function runMigrations(db, resource, dry, out)
 
     for _, f in ipairs(files) do
         if not applied[f.id] then
-            local statements, directives = Sql.Split(f.text)
-            local onlyIf
-            for _, d in ipairs(directives) do
-                onlyIf = onlyIf or d:match("^only%-if%-table%s+`?([%w_%$]+)`?")
-            end
+            local statements, directives, attached = Sql.Split(f.text)
+            local onlyIf = onlyIfTable(directives)
 
             local nothingToDo = false
             if onlyIf then
@@ -605,7 +657,7 @@ local function runMigrations(db, resource, dry, out)
                     or ("run migration %s (%d statement%s)"):format(f.id, #statements, #statements == 1 and "" or "s")
             else
                 if not nothingToDo then
-                    runStatements(db, statements, f.id, false, out)
+                    runStatements(db, statements, f.id, false, out, attached)
                     if #out.errors > 0 then return end      -- not recorded: runs again next start
                 end
                 local ok, e = db.exec("INSERT IGNORE INTO `poggy_migrations` (`resource`, `migration`) VALUES (?, ?)",
@@ -640,6 +692,27 @@ local function describe(out)
     return table.concat(parts, ", ")
 end
 
+--- "skipped 3 statements (no items table)", one part per missing table, or nil.
+--- verb is "skipped" (a run) or "skipping" (a plan); tail goes inside the
+--- brackets after the table name.
+local function describeSkipped(out, verb, tail)
+    if #out.skipped == 0 then return nil end
+    local counts, order = {}, {}
+    for _, s in ipairs(out.skipped) do
+        if not counts[s.table] then
+            counts[s.table] = 0
+            order[#order + 1] = s.table
+        end
+        counts[s.table] = counts[s.table] + 1
+    end
+    local parts = {}
+    for _, t in ipairs(order) do
+        local n = counts[t]
+        parts[#parts + 1] = ("%s %d statement%s (no %s table%s)"):format(verb, n, n == 1 and "" or "s", t, tail or "")
+    end
+    return table.concat(parts, ", ")
+end
+
 local function report(out, dry, say)
     local name = ("%-24s"):format(out.resource)
     local emit = say or function(msg) print(prefix() .. msg) end
@@ -666,14 +739,19 @@ local function report(out, dry, say)
             emit(("   ^9plus %d data statement%s (INSERT IGNORE / UPDATE) that run on every start and only fill in what is missing^7")
                 :format(out.data, out.data == 1 and "" or "s"))
         end
+        local skipping = describeSkipped(out, "skipping", " on this framework")
+        if skipping then emit("   ^9" .. skipping .. "^7") end
         return
     end
 
+    -- Skipped statements are grey, never red: a framework without that table
+    -- is expected, not a fault. A start that changed nothing stays silent.
     local text = describe(out)
+    local skipped = describeSkipped(out, "skipped")
     if text ~= "" then
-        emit(("^2✅ %s database: %s^7"):format(name, text))
+        emit(("^2✅ %s database: %s%s^7"):format(name, text, skipped and (", ^9" .. skipped) or ""))
     elseif say and #out.errors == 0 then
-        emit(("✅ %s database: up to date"):format(name))
+        emit(("✅ %s database: up to date%s"):format(name, skipped and (", ^9" .. skipped .. "^7") or ""))
     end
 end
 
@@ -688,7 +766,7 @@ function Sql.Install(resource, dry, say)
     local out = {
         resource = resource, ok = true,
         created = 0, added = 0, indexes = 0, modified = 0, other = 0, rows = 0, data = 0,
-        migrations = {}, planned = {}, refused = {}, errors = {},
+        migrations = {}, planned = {}, refused = {}, errors = {}, skipped = {},
     }
 
     local text = LoadResourceFile(resource, INSTALL)
@@ -706,13 +784,20 @@ function Sql.Install(resource, dry, say)
     running[resource] = true
     local okRun, crash = pcall(function()
         local db = Sql.Db
-        runStatements(db, (Sql.Split(text)), "install", dry, out)
+        local statements, _, attached = Sql.Split(text)
+        runStatements(db, statements, "install", dry, out, attached)
         if #out.errors == 0 then runMigrations(db, resource, dry, out) end
     end)
     running[resource] = nil
 
     if not okRun then out.errors[#out.errors + 1] = "runner error — " .. tostring(crash) end
     out.ok = #out.errors == 0
+
+    -- Seed rows may have gone into the framework's item table (VORP `items`),
+    -- so an item registry read before this install is stale. Drop it, or a
+    -- script checking its items against inv.items right after PoggyReady()
+    -- would report them missing on a first start.
+    if not dry and out.rows > 0 and PoggyCore.DropItemCache then PoggyCore.DropItemCache() end
     report(out, dry, say)
     return out
 end

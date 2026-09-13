@@ -188,3 +188,30 @@ PoggyCoreConfig.Debug = false
 --- Print a one-line warning the first time a resource calls something the
 --- detected framework cannot do. Leave this on.
 PoggyCoreConfig.WarnUnsupported = true
+
+-- ---------------------------------------------------------------------------
+-- Menu and text input (0.14.0)
+-- ---------------------------------------------------------------------------
+--- poggy_core draws the menus and text boxes the Poggy scripts open
+--- (menu.open, input.text), so no script needs vorp_menu or vorp_inputs.
+PoggyCoreConfig.Ui = {
+    Cursor   = true,     -- show the mouse cursor in a menu or input unless the call says otherwise
+    Sounds   = true,     -- the game's menu sounds on move, select and close
+    Timeout  = 300000,   -- a SERVER-side menu.open / input.text waits this long (ms) for the
+                         -- player's answer before returning 'timeout' and closing the page.
+                         -- A menu waits on a person, so this is longer than RpcTimeout.
+
+    --- Where the menu and the text box sit on the screen. One of:
+    ---   'center'  (default)   'left'  'right'          centred vertically
+    ---   'top-left'  'top-right'  'bottom-left'  'bottom-right'
+    --- Applies to every Poggy script's menus and inputs. The panel is pinned
+    --- by its edge so the rows never move as the description under them
+    --- changes: centre and top positions grow downward; the bottom ones keep
+    --- a fixed height instead (the description area held at its full five
+    --- lines) since growing upward would push the rows.
+    --- An unknown value falls back to 'center'.
+    Position = 'center',
+    --- Distance in pixels from the screen edge for the side, top and bottom
+    --- positions (and the least gap a centred panel keeps from the edges).
+    Margin   = 40,
+}

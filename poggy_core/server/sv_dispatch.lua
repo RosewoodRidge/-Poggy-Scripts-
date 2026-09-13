@@ -177,6 +177,29 @@ H["notify.styled"] = function(_, p)
     return true, true, nil
 end
 
+-- ui (0.14.0) ----------------------------------------------------------------
+-- The screens live on the client; here `src` names whose. The two that wait
+-- are declared yields, so the thread guard in dispatch() covers them; the
+-- round trip, its own longer timeout and the dropped-player case are in
+-- server/sv_ui.lua.
+
+H["menu.open"] = function(_, p)
+    return PoggyCore.Ui.Menu(p.src, {
+        title = p.title, items = p.items, subtitle = p.subtitle,
+        cursor = p.cursor, closeText = p.closeText,
+    })
+end
+
+H["menu.close"] = function(_, p) return did(PoggyCore.Ui.Close(p.src)) end
+
+H["input.text"] = function(_, p)
+    return PoggyCore.Ui.Input(p.src, {
+        title = p.title, placeholder = p.placeholder, default = p.default,
+        maxLength = p.maxLength, numeric = p.numeric, submitText = p.submitText,
+        cursor = p.cursor,
+    })
+end
+
 -- permissions ----------------------------------------------------------------
 
 H["inv.registerUsable"] = function(C, p, resource)
@@ -218,6 +241,17 @@ H["perms.groups"] = function(C, p)
     if native and PoggyCore.IsCallable(native.getUser) then
         local ok, u = pcall(native.getUser, p.src)
         if ok and u then add(u.getGroup) end
+    end
+
+    -- An adapter that can list every group a player holds (RSG: the ACE
+    -- permission levels, where an admin also holds mod and helper) adds them
+    -- all; the first is the one perms.group already returned.
+    local a = PoggyCore.State and PoggyCore.State.adapter
+    if a and a.permGroups then
+        local ok, groups = pcall(a.permGroups, a, p.src)
+        if ok and type(groups) == "table" then
+            for _, g in ipairs(groups) do add(g) end
+        end
     end
 
     return true, out, nil

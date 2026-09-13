@@ -18,7 +18,7 @@ PoggyCore = PoggyCore or {}
 local Util = PoggyCore.Util
 
 local handlers       = {}   -- name -> { fn = , resource = }
-local clientPending  = {}   -- requestId -> promise   (server -> client)
+local clientPending  = {}   -- requestId -> { p = promise, src = number }   (server -> client)
 local nextId         = 0
 
 local function newId()
@@ -63,11 +63,64 @@ end)
 -- ---------------------------------------------------------------------------
 
 RegisterNetEvent("poggy_core:cb:clientResponse", function(requestId, results)
-    local p = clientPending[requestId]
-    if not p then return end
+    local entry = clientPending[requestId]
+    -- Only the client that was asked may answer. Anyone else naming a live
+    -- request id is ignored, so a player cannot answer another player's menu.
+    if not entry or entry.src ~= source then return end
     clientPending[requestId] = nil
-    p:resolve(results or { n = 0 })
+    entry.p:resolve(results or { n = 0 })
 end)
+
+--- A player who leaves takes every answer they owed with them. Resolve those
+--- requests now rather than letting each one run out its timeout, and say why:
+--- a menu waiting on a dropped player is 'closed', not 'timeout'.
+AddEventHandler("playerDropped", function()
+    local src = source
+    for requestId, entry in pairs(clientPending) do
+        if entry.src == src then
+            clientPending[requestId] = nil
+            entry.p:resolve({ n = 0, dropped = true })
+        end
+    end
+end)
+
+--- Ask a client and wait, with a caller-chosen timeout. Internal: AwaitClient
+--- below is the public form, and sv_ui.lua uses this directly because a menu
+--- waits on a person, not on code, and needs a longer limit than RpcTimeout.
+--- Returns the packed results { n = count, ... }, or nil plus 'bad_argument',
+--- 'needs_thread', 'timeout', or 'dropped' (the player left while we waited).
+---@param tag string calling resource, for the log
+---@param src any
+---@param name string
+---@param timeoutMs number|nil defaults to PoggyCoreConfig.RpcTimeout
+function PoggyCore.AwaitClientPacked(tag, src, name, timeoutMs, ...)
+    local n = tonumber(src)
+    if not n or type(name) ~= "string" then return nil, PoggyCore.Err.BAD_ARG end
+    if not Util.CanYield() then
+        Util.Error("[%s] a client callback ('%s') was awaited outside a thread. "
+            .. "Wrap the call in CreateThread(function() ... end).", tag or "?", name)
+        return nil, PoggyCore.Err.NEEDS_THREAD
+    end
+
+    local requestId = newId()
+    local p = promise.new()
+    clientPending[requestId] = { p = p, src = n }
+
+    TriggerClientEvent("poggy_core:cb:clientRequest", n, requestId, name, table.pack(...))
+
+    SetTimeout(timeoutMs or PoggyCoreConfig.RpcTimeout, function()
+        if clientPending[requestId] then
+            clientPending[requestId] = nil
+            Util.Debug("[%s] client callback '%s' to %d timed out", tag or "?", name, n)
+            p:resolve(false)
+        end
+    end)
+
+    local results = Citizen.Await(p)
+    if results == false then return nil, PoggyCore.Err.TIMEOUT end
+    if type(results) == "table" and results.dropped then return nil, "dropped" end
+    return results
+end
 
 -- ---------------------------------------------------------------------------
 -- Public API
@@ -102,24 +155,8 @@ function PoggyCore.BuildCallbackApi(tag)
     --- out. QBR cannot do this at all natively; here it works everywhere.
     ---@return any ... whatever the client returned, or nil on timeout
     function C.AwaitClient(src, name, ...)
-        local n = tonumber(src)
-        if not n or type(name) ~= "string" then return nil end
-
-        local requestId = newId()
-        local p = promise.new()
-        clientPending[requestId] = p
-
-        TriggerClientEvent("poggy_core:cb:clientRequest", n, requestId, name, table.pack(...))
-
-        SetTimeout(PoggyCoreConfig.RpcTimeout, function()
-            if clientPending[requestId] then
-                clientPending[requestId] = nil
-                Util.Debug("[%s] client callback '%s' to %d timed out", tag, name, n)
-                p:resolve({ n = 0 })
-            end
-        end)
-
-        local results = Citizen.Await(p)
+        local results = PoggyCore.AwaitClientPacked(tag, src, name, PoggyCoreConfig.RpcTimeout, ...)
+        if not results then return nil end
         return table.unpack(results, 1, results.n or 0)
     end
 

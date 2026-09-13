@@ -261,11 +261,17 @@ local function copyItem(a, it, checkImages)
     return c
 end
 
+--- Forget the registry; the next inv.items reads it again. sv_sql.lua calls
+--- this after an install.sql seeded rows into the framework's item table.
+function PoggyCore.DropItemCache()
+    itemCache.list, itemCache.byName, itemCache.at = nil, nil, nil
+    imageCache = {}
+end
+
 -- An inventory restart can mean new items; read the registry again next time.
 AddEventHandler("onResourceStart", function(resource)
     if resource == "vorp_inventory" or resource == "rsg-inventory" then
-        itemCache.list, itemCache.byName, itemCache.at = nil, nil, nil
-        imageCache = {}
+        PoggyCore.DropItemCache()
     end
 end)
 
@@ -779,24 +785,37 @@ local function buildCore(resource)
             or group == "owner" or group == "headadmin" or group == "developer"
     end
 
-    -- --- menus --------------------------------------------------------------
-    -- Menus and inputs are client-side concepts and are not built yet; this is
-    -- the deliberate Phase 0 scope line. The server side only exists so a call
-    -- from the wrong side fails with a useful message rather than a nil index.
+    -- --- menus and input (0.14.0) -------------------------------------------
+    -- Drawn on the named player's client by poggy_core's own page; the round
+    -- trip is server/sv_ui.lua. Both Open and Text wait for the player, so
+    -- they need a thread.
 
     Core.Menu = {
-        Open = function()
-            Util.WarnOnce(tag, "menu.server",
-                "Core.Menu is client-side only, and is not implemented yet in any case.")
-            return false, Err.NOT_IMPL
+        --- Open a list menu on a player's screen and wait. Returns
+        --- { value, index, item }, or false plus 'closed', 'timeout',
+        --- 'bad_argument', 'not_found' or 'needs_thread'.
+        ---@param opts table { title, items = { { label, value?, desc?, right?, disabled? } }, subtitle?, cursor?, closeText? }
+        Open = function(src, opts)
+            local ok, value, err = PoggyCore.Ui.Menu(src, opts)
+            if not ok then return false, err end
+            return value, nil
         end,
-        Close = function() return false, Err.NOT_IMPL end,
+        --- Take down whatever poggy_core has open for that player.
+        Close = function(src) return PoggyCore.Ui.Close(src) end,
     }
 
-    Core.Input = function()
-        Util.WarnOnce(tag, "input.server", "Core.Input is client-side only.")
-        return nil, Err.NOT_IMPL
+    --- One text box on a player's screen. Returns the text (a number when
+    --- numeric = true), or false plus an error. Core.Input(src, opts) still
+    --- works and does the same as Core.Input.Text(src, opts).
+    local function inputText(src, opts)
+        local ok, value, err = PoggyCore.Ui.Input(src, opts)
+        if not ok then return false, err end
+        return value, nil
     end
+
+    Core.Input = setmetatable({ Text = inputText }, {
+        __call = function(_, src, opts) return inputText(src, opts) end,
+    })
 
     -- --- escape hatch -------------------------------------------------------
 
@@ -859,4 +878,46 @@ AddEventHandler("vorp:SelectedCharacter", function(src, character)
     local charId = character and character.charIdentifier and tostring(character.charIdentifier) or nil
     TriggerEvent("poggy_core:charLoaded", src, charId)
     TriggerClientEvent("poggy_core:charLoaded", src, charId)
+end)
+
+-- RSG. RSGCore:Server:OnJobUpdate(source, job) is fired by both SetJob and
+-- SetJobDuty (rsg-core server/player.lua:215 and 259) and carries no old job,
+-- so the last job seen per player is kept here: a duty toggle that changes
+-- neither name nor grade is not relayed, and a real change carries the old
+-- values the way VORP's events do. RSGCore:Server:PlayerLoaded(Player) fires
+-- inside CreatePlayer (player.lua:471) with the player object; the arguments
+-- of a local event cross the resource boundary as a copy, which is all that is
+-- read here.
+local rsgLastJob = {}
+
+AddEventHandler("RSGCore:Server:PlayerLoaded", function(player)
+    if State.framework ~= "rsg" then return end
+    local pd = type(player) == "table" and player.PlayerData or nil
+    local src = pd and tonumber(pd.source) or nil
+    if not src then return end
+    local job = type(pd.job) == "table" and pd.job or {}
+    rsgLastJob[src] = {
+        name  = job.name,
+        grade = tonumber(type(job.grade) == "table" and job.grade.level) or 0,
+    }
+    local charId = pd.citizenid and tostring(pd.citizenid) or nil
+    TriggerEvent("poggy_core:charLoaded", src, charId)
+    TriggerClientEvent("poggy_core:charLoaded", src, charId)
+end)
+
+AddEventHandler("RSGCore:Server:OnJobUpdate", function(src, job)
+    if State.framework ~= "rsg" then return end
+    src = tonumber(src)
+    if not src or type(job) ~= "table" then return end
+    local newJob   = job.name
+    local newGrade = tonumber(type(job.grade) == "table" and job.grade.level) or 0
+    local old = rsgLastJob[src] or {}
+    rsgLastJob[src] = { name = newJob, grade = newGrade }
+    if old.name == newJob and old.grade == newGrade then return end   -- duty toggle only
+    TriggerEvent("poggy_core:jobChanged", src, newJob, newGrade, old.name, old.grade)
+    TriggerClientEvent("poggy_core:jobChanged", src, newJob, newGrade, old.name, old.grade)
+end)
+
+AddEventHandler("playerDropped", function()
+    rsgLastJob[tonumber(source)] = nil
 end)
