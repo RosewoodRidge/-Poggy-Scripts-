@@ -8,8 +8,10 @@
 --  this file, or run `poggycore sql install poggy_multijob` in the server console.
 -- ============================================================================
 
+-- `cid` is the framework's character id as text: a number on VORP, a
+-- citizenid such as 'ABC12345' on RSG.
 CREATE TABLE IF NOT EXISTS `poggy_multijob` (
-    `cid`        INT(11)      NOT NULL,
+    `cid`        VARCHAR(64)  NOT NULL,
     `job`        VARCHAR(255) NOT NULL,
     `joblabel`   VARCHAR(255) DEFAULT 'Unknown',
     `jobgrade`   INT(11)      NOT NULL,
@@ -22,3 +24,8 @@ CREATE TABLE IF NOT EXISTS `poggy_multijob` (
 -- Tables created from an early copy of this file have no `joblabel`.
 ALTER TABLE `poggy_multijob`
   ADD COLUMN `joblabel` VARCHAR(255) DEFAULT 'Unknown' AFTER `job`;
+
+-- 1.7.1: `cid` used to be INT(11), which cannot hold an RSG citizenid. Sent
+-- only while the column's type differs; the numbers already stored on VORP
+-- are kept as text.
+ALTER TABLE `poggy_multijob` MODIFY COLUMN `cid` VARCHAR(64) NOT NULL;

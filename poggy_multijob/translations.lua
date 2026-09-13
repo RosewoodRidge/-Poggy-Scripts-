@@ -15,7 +15,8 @@ Locales = {
     ['admin_menu_title'] = 'Multijob Admin',
     ['admin_updated'] = 'Player job updated successfully',
     ['admin_error'] = 'Error updating player job',
-    ['not_allowed'] = 'You do not have permission to use this command'
+    ['not_allowed'] = 'You do not have permission to use this command',
+    ['offline_unsupported'] = 'Offline job changes are not supported on this framework'
 }
 
 function _U(str, ...)

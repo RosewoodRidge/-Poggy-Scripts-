@@ -1,6 +1,6 @@
-# Multijob System for VORP
+# Multijob System
 
-A modern, feature-rich multijob system for RedM VORP Framework servers. Allows players to hold multiple jobs simultaneously and switch between them seamlessly.
+A modern, feature-rich multijob system for RedM servers running VORP Core or RSG Core. Allows players to hold multiple jobs simultaneously and switch between them seamlessly.
 
 ## Features
 
@@ -15,10 +15,11 @@ A modern, feature-rich multijob system for RedM VORP Framework servers. Allows p
 
 ## Dependencies
 
-- **poggy_core** 0.12.0 or newer (required; start it before this resource)
-- A framework poggy_core supports ([VORP Core](https://github.com/VORPCORE/vorp-core-lua) verified)
+- **poggy_core** 0.14.0 or newer (required; start it before this resource)
+- [VORP Core](https://github.com/VORPCORE/vorp-core-lua) or RSG Core
 - [oxmysql](https://github.com/overextended/oxmysql)
-- vorp_menu (for the `/multijob` menu)
+
+No menu resource is needed: the `/multijob` menu is drawn by poggy_core.
 
 ## Installation
 
@@ -60,6 +61,10 @@ old table is kept so you can roll back; delete it yourself once you are happy.
 To manage the database yourself instead, set `PoggyCoreConfig.Sql.AutoInstall = false`
 in `poggy_core/config.lua` and import `sql/install.sql` (plus
 `sql/migrations/001.sql` when upgrading).
+
+The `cid` column is `VARCHAR(64)` from 1.7.1 (it was `INT(11)`), so it holds an
+RSG citizenid as well as a VORP character number. A table from an older version
+is changed on the first start; the numbers already in it are kept.
 
 ## Commands
 
@@ -179,7 +184,8 @@ Locales = {
     ['admin_menu_title'] = 'Multijob Admin',
     ['admin_updated'] = 'Player job updated successfully',
     ['admin_error'] = 'Error updating player job',
-    ['not_allowed'] = 'You do not have permission to use this command'
+    ['not_allowed'] = 'You do not have permission to use this command',
+    ['offline_unsupported'] = 'Offline job changes are not supported on this framework'
 }
 ```
 
@@ -196,6 +202,16 @@ Locales = {
 
 ### Job labels not updating
 - This version includes fixes for `setJobLabel()` - ensure you're using the latest release
+
+### "Offline job changes are not supported on this framework"
+- Changing the job of a player who is **online** goes through poggy_core and works on every framework it supports
+- Changing the job of a player who is **offline** has to be written into the framework's own character table; poggy_multijob knows how to do that for VORP (`characters`) and RSG (`players`) only. Their poggy_multijob entries are still saved and apply the next time they switch jobs
+
+## Changelog
+
+- **1.7.1** — `cid` is `VARCHAR(64)` (was `INT(11)`) so RSG citizenids fit; an existing table is converted on the first start and the server compares character ids as text everywhere.
+- **1.7.0** — Framework-agnostic: the `/multijob` menu is drawn by poggy_core (`menu.open`, poggy_core 0.14.0), so vorp_menu is no longer required; every job change for an online player goes through poggy_core (`job.set` with `persist`), which also relays the change to other scripts; the admin panel now updates offline players' active job too (VORP and RSG).
+- **1.6.0** — Renamed to `poggy_multijob`; poggy_core creates the table and copies rows from `marshal_multi_jobs`.
 
 ## Support
 
