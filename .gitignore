@@ -1,0 +1,28 @@
+CLAUDE.md
+
+# Backups and staged updates. Never published. (Ignoring does not untrack files
+# already committed; pre-publish.bat removes those.)
+*.bak*
+*.poggyupdate
+
+# Escrow licence files are unique to each account. Never committed, never shipped.
+*.fxap
+
+# Publishing tools stay local.
+pre-publish.bat
+pre-publish.ps1
+publish-updates.bat
+publish-updates.ps1
+release-scripts.psd1
+clean_bak.bat
+
+# OS clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+pre-publish.bat
+pre-publish.ps1
+
+# Runtime backups from the updater; keep only the folder's README.
+poggy_core/update_backups/*
+!poggy_core/update_backups/README.md
