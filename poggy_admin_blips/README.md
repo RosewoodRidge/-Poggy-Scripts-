@@ -113,10 +113,14 @@ Config.BLIP_NAME_FORMAT = "[{id}] {name}"  -- Shows as: [1] John Smith
 
 Decrease `Config.UPDATE_INTERVAL` for faster updates (increases network traffic)
 
+## Changelog
+
+- **1.2.1** — Net events renamed from `vorp_admin_blips:*` to `poggy_admin_blips:*`; nothing framework-specific is left in the resource. Admin groups and character names come from poggy_core (`perms.groups`, `char.get`), so it runs on any framework poggy_core supports.
+
 ## Credits
 
 - **Author:** Poggy
-- **Version:** 1.2.0
+- **Version:** 1.2.1
 
 ## License
 
