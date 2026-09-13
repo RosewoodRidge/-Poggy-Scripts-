@@ -13,9 +13,9 @@ behind a job whenever you're ready.
 
 | | |
 |---|---|
-| **poggy_core 0.11.0+** | Framework detection, jobs, admin groups, notifications and the character browser. Start it before this resource. |
+| **poggy_core 0.13.0+** | Framework detection, jobs, admin groups, notifications and the character browser. Start it before this resource. |
 | **oxmysql** | poggy_core reads the character browser's data through it. |
-| **A framework** | VORP Core, RSG Core, QBCore or RedEM:RP — detected at runtime. |
+| **A framework** | Whatever poggy_core supports, detected at runtime — VORP Core today; RSG, QBR and RedEM:RP are detected but not yet driven. |
 
 There is no framework setting to change and no version to pick.
 
@@ -63,10 +63,11 @@ and the character browser.
 add_ace group.admin poggy_transform.admin allow
 ```
 
-**Framework groups — VORP only.** `Config.AdminGroups` is checked after ACE, so
-existing VORP `admin` / `superadmin` / `god` groups keep working with no setup.
+**Framework groups.** `Config.AdminGroups` is checked after ACE. The group is
+read through poggy_core (`perms.group`), so existing `admin` / `superadmin` /
+`god` groups keep working with no setup on any framework poggy_core supports.
 
-On RSG, QBCore and RedEM:RP, use the ACE permission.
+On a framework poggy_core does not drive yet, use the ACE permission.
 
 ---
 
@@ -121,10 +122,22 @@ appearance — face, body, clothing and tints — applied entirely client-side.
 Nothing is written to the database, and the character being copied is not
 affected in any way.
 
-**This feature is VORP-only.** It reads `skinPlayer`, `compPlayer` and
-`compTints` from the `characters` table, which is VORP's schema; RSG and
-QBCore store clothing in a different shape. On those frameworks the Players
-tab simply doesn't appear — animals and custom ped models work normally.
+**This feature needs stored appearances from poggy_core.** The browser asks
+poggy_core for a character's saved skin, clothing and tints (`char.offline`
+with appearance) and re-applies the player's own look afterwards
+(`char.reloadSkin`). Today only the VORP adapter returns appearance data, so
+the browser is VORP-only; on any other framework the Players tab simply
+doesn't appear and the console banner says `character browser: unavailable`.
+Everything else — animals, custom ped models, job locks, admin groups and
+notifications — goes through poggy_core and works on any framework it
+supports.
+
+## Changelog
+
+- **1.2.1** — The character browser's gate now also requires poggy_core's
+  `char.offline` capability (so a VORP server without oxmysql is told honestly
+  instead of failing), the "not available" message names the framework, and
+  the README no longer claims frameworks poggy_core does not drive yet.
 
 ---
 

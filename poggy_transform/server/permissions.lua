@@ -51,13 +51,24 @@ function PT.IsAdmin(src)
 end
 
 -- ============================================================================
--- Copying another character's full appearance reads skinPlayer / compPlayer /
--- compTints out of the `characters` table.  Those columns are VORP's schema —
--- RSG and QBCore store clothing in a different shape entirely — so the player
--- browser is offered only where it can actually work.  Animals and custom ped
--- models run on every framework.
+-- The character browser needs two things from poggy_core: `char.offline` with
+-- appearance = true (a stored skin, clothing and tints, read from the
+-- framework's own table) and `char.reloadSkin` on the client.  Today only the
+-- VORP adapter returns appearance data, so the browser is offered only there,
+-- and only while poggy_core reports the `char.offline` capability (it drops it
+-- when oxmysql is missing).  Animals and custom ped models do not need any of
+-- this and run on every framework poggy_core supports.
 -- ============================================================================
 function PT.SupportsPlayerSkins()
     local ok, fw = Poggy('core.framework', {})
-    return ((ok and fw and fw.id) or "unknown") == "vorp"
+    if ((ok and fw and fw.id) or "unknown") ~= "vorp" then return false end
+    local okCap, has = Poggy('core.has', { capability = "char.offline" })
+    return okCap and has == true
+end
+
+-- The framework's display name for player-facing messages ("VORP Core"),
+-- falling back to its id.
+function PT.FrameworkLabel()
+    local ok, fw = Poggy('core.framework', {})
+    return (ok and fw and (fw.label or fw.id)) or "this framework"
 end

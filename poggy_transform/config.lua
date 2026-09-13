@@ -9,8 +9,9 @@ Config = {}
 -- ============================================================================
 Config.AdminAce = "poggy_transform.admin"
 
--- Framework admin groups, checked after ACE.  VORP only — RSG, QBCore and
--- RedEM:RP servers should use the ACE permission above.
+-- Framework admin groups, checked after ACE.  The group comes from poggy_core
+-- (perms.group), so this works on any framework poggy_core supports.  On a
+-- framework poggy_core does not drive yet, use the ACE permission above.
 Config.AdminGroups = { "admin", "superadmin", "god" }
 
 -- ============================================================================
