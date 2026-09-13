@@ -237,9 +237,13 @@ H["perms.groups"] = function(C, p)
     -- character record. Scripts used to reach for Core.Native() to read it,
     -- which meant every one of them handling a raw framework object. It is
     -- cheaper and safer to do it once, here.
+    -- Indexing the field is itself guarded: on QBR the core object is an
+    -- exports proxy, and reading a name it does not export throws
+    -- ("No such export getUser in resource qbr-core") rather than yielding nil.
     local native = C.Native()
-    if native and PoggyCore.IsCallable(native.getUser) then
-        local ok, u = pcall(native.getUser, p.src)
+    local okIdx, getUser = pcall(function() return native and native.getUser end)
+    if okIdx and PoggyCore.IsCallable(getUser) then
+        local ok, u = pcall(getUser, p.src)
         if ok and u then add(u.getGroup) end
     end
 

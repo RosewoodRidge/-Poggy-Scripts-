@@ -269,8 +269,9 @@ function PoggyCore.DropItemCache()
 end
 
 -- An inventory restart can mean new items; read the registry again next time.
+-- On QBR the items live in qbr-core itself (QBShared.Items).
 AddEventHandler("onResourceStart", function(resource)
-    if resource == "vorp_inventory" or resource == "rsg-inventory" then
+    if resource == "vorp_inventory" or resource == "rsg-inventory" or resource == "qbr-core" then
         PoggyCore.DropItemCache()
     end
 end)
@@ -918,6 +919,60 @@ AddEventHandler("RSGCore:Server:OnJobUpdate", function(src, job)
     TriggerClientEvent("poggy_core:jobChanged", src, newJob, newGrade, old.name, old.grade)
 end)
 
+-- QBR. qbr-core fires NO server event on a job change: SetJob sends only the
+-- client event QBCore:Client:OnJobUpdate (qbr-core server/player.lua:171) and
+-- SetJobDuty sends nothing but a PlayerData push. So the last job seen per
+-- player is kept here and compared again whenever something says it may have
+-- moved: the adapter's own jobSet, and a "look again" poke that poggy_core's
+-- client sends when it hears QBCore:Client:OnJobUpdate (client/cl_core.lua).
+-- The job is always read back from qbr-core; nothing from the client is
+-- trusted beyond "check me". A duty toggle changes neither name nor grade and
+-- is not relayed. QBCore:Server:PlayerLoaded(Player) fires inside CreatePlayer
+-- (player.lua:469) with the player object, a copy, and seeds the table.
+local qbrLastJob = {}
+
+--- Compare a player's job with the last one seen and relay a real change.
+--- `seed` is the job as it was just before a set made through the adapter,
+--- used when nothing was seen yet (poggy_core started after the player loaded).
+function PoggyCore.QbrJobCheck(src, seed)
+    if State.framework ~= "qbr" or not State.adapter then return end
+    src = tonumber(src)
+    if not src then return end
+    local _, pd = State.adapter:raw(src)
+    local job = pd and type(pd.job) == "table" and pd.job or nil
+    if not job then return end
+    local newJob   = job.name
+    local newGrade = tonumber(type(job.grade) == "table" and job.grade.level) or 0
+    local old = qbrLastJob[src] or seed
+    qbrLastJob[src] = { name = newJob, grade = newGrade }
+    if not old then return end                                         -- first sight; nothing to compare
+    if old.name == newJob and old.grade == newGrade then return end   -- duty toggle only
+    TriggerEvent("poggy_core:jobChanged", src, newJob, newGrade, old.name, old.grade)
+    TriggerClientEvent("poggy_core:jobChanged", src, newJob, newGrade, old.name, old.grade)
+end
+
+AddEventHandler("QBCore:Server:PlayerLoaded", function(player)
+    if State.framework ~= "qbr" then return end
+    local pd = type(player) == "table" and player.PlayerData or nil
+    local src = pd and tonumber(pd.source) or nil
+    if not src then return end
+    local job = type(pd.job) == "table" and pd.job or {}
+    qbrLastJob[src] = {
+        name  = job.name,
+        grade = tonumber(type(job.grade) == "table" and job.grade.level) or 0,
+    }
+    local charId = pd.citizenid and tostring(pd.citizenid) or nil
+    TriggerEvent("poggy_core:charLoaded", src, charId)
+    TriggerClientEvent("poggy_core:charLoaded", src, charId)
+end)
+
+RegisterNetEvent("poggy_core:qbr:jobPoke", function()
+    local src = source
+    if State.framework ~= "qbr" then return end
+    PoggyCore.QbrJobCheck(src)
+end)
+
 AddEventHandler("playerDropped", function()
     rsgLastJob[tonumber(source)] = nil
+    qbrLastJob[tonumber(source)] = nil
 end)

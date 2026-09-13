@@ -74,6 +74,37 @@ RegisterNetEvent("poggy_core:jobChanged", function(job, grade, oldJob, oldGrade)
 end)
 
 -- ---------------------------------------------------------------------------
+-- QBR relays
+-- ---------------------------------------------------------------------------
+-- Three things qbr-core / qbr-inventory only let the player's own client do,
+-- each requested by the server-side adapter (server/adapters/qbr.lua) and
+-- carried out here. All three are no-ops unless the server resolved QBR.
+
+-- qbr-core fires no server event on a job change, only this client event
+-- (qbr-core server/player.lua:171). Tell the server to look again; it reads
+-- the job back from qbr-core itself and relays poggy_core:jobChanged if it moved.
+RegisterNetEvent("QBCore:Client:OnJobUpdate", function()
+    if State.framework ~= "qbr" then return end
+    TriggerServerEvent("poggy_core:qbr:jobPoke")
+end)
+
+-- Opening a stash is a net event that reads `source` (qbr-inventory
+-- server/main.lua:349), sent the way every QBR script sends it
+-- (qbr-policejob client/job.lua:171-172).
+RegisterNetEvent("poggy_core:qbr:openStash", function(id, other)
+    if State.framework ~= "qbr" then return end
+    TriggerServerEvent("inventory:server:OpenInventory", "stash", id, other)
+    TriggerEvent("inventory:client:SetCurrentStash", id)
+end)
+
+-- qbr-inventory's only way to close its screen is the client command it
+-- registers (client/main.lua:243); the NUI then saves an open stash itself.
+RegisterNetEvent("poggy_core:qbr:closeInventory", function()
+    if State.framework ~= "qbr" then return end
+    ExecuteCommand("closeinv")
+end)
+
+-- ---------------------------------------------------------------------------
 -- Character
 -- ---------------------------------------------------------------------------
 

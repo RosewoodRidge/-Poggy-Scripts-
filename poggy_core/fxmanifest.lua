@@ -7,10 +7,10 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP, RSG, QBR, RedEM:RP, RPX)"
-version "0.14.0"
+version "0.14.1"
 
--- VORP and RSG adapters + standalone fallback. See README.md for what is and
--- is not implemented yet. Adding a framework means adding one file under
+-- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
+-- and is not implemented yet. Adding a framework means adding one file under
 -- server/adapters/ and one entry in shared/sh_detect.lua.
 
 shared_scripts {
@@ -37,6 +37,7 @@ server_scripts {
     "server/adapters/standalone.lua",
     "server/adapters/vorp.lua",
     "server/adapters/rsg.lua",
+    "server/adapters/qbr.lua",
     "server/sv_notify.lua",
     "server/sv_storage.lua",
     "server/sv_usables.lua",         -- usable-item registry; before sv_core.lua, which binds it

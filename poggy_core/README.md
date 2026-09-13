@@ -3,18 +3,19 @@
 One documented framework API for RedM. Write a script once; run it on VORP, RSG
 Core, QBCore RedM, RedEM:RP or RPX.
 
-**Version 0.14.0.** The VORP adapter is complete and every Poggy resource runs
+**Version 0.14.1.** The VORP adapter is complete and every Poggy resource runs
 on it through `Poggy(verb, payload)`; see [Verbs added in 0.11.0](#verbs-added-in-0110).
 Scripts are known by their `poggy_id`, so a server owner may rename any
 script's folder; see [Script identity](#script-identity).
 poggy_core is a hard dependency of every script, and it no longer needs
 poggy_util, vorp_menu or vorp_inputs for anything: it draws notifications,
 menus and text boxes itself; see [Menu and input](#menu-and-input-0140). The RSG
-adapter is written against rsg-core 2.3.13 / rsg-inventory 2.8.5 and **not yet
-verified in game**; see [RSG](#rsg). QBR, RedEM:RP and RPX are detected but fall
-back to standalone, which refuses every framework call honestly rather than
-pretending to succeed, and reports `Core.HasAdapter() == false`.
-See [What is not built yet](#what-is-not-built-yet).
+adapter (rsg-core 2.3.13 / rsg-inventory 2.8.5) is proven in game; see
+[RSG](#rsg). The QBR adapter is written against qbr-core 1.0.3 / qbr-inventory
+1.0.1 and **not yet verified in game**; see [QBR](#qbr). RedEM:RP and RPX are
+detected but fall back to standalone, which refuses every framework call
+honestly rather than pretending to succeed, and reports
+`Core.HasAdapter() == false`. See [What is not built yet](#what-is-not-built-yet).
 
 ```lua
 local Core = exports.poggy_core:Get()
@@ -189,7 +190,7 @@ because the spread is wide:
 |---|---|---|---|---|---|
 | `cash` | yes | yes | yes | yes | yes |
 | `bank` | **no** | yes | yes | yes | yes |
-| `gold` | yes | yes, integers only | no | **no** | **no** |
+| `gold` | yes | yes, integers only | only if the server adds it to `MoneyTypes` | **no** | **no** |
 | `rol` | yes | **no** | no | no | no |
 
 `Remove` refuses and returns `false, 'no_funds'` rather than taking a player
@@ -203,6 +204,13 @@ an inventory add that rsg-inventory drops on the ground when it does not fit.
 `false, 'no_space'` instead. Gold is the same when `EnableGoldItems` is on. RSG's
 other five account types (`valbank`, `rhobank`, `blkbank`, `armbank`,
 `bloodmoney`) are not exposed; use `Core.Native()` for them.
+
+**On QBR** the accounts are whatever `QBConfig.Money.MoneyTypes` lists: `cash`
+and `bank` in the stock config, and `money.gold` is declared only when a
+server has added `gold` there. There are no money items. qbr-core itself only
+refuses a negative balance for the types in `DontAllowMinus` (cash alone by
+default) and would let the bank go under; poggy_core refuses every overdraw
+with `no_funds`.
 
 ### Jobs
 
@@ -240,9 +248,23 @@ unchanged (RSG itself would reset it to 0). `persist = true` writes the `job`
 JSON column of `players` immediately; RSG also saves the row itself every few
 minutes and on disconnect.
 
+**On QBR** duty is also part of the job (`PlayerData.job.onduty`), labels and
+grade names come from `QBShared.Jobs`, `Core.Job.Set` refuses an unknown job
+with `not_found`, and a `nil` grade keeps the current grade when the job name
+is unchanged (qbr-core itself would land on grade 0, "No Grades"). Setting a
+job resets duty to that job's `defaultDuty`, because qbr-core does. qbr-core
+fires **no server event** on a job change, so `OnChange` works like this:
+poggy_core remembers each player's last job, re-checks it after its own
+`Job.Set`, and re-checks it when the player's client hears qbr-core's
+`QBCore:Client:OnJobUpdate` and pokes the server (`poggy_core:qbr:jobPoke`);
+the job itself is always read back from qbr-core, nothing from the client is
+trusted. A duty toggle is not relayed. `persist = true` writes the `job` JSON
+column of `players`.
+
 Which jobs count as law or medical is in `config.lua`, not in code. RSG's stock
 job names (`vallaw`, `rholaw`, `blklaw`, `strlaw`, `stdenlaw`) are not in the
-default `LawJobs` list; add them there on an RSG server.
+default `LawJobs` list; add them there on an RSG server. QBR's stock `police`
+and `ambulance` are in the default lists.
 
 ### Inventory — server
 
@@ -293,6 +315,20 @@ weapons also appear in `Core.Inventory.Get` and `inv.items` there.
 which calls them as `(source, itemData)`. poggy_core wraps the call so the
 handler always receives one table with `source`, `name`, `amount`, `slot`,
 `metadata` and `item`, the shape the Poggy scripts already read on VORP.
+
+**On QBR** the inventory lives in qbr-core (`Player.Functions.AddItem` and
+friends), not in qbr-inventory, and there is no capacity check to call:
+`CanCarry` computes the weight against `QBConfig.Player.MaxWeight` and a stack
+or free slot against `MaxInvSlots` (`inventory.carrycheck` is false). Item
+names are lower-case and the VORP weapon spelling is mapped the same way as on
+RSG. `Remove` walks stacks itself, because qbr-core's own `RemoveItem` only
+takes from a single stack that holds the whole amount. Weapons are items with
+`type = 'weapon'` and a serial in `info.serie` that qbr-core stamps on
+creation; `Core.Weapons` is the same view as on RSG, and `ammo` / `components`
+are not applied. Usable handlers are held by qbr-core (`CreateUseableItem`,
+called as `(source, item)`) and wrapped into the same table shape; they are
+replayed if qbr-core restarts. `SetMeta` takes the slot as `itemId`. `Close`
+runs qbr-inventory's `closeinv` client command for the player.
 
 ### Storage — server
 
@@ -345,6 +381,21 @@ the opener's own inventory is busy. `jobAccess`, `charAccess`, `shared`,
 `allowWeapons` and `whitelistItems` have no counterpart and are ignored
 (`storage.permissions` is false). `Delete` empties the stash, drops it and
 removes its row; `Unregister` saves and drops it, leaving the row.
+
+**On QBR** a container is a qbr-inventory stash, which is one row of the
+`stashitems` table (`stash`, `items` JSON) that qbr-inventory loads into
+memory when a player opens it and writes back when they close it. qbr-inventory
+has no server export for any of this, so poggy_core keeps the definition
+(label, slots, maxWeight) itself, hands it to qbr-inventory at open time, and
+reads and writes the row directly for `AddItem`, `RemoveItem`, `GetItems`,
+`GetWeapons` and `Delete` (each needs a thread). Two consequences: a write made
+while a player has that stash open is overwritten when they close it, and the
+title on screen is always `Stash-<id>`. `Open` asks the player's own client to
+send the open, the way every QBR script does, and refuses while the player's
+inventory is busy. `Register` on every boot is still required (the definition
+is in memory). Nothing on a QBR server creates `stashitems`: poggy_core checks
+for it at start and, when it is missing, prints the `CREATE TABLE` to run and
+refuses storage with `unsupported` until it exists.
 
 **Ids are namespaced per script** as `pg_<poggy_id>_<id>`, so renaming a folder
 does not hide what is stored (a script without a `poggy_id` uses its folder
@@ -569,16 +620,19 @@ rsg-core's `HasPermission` makes; `perms.groups` lists every level held. A
 player with none is `user`. The levels are granted in `server.cfg`
 (`add_ace rsgcore.<level> <level> allow` plus `add_principal` lines); a server
 without those lines has no admins as far as rsg-core or poggy_core can tell.
+QBR is the same test over `QBConfig.Permissions` (`god`, `admin`, `mod`),
+granted with `add_ace qbcore.<level> <level> allow`; the stock QBR
+`server.cfg` template has the `qbcore.<level>` principals but a server must
+add those `add_ace` lines itself, or everyone is `user`.
 
 ---
 
 ## RSG
 
 The adapter (`server/adapters/rsg.lua`) is written against rsg-core 2.3.13 and
-rsg-inventory 2.8.5, read from source, and **has not yet run on an RSG server**.
-Until it has, treat every RSG line in this file as a claim to be checked with
-`poggycore test` and `poggycore selftest full`. What it does differently from
-VORP is noted section by section above; in one place:
+rsg-inventory 2.8.5, read from source, and proven in game on 14 September 2026
+(`poggycore selftest full` 64/64). What it does differently from VORP is noted
+section by section above; in one place:
 
 | Area | On RSG |
 |---|---|
@@ -599,6 +653,45 @@ adapter re-fetches the player on every call and never writes to `PlayerData`.
 
 ---
 
+## QBR
+
+The adapter (`server/adapters/qbr.lua`) is written against qbr-core 1.0.3 and
+qbr-inventory 1.0.1, read from source on the QBR test server, and **has not
+yet run on a QBR server**. Until it has, treat every QBR line in this file as
+a claim to be checked with `poggycore test` and `poggycore selftest full`. In
+one place:
+
+| Area | On QBR |
+|---|---|
+| Character | `charId` is the `citizenid`; `ownerId` the Rockstar licence; `group` the ACE level; gender from `charinfo.gender` (0/1) |
+| Money | `cash`, `bank`; `gold` only when the server's `MoneyTypes` has it; no money items; no `rol`; every overdraw is `no_funds` |
+| Jobs | duty and grade labels from `QBShared.Jobs`; `Job.Set` refuses unknown jobs and resets duty to the job's default; `SetDuty` works; no server event, so poggy_core re-checks after its own set and on a client poke; relayed only when name or grade changes |
+| Inventory | qbr-core's `Player.Functions`; capacity computed here (no `CanAddItem`); `meta` matched by poggy_core on remove and count; `Remove` spans stacks; `SetMeta` takes the slot as `itemId`; `Close` runs the `closeinv` command |
+| Weapons | a view over `type = 'weapon'` items; ids are the serial qbr-core stamps; ammo and components not applied |
+| Storage | qbr-inventory stashes as `stashitems` rows, read and written directly; definitions kept by poggy_core and passed at open; open goes through the player's client; no permissions; `stashitems` must exist (poggy_core prints the CREATE if not) |
+| Offline | `players` table (JSON `charinfo` and `job`); appearance from `playerskins` as `{ model, skin, clothes }` |
+| Item registry | `QBShared.Items` through `GetItems()`, no database; weapons included; images under `nui://qbr-inventory/html/images/` by the item's `image` field, which is often not `name.png` |
+| Notifications | poggy_core's native renderer as everywhere; the `framework` renderer sends `QBCore:Notify` (style 4, or 7 with a subtitle) |
+| Menus | `Core.Menu.Native()` returns the `qbr-menu` export proxy when it is started |
+| Escape hatch | `Core.Native()` is the `qbr-core` export proxy (there is no core object): `Core.Native():GetPlayer(src)` |
+
+Detection: `exports['qbr-core']:GetPlayers()` and `GetItems()` must both
+answer with a table. Every QBR API is a flat export on `qbr-core`; every
+Player it returns is a copy, so the adapter re-fetches the player on every
+call and mutates only through `Player.Functions.*`. Usable-item handlers live
+in qbr-core, so that is the resource whose restart replays them.
+
+Caps declared: `money.cash`, `money.bank` (each only if in `MoneyTypes`),
+`money.gold` (only if in `MoneyTypes`), `char.onduty`, `job.registry`,
+`job.duty`, `job.event`, `inventory.items`, `inventory.weapons`,
+`inventory.metadata`, `inventory.registry`, `storage` (needs oxmysql,
+qbr-inventory and the `stashitems` table), `storage.weapons`, `permissions`,
+`char.offline` and `job.persist` (need oxmysql), `menu.native` (needs
+qbr-menu). Not declared: `money.rol`, `inventory.carrycheck`,
+`storage.persist`, `storage.permissions`.
+
+---
+
 ## Verbs added in 0.11.0
 
 Scripts call these through `Poggy(verb, payload)` like every other verb. A
@@ -616,7 +709,7 @@ a thread or an event handler.
 | `job.set` with `persist = true` | server | `persist` | `true` | after the in-memory set, `UPDATE characters SET job, jobgrade, joblabel` (grade and label only when given). On a thread a failed write returns `false` with the job already set in memory; off a thread the write runs on its own and a failure is logged |
 | `inv.items` | server, thread | `search?`, `limit?`, `checkImages?` | array of `{ name, label, desc, weight, limit, type, usable, group, image }`, plus `hasImage` with `checkImages` | `SELECT * FROM items`, cached for `ItemCacheSeconds` and dropped when vorp_inventory restarts. Items only, no weapons |
 | `inv.itemInfo` | server, thread | `item`, `checkImages?` | one item, as above | the same cache; `not_found` for an unknown item |
-| `inv.imageBase` | both | none | a URL prefix | `nui://vorp_inventory/html/img/items/`; an icon is prefix .. name .. `.png` (RSG: `nui://rsg-inventory/html/images/` and the item's `image` field, which `inv.items` already resolves into `image`) |
+| `inv.imageBase` | both | none | a URL prefix | `nui://vorp_inventory/html/img/items/`; an icon is prefix .. name .. `.png` (RSG: `nui://rsg-inventory/html/images/`, QBR: `nui://qbr-inventory/html/images/`, both by the item's `image` field, which `inv.items` already resolves into `image`) |
 | `inv.close` | server | `src` | `true` | `closeInventory(src)`: the player's own inventory, not a container |
 | `weapon.canCarry` | server, thread | `src`, `qty?`, `weapon?` | boolean; `false` comes with err `no_space` | `canCarryWeapons(src, qty, cb, weapon)` |
 | `storage.weapons` | server, thread | `id` | array of `{ id, name, label, serial, desc }` | `getCustomInventoryWeapons`; `not_found` for a container that is not registered. The id is namespaced like every storage verb |
@@ -864,7 +957,8 @@ Honest list. Phase 0 was scoped to everything except menus.
 |---|---|
 | `Core.Menu.Open` / `Core.Input` | **Built in 0.14.0** (`menu.open`, `menu.close`, `input.text`); a list menu and a text box. Sliders, grids, tick boxes and item images from `vorp_menu` are not abstracted; `Core.Menu.Native()` still hands over the framework's own menu for those. |
 | RSG adapter | **Proven in game (14 September 2026).** `poggycore selftest full` passes 64/64 on the RSG test server (rsg-core 2.3.13 / rsg-inventory 2.8.5); every Poggy script starts and its menus, shops, storage and auctions work there. |
-| QBR, RedEM, RPX adapters | **Not written.** Detection knows about them, and `Core.HasAdapter()` returns false so a consumer can keep its own path; without an adapter the core falls back to standalone and refuses framework calls. |
+| QBR adapter | **Written, untested in game** (0.14.1, against qbr-core 1.0.3 / qbr-inventory 1.0.1, read from source). Passes a lupa harness against a fake qbr-core; nothing has run on the QBR test server yet. See [QBR](#qbr). |
+| RedEM, RPX adapters | **Not written.** Detection knows about them, and `Core.HasAdapter()` returns false so a consumer can keep its own path; without an adapter the core falls back to standalone and refuses framework calls. |
 | `Core.Job.SetDuty` on VORP | Unsupported. `vorp_core` has no duty concept and `vorp_police` exposes no setter. |
 | `money.bank` on VORP | Unsupported. `vorp_core` genuinely has no bank. |
 | Client prompt natives | Written but **not yet verified in game.** Nothing consumes `Core.Prompt` yet, so the risk is contained; test before relying on it. |
@@ -926,6 +1020,10 @@ you declared.
 it list the framework traps that shaped the interface. `server/adapters/rsg.lua`
 is the second one, written the same way; its header lists the RSG traps, with
 the rsg-core and rsg-inventory line numbers each was read from.
+`server/adapters/qbr.lua` is the third, and shows what to do when a framework
+has no core object, no capacity check and no storage exports: compute what is
+missing, go to the table the framework itself uses, and declare only the caps
+that are true.
 
 An adapter may also define `permGroups(src)` (an array of every group the
 player holds, highest first); `perms.groups` adds them when it is present.

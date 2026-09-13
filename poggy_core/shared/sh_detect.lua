@@ -64,13 +64,23 @@ PoggyCore.Frameworks = {
     qbr = {
         resource = "qbr-core",
         label    = "QBCore RedM",
+        -- Where qbr-inventory keeps item icons: the NUI loads "images/" ..
+        -- item.image (html/js/app.js:654). The file name is the item's `image`
+        -- field, which is often NOT name .. '.png' (bread -> consumable_bread_roll.png).
+        itemImageBase = "nui://qbr-inventory/html/images/",
         probe    = function()
             -- QBR has no core object at all; every API is a flat export on
-            -- qbr-core. A successful GetPlayers call is the handshake.
-            local ok = pcall(function()
-                return exports["qbr-core"]:GetPlayers()
+            -- qbr-core (server/functions.lua, server/player.lua, shared/main.lua).
+            -- The handshake is the two exports the adapter cannot live without:
+            -- GetPlayers (functions.lua:7-14) and GetItems (shared/main.lua:65),
+            -- both plain reads that answer a table. The marker table stands in
+            -- for the core object; the adapter talks to exports['qbr-core'].
+            local ok, players, items = pcall(function()
+                return exports["qbr-core"]:GetPlayers(), exports["qbr-core"]:GetItems()
             end)
-            if ok then return { flat = true } end
+            if ok and type(players) == "table" and type(items) == "table" then
+                return { flat = true, resource = "qbr-core" }
+            end
             return nil
         end,
     },

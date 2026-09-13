@@ -213,12 +213,14 @@ local function runTests(src, full)
     -- those changes the balance, and the money checks further down would then
     -- be measuring this test rather than the framework. Weapons are skipped
     -- too, because a unique item does not stack and the count arithmetic
-    -- assumes it does.
+    -- assumes it does; so is any other stack the adapter marks `unique`
+    -- (RSG and QBR flag id cards and the like that way). QBR has no money
+    -- items, so the list costs it nothing.
     local MONEY_ITEMS = { dollar = true, cent = true, blood_dollar = true, blood_cent = true, gold = true }
     local probeStack = nil
     if okInv and type(items) == "table" then
         for _, it in ipairs(items) do
-            if it.name and not MONEY_ITEMS[it.name] and it.type ~= "weapon" then
+            if it.name and not MONEY_ITEMS[it.name] and it.type ~= "weapon" and it.unique ~= true then
                 probeStack = it
                 break
             end
@@ -516,6 +518,15 @@ function PoggyCore.SelfTest(src, full, chat)
         ["char.reloadSkin"] = "client-side, and it re-dresses the player's ped",
         ["core.register"]  = "every script's bridge calls it at start; poggycore scripts lists the result",
         ["sql.install"]    = "every script's bridge runs it at start; poggycore sql check all covers it",
+        -- These need an ordinary stackable item in the tester's satchel to
+        -- probe with; an empty inventory leaves them unexercised.
+        ["inv.count"]         = "needs an item in your inventory to probe with (it was empty)",
+        ["inv.has"]           = "needs an item in your inventory to probe with (it was empty)",
+        ["inv.canCarry"]      = "needs an item in your inventory to probe with (it was empty)",
+        ["inv.add"]           = "needs an item in your inventory to probe with (it was empty)",
+        ["inv.remove"]        = "needs an item in your inventory to probe with (it was empty)",
+        ["storage.addItem"]   = "needs an item in your inventory to move in and out (it was empty)",
+        ["storage.removeItem"] = "needs an item in your inventory to move in and out (it was empty)",
         ["sql.check"]      = "same; run poggycore sql check all to see it",
         -- 0.14.0: the three ui verbs wait for a person to press something, so
         -- there is no way to exercise them without one. Open a menu in game.
