@@ -25,9 +25,9 @@ Witnesses runs on **poggy_core**, which detects your framework and talks to it. 
 
 ## Dependencies
 
-- **poggy_core** 0.11.0 or newer (required)
+- **poggy_core** 0.14.0 or newer (required)
 - **PolyZone** (required): https://github.com/mkafrin/PolyZone
-- A duty resource poggy_core can read, for duty checks (on VORP: **vorp_police** / **vorp_medic**). Optional, see below.
+- A duty resource poggy_core can read, for duty checks (on VORP: **vorp_police** / **vorp_medic**). Optional, see below. Witnesses itself never talks to a framework resource.
 - A jail script with a server export, if you want NPC law arrests to add jail time (`Config.LawResponse.JailExportCall` in `config/npc.lua`). Optional, see below.
 
 ## Installation
@@ -151,6 +151,12 @@ Config.LawResponse.JailExportCall = "exports.another_jail:JailPlayer(src, timeIn
 ```
 
 Leave it `""` to arrest without jail. The old default (`exports.vorp_police:StartJailTimerForPlayer(...)`) is ignored if it is still in your config.
+
+## Changelog
+
+- **1.3.0** — Framework-agnostic: no framework events or exports are used anywhere. Client job changes come from `poggy_core:jobChangedLocal`, duty from poggy_core's `job.get` / `players.onDuty`. Requires poggy_core 0.14.0.
+- **1.2.1** — Duty and jail defaults fixed: no calls to exports that do not exist.
+- **1.2.0** — Folder renamed to `poggy_witnesses`; runs on poggy_core.
 
 ## License & Legal
 
