@@ -339,7 +339,8 @@
         State.empSelectedPlayer = null;
 
         // Set header
-        $('#shop-title').textContent = State.shopName.toUpperCase();
+        // Capitals come from the stylesheet, so a skin can show the name as typed.
+        $('#shop-title').textContent = State.shopName;
         $('#shop-id-badge').textContent = 'ID: ' + State.shopId;
 
         // Populate settings
@@ -873,7 +874,7 @@
                     actions = '<div style="display:flex;gap:4px;justify-content:center;align-items:center">' +
                         '<input type="number" class="input-field storage-take-qty-input" data-item="' + escapeHtml(it.itemname) + '" value="1" min="1" max="' + (it.itemcount || 1) + '" style="width:50px;text-align:center;padding:5px 4px;font-size:12px">' +
                         '<button class="btn-submit storage-take-btn" data-item="' + escapeHtml(it.itemname) + '" data-label="' + escapeHtml(niceLabel(it.itemname, it.itemlabel)) + '" style="padding:5px 10px;font-size:11px">Take</button>' +
-                        '<button class="btn-max storage-max-btn" data-item="' + escapeHtml(it.itemname) + '" data-itemlimit="' + (it.itemlimit || 0) + '" style="padding:5px 10px;font-size:11px">Max</button>' +
+                        '<button class="btn-max storage-max-btn" data-item="' + escapeHtml(it.itemname) + '" style="padding:5px 10px;font-size:11px">Max</button>' +
                         '</div>';
                 }
                 html += '<tr>' +
@@ -897,31 +898,21 @@
             });
         });
 
-        // Bind Max buttons — sets qty input to max takeable amount
+        // Bind Max buttons: the server says how many can be taken (what is in
+        // storage, capped by how many more the player can carry, which only
+        // poggy_core knows).  Without an answer, the whole stored amount.
         $$('.storage-max-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var itemName  = this.getAttribute('data-item');
-                var itemLimit = parseInt(this.getAttribute('data-itemlimit')) || 0;
-                // How many the player already has
-                var playerHas = 0;
-                State.personalItems.forEach(function (pi) {
-                    if (pi.itemname === itemName) playerHas = pi.itemcount || 0;
-                });
-                // How many are in storage
+                var itemName = this.getAttribute('data-item');
                 var storageQty = 1;
                 State.soldItems.forEach(function (si) {
                     if (si.itemname === itemName) storageQty = si.itemcount || 1;
                 });
-                var maxQty;
-                if (itemLimit > 0) {
-                    var canCarry = Math.max(0, itemLimit - playerHas);
-                    maxQty = Math.min(storageQty, canCarry);
-                } else {
-                    maxQty = storageQty;
-                }
-                maxQty = Math.max(1, maxQty);
-                var qtyInput = $('input.storage-take-qty-input[data-item="' + itemName + '"]');
-                if (qtyInput) qtyInput.value = maxQty;
+                sendNUI('storageMaxQty', { itemName: itemName }).then(function (resp) {
+                    var n = (resp && typeof resp.max === 'number') ? resp.max : storageQty;
+                    var qtyInput = $('input.storage-take-qty-input[data-item="' + itemName + '"]');
+                    if (qtyInput) qtyInput.value = Math.max(0, Math.floor(n));
+                });
             });
         });
     }
@@ -1157,7 +1148,7 @@
             if (!name) return;
             sendNUI('changeName', { shopId: State.shopId, name: name });
             State.shopName = name;
-            $('#shop-title').textContent = name.toUpperCase();
+            $('#shop-title').textContent = name;
         });
 
         // ── Settings — blip toggle ──
@@ -1472,7 +1463,8 @@
         CustState.shopMaxSlots   = data.shopMaxSlots || 0;
         CustState.shopStoredCount = data.shopStoredCount || 0;
 
-        $('#cust-shop-title').textContent = CustState.shopName.toUpperCase();
+        // Capitals come from the stylesheet, so a skin can show the name as typed.
+        $('#cust-shop-title').textContent = CustState.shopName;
         $('#cust-buy-search').value = '';
         $('#cust-sell-search').value = '';
         $('#cust-sell-owned-toggle').checked = true;
@@ -1578,16 +1570,18 @@
             inp.addEventListener('change', updateTotal);
         });
 
-        // Bind Max buttons
+        // Bind Max buttons: the server says how many can actually be bought.
         $$('.cust-buy-max-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var itemName = this.getAttribute('data-item');
-                var max = parseInt(this.getAttribute('data-max')) || 1;
-                var input = $('input.cust-buy-qty[data-item="' + itemName + '"]');
-                if (input) {
+                var fallback = parseInt(this.getAttribute('data-max')) || 1;
+                custAskMax(itemName, fallback, function (max) {
+                    var input = $('input.cust-buy-qty[data-item="' + itemName + '"]');
+                    if (!input) return;
+                    input.max = Math.max(1, max);
                     input.value = max;
                     input.dispatchEvent(new Event('input'));
-                }
+                });
             });
         });
 
@@ -1631,21 +1625,22 @@
         });
     }
 
-    /* The most the player may buy of an item: the stock, capped by how much
-       more they can carry.  Shared by the table and the grid. */
+    /* What Max offers before the server answers, or if it never does: the
+       stock, or 999 at a store with unlimited stock.  How many the player can
+       carry is only known server-side (poggy_core), so Max asks for it; see
+       custAskMax.  Shared by the table and the grid. */
     function custBuyMaxQty(it) {
-        var carryLimit = it.itemlimit || 0;
-        if (carryLimit > 0) {
-            // Find how many the player already has
-            var playerHas = 0;
-            CustState.playerItems.forEach(function (pi) {
-                if (pi.itemname === it.itemname) playerHas += (pi.itemcount || 0);
-            });
-            var canCarry = Math.max(0, carryLimit - playerHas);
-            var stockAvail = (CustState.shopType === 1) ? canCarry : Math.min(it.itemcount || 0, canCarry);
-            return Math.max(1, stockAvail);
-        }
         return (CustState.shopType === 1) ? 999 : Math.max(1, it.itemcount || 1);
+    }
+
+    /* Max: ask the server how many the customer can buy right now (the stock,
+       capped by how many more they can carry) and hand that to `apply`.
+       Falls back to `fallback` when no answer comes. */
+    function custAskMax(itemName, fallback, apply) {
+        sendNUI('custMaxQty', { itemName: itemName }).then(function (resp) {
+            var n = (resp && typeof resp.max === 'number') ? resp.max : fallback;
+            apply(Math.max(0, Math.floor(n)));
+        });
     }
 
     function custFindBuyItem(name) {
@@ -1774,8 +1769,12 @@
             updateTotal();
         });
         $('#cust-sel-max').addEventListener('click', function () {
-            qtyInput.value = max;
-            updateTotal();
+            custAskMax(it.itemname, max, function (n) {
+                max = Math.max(1, n);      // typed amounts are held to this from now on
+                qtyInput.max = max;
+                qtyInput.value = n;
+                updateTotal();
+            });
         });
         $('#cust-sel-buy').addEventListener('click', function () {
             var n = readQty();

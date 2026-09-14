@@ -6,8 +6,8 @@ lua54 "yes"
 -- The product id the update feed knows this resource by. Never changes.
 poggy_id 'poggy_core'
 author "Poggy"
-description "Poggy Core — one documented framework API for RedM (VORP, RSG, QBR, RedEM:RP, RPX)"
-version "0.15.0"
+description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
+version "0.16.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under

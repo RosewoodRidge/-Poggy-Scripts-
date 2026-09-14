@@ -238,3 +238,17 @@ Config.Selling = {
     -- Preserve item metadata when items move between player and shop.
     keepMetadata = true,
 }
+
+-- ===========================================================================
+--  7.  INTERFACE
+-- ===========================================================================
+
+Config.UI = {
+    -- The look of the shop, store manager and exchange panels.
+    --   "default"  the built-in dark theme
+    --   "leather"  stitched leather and parchment, in the style of the
+    --              game's own satchel (ui/css/skin-leather.css)
+    -- Any other name loads ui/css/skin-<name>.css, so a skin of your own is
+    -- a copy of skin-leather.css under a new name, plus its images.
+    skin = "leather",
+}

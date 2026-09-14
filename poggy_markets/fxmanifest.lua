@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_markets'
 author 'Poggy'
 description 'Player-owned stores, dynamic pricing and a commodities exchange for RedM.'
-version '1.2.2'
-poggy_core_min '0.13.0'
+version '1.3.0'
+poggy_core_min '0.16.0'
 
 dependencies {
     'poggy_core',
@@ -56,6 +56,9 @@ files {
     'ui/js/manager.js',
     'ui/js/exchange.js',
     'ui/js/prompt.js',
+    'ui/js/skin.js',
+    'ui/css/skin-*.css',
+    'ui/css/skin-*.png',
     'ui/lib/chart.min.js',
     'ui/lib/chart-annotation.min.js',
 }

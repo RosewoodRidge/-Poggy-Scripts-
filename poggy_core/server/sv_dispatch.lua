@@ -107,6 +107,9 @@ H["inv.itemInfo"]  = function(C, p) return ret(C.Inventory.ItemInfo(p.item, p.ch
 H["inv.imageBase"] = function(C)    return ret(C.Inventory.ImageBase()) end
 H["inv.close"]     = function(C, p) return did(C.Inventory.Close(p.src)) end
 
+-- 0.16.0
+H["inv.maxCarry"] = function(C, p) return ret(C.Inventory.MaxCarry(p.src, p.item, p.cap)) end
+
 H["inv.canCarry"] = function(C, p)
     -- Returns boolean plus a reason when it is false; the reason rides in err
     -- so the caller can show it without a second call.
@@ -119,6 +122,9 @@ end
 H["weapon.add"]    = function(C, p) return did(C.Weapons.Add(p.src, p.weapon, p.ammo, p.components)) end
 H["weapon.remove"] = function(C, p) return did(C.Weapons.Remove(p.src, p.weaponId)) end
 H["weapon.get"]    = function(C, p) return ret(C.Weapons.Get(p.src)) end
+
+-- 0.16.0
+H["weapon.maxCarry"] = function(C, p) return ret(C.Weapons.MaxCarry(p.src, p.weapon, p.cap)) end
 
 H["weapon.canCarry"] = function(C, p)
     -- Same shape as inv.canCarry: the reason for a false rides in err.

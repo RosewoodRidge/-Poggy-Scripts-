@@ -580,6 +580,43 @@ local function buildCore(resource)
         return a:invCanCarry(n, name, amt)
     end
 
+    --- 0.16.0. The largest n in [0, cap] for which fits(n) holds, asking as few
+    --- times as it can: 1, then cap, then halving between them (about ten
+    --- checks for a cap of 1000). Relies on anything smaller than an amount
+    --- that fits also fitting, which is true of every carry check.
+    --- nil, err when the first check could not be answered at all.
+    local function largestFitting(fits, cap)
+        cap = math.floor(tonumber(cap) or 1000)
+        if cap < 1 then return 0 end
+        local one, why = fits(1)
+        if not one then
+            if why == nil or why == Err.NO_SPACE then return 0 end
+            return nil, why
+        end
+        if cap == 1 or fits(cap) then return cap end
+        local lo, hi = 1, cap            -- lo fits, hi does not
+        while hi - lo > 1 do
+            local mid = (lo + hi) // 2
+            if fits(mid) then lo = mid else hi = mid end
+        end
+        return lo
+    end
+
+    --- 0.16.0. How many more of `item` the player can hold, up to `cap`
+    --- (default 1000). Built on the adapter's own invCanCarry, so it follows
+    --- whatever that framework checks: VORP the item's limit and the
+    --- inventory, RSG and QBR weight and slots. Scripts use this instead of
+    --- reading a framework's limit themselves. An adapter with a direct answer
+    --- may provide invMaxCarry(src, item, cap).
+    function Core.Inventory.MaxCarry(src, item, cap)
+        local a, n, err = guardSrc(src)
+        if not a then return nil, err end
+        local name, nameErr = Util.Item(item, 1)
+        if not name then return nil, nameErr end
+        if a.invMaxCarry then return a:invMaxCarry(n, name, cap) end
+        return largestFitting(function(q) return a:invCanCarry(n, name, q) end, cap)
+    end
+
     --- Always capacity-checked first, on every framework without exception.
     --- RSG's own AddItem drops the item on the ground when it does not fit and
     --- returns false; QBR has no capacity check at all. Checking here is what
@@ -722,6 +759,14 @@ local function buildCore(resource)
         local amt = tonumber(qty or 1)
         if not amt or amt <= 0 or amt % 1 ~= 0 then return false, Err.BAD_ARG end
         return a:weaponCanCarry(n, amt, weapon)
+    end
+
+    --- 0.16.0. How many more weapons (of `weapon`, when given) fit, up to `cap`;
+    --- built on weaponCanCarry the same way as Inventory.MaxCarry.
+    function Core.Weapons.MaxCarry(src, weapon, cap)
+        local a, n, err = guardSrc(src)
+        if not a then return nil, err end
+        return largestFitting(function(q) return a:weaponCanCarry(n, q, weapon) end, cap)
     end
 
     -- --- storage ------------------------------------------------------------

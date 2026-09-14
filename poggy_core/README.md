@@ -327,6 +327,7 @@ and `ambulance` are in the default lists.
 
 ```lua
 Core.Inventory.CanCarry(src, item, qty)     --> boolean, reason
+Core.Inventory.MaxCarry(src, item, cap)     --> number, err   (0.16.0)
 Core.Inventory.Add(src, item, qty, meta)    --> ok, err
 Core.Inventory.Remove(src, item, qty, meta) --> ok, err
 Core.Inventory.Count(src, item, meta)       --> number
@@ -792,6 +793,18 @@ event handler.
 | `menu.open` | both, thread | `title`, `items`; `src?` on the server, `subtitle?`, `cursor?`, `closeText?` | `{ value, index, item }` | `false, 'closed'` when the player backs out; on the server also `timeout` (after `Ui.Timeout`) and `not_found` (no such player) |
 | `menu.close` | both | `src?` on the server | `true` | the waiting caller gets `false, 'closed'` |
 | `input.text` | both, thread | `title`; `src?` on the server, `placeholder?`, `default?`, `maxLength?`, `numeric?`, `submitText?` | string, or number when `numeric` | `false, 'closed'` when cancelled |
+
+## Verbs added in 0.16.0
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `inv.maxCarry` | server, thread | `src`, `item`, `cap?` (default 1000) | how many more of the item the player can hold, `0` to `cap` | Found from the adapter's own carry check by halving (about ten checks for a cap of 1000), so it follows the framework's rule: VORP's per-item `limit` together with the inventory, RSG's and QBR's weight and slots. `not_found` for an unknown item |
+| `weapon.maxCarry` | server, thread | `src`, `weapon?`, `cap?` (default 1000) | how many more weapons (of that weapon, when given) fit | the same, from `weapon.canCarry` |
+
+Use these rather than reading a framework's limit yourself. A script that reads
+VORP's `limit` column is right on VORP and silently wrong on RSG and QBR, which
+have no such column and cap by weight instead. A script calling them declares
+`poggy_core_min '0.16.0'`.
 
 ---
 

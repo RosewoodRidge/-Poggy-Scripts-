@@ -242,6 +242,9 @@ local function runTests(src, full)
         end
         check("inv.has", { src = src, item = probe, qty = 1 }, "ok", UNSUPPORTED)
         check("inv.canCarry", { src = src, item = probe, qty = 1 }, "ok", UNSUPPORTED)
+        check("inv.maxCarry", { src = src, item = probe, cap = 50 }, "ok", UNSUPPORTED, function(v)
+            return ("room for %s more %s (cap 50)"):format(tostring(v), probe)
+        end)
     else
         note("skip", "inv.count", "no items to probe with")
     end
@@ -251,6 +254,9 @@ local function runTests(src, full)
     end)
     check("weapon.canCarry", { src = src, qty = 1 }, "ok", UNSUPPORTED, function(v)
         return "room for one more = " .. tostring(v)
+    end)
+    check("weapon.maxCarry", { src = src, cap = 10 }, "ok", UNSUPPORTED, function(v)
+        return ("room for %s more weapon(s) (cap 10)"):format(tostring(v))
     end)
 
     check("inv.imageBase", {}, "ok", UNSUPPORTED, function(v) return tostring(v) end)
@@ -523,6 +529,7 @@ function PoggyCore.SelfTest(src, full, chat)
         ["inv.count"]         = "needs an item in your inventory to probe with (it was empty)",
         ["inv.has"]           = "needs an item in your inventory to probe with (it was empty)",
         ["inv.canCarry"]      = "needs an item in your inventory to probe with (it was empty)",
+        ["inv.maxCarry"]      = "needs an item in your inventory to probe with (it was empty)",
         ["inv.add"]           = "needs an item in your inventory to probe with (it was empty)",
         ["inv.remove"]        = "needs an item in your inventory to probe with (it was empty)",
         ["storage.addItem"]   = "needs an item in your inventory to move in and out (it was empty)",

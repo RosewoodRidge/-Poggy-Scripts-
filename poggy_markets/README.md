@@ -35,7 +35,7 @@ Valentine Gunsmith`, and paste the block it prints into your config.
 
 ## Requirements
 
-- **poggy_core** 0.12.0 or newer
+- **poggy_core** 0.16.0 or newer
 - **oxmysql**
 
 poggy_core drives the framework and draws the notifications. There is no
@@ -86,7 +86,7 @@ root. Most servers only ever touch the first two files.
 
 | File | What it holds |
 |---|---|
-| `config.lua` | Module switches, player shops, tax, permissions, admin |
+| `config.lua` | Module switches, player shops, tax, permissions, admin, interface skin |
 | `stores.lua` | Where the stores are, and what kind each one is |
 | `catalog_default.lua` | What each kind of store buys and sells |
 | `keys.lua` | Control hashes, so you can write `"G"` instead of a number |
@@ -101,6 +101,19 @@ names. The startup warning tells you exactly which ones are wrong.
 
 A store type points at a catalog list, so editing one list changes every store
 of that type at once. Nine general stores, one edit.
+
+### Interface skin
+
+`Config.UI.skin` in `config.lua` sets the look of the shop, the store manager
+and the exchange. `"default"` is the dark theme. `"leather"` is stitched
+leather and parchment, in the style of the game's own satchel.
+
+A skin is a stylesheet and its images in `ui/css`: `skin-<name>.css` and
+`skin-<name>-*.png`. The manifest picks up any file named that way. To make
+your own, copy `skin-leather.css` under a new name, change the image names in
+it, and set `skin` to that name. Every image is optional. A missing one leaves
+that piece in plain colour, so nothing breaks while the art is unfinished. The
+image sizes are listed at the top of `skin-leather.css`.
 
 ### Adding a store
 
@@ -279,5 +292,6 @@ A few decisions that are easier to read here than to infer from the code:
 
 ## Changelog
 
+- **1.3.0** — Interface skins. `Config.UI.skin = "leather"` restyles the shop, store manager, exchange and naming prompt: a stitched leather frame and header flap, satchel-style item slots with the stock count in the corner, parchment tooltips and a pocket of coins and letters under the shop. `"default"` (the shipped setting) looks exactly as before. A server can add its own skin as `ui/css/skin-<name>.css` without touching any code. The Max button now offers what you can actually buy: the store's stock, capped by how many more you can carry, as poggy_core reports it for your framework (VORP's item limit, RSG's and QBR's weight and slots). It used to offer 999 at every unlimited store. Needs poggy_core 0.16.0.
 - **1.2.2** — Buying a weapon on RSG works: poggy_core's RSG adapter now maps the catalog's `WEAPON_...` names to rsg-core's lower-case weapon items (needs poggy_core 0.14.0). When a hand-over is refused the console names the item and the reason, and the player is told "not available on this server" for an item the framework does not know, instead of a vague "could not be completed". The start-up item check now covers weapons on frameworks that list them as items (RSG), and shelving a gun from your loadout matches its name regardless of case.
 - **1.2.1** — Runs on frameworks without an `items` table (RSG): the shop deed row in `sql/install.sql` moved to the end of the file and is skipped there instead of stopping the install (which left `poggy_markets_prices` and the other tables uncreated); the start-up check now also names the deed item when your framework's item list lacks it.

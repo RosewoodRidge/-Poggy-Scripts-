@@ -71,6 +71,10 @@ PoggyCore.Verbs = {
     ["inv.has"]         = { side = "server", yields = true, args = {"src", "item"}, optional = {"qty"},                    returns = "boolean" },
     ["inv.get"]         = { side = "server", yields = true, args = {"src"},                                               returns = "array of items" },
     ["inv.canCarry"]    = { side = "server", yields = true, args = {"src", "item"}, optional = {"qty"},                    returns = "boolean" },
+    -- 0.16.0. How many more of `item` the player can hold, up to `cap` (default
+    -- 1000). Found from the framework's own carry check, so it follows VORP's
+    -- per-item limit and RSG's and QBR's weight and slots alike.
+    ["inv.maxCarry"]    = { side = "server", yields = true, args = {"src", "item"}, optional = {"cap"},                    returns = "number" },
     ["inv.setMeta"]     = { side = "server", yields = true, args = {"src", "itemId", "meta"}, optional = {"amount"},       returns = "true" },
     -- 0.11.0. The item registry: every item the framework knows, cached for
     -- PoggyCoreConfig.ItemCacheSeconds. search matches name or label.
@@ -93,6 +97,8 @@ PoggyCore.Verbs = {
     ["weapon.get"]      = { side = "server", yields = true, args = {"src"},                                               returns = "array of weapons" },
     -- 0.11.0. Like inv.canCarry, for weapons: false comes with err 'no_space'.
     ["weapon.canCarry"] = { side = "server", yields = true, args = {"src"}, optional = {"qty", "weapon"},                returns = "boolean" },
+    -- 0.16.0. Like inv.maxCarry, for weapons (of `weapon`, when given).
+    ["weapon.maxCarry"] = { side = "server", yields = true, args = {"src"}, optional = {"weapon", "cap"},               returns = "number" },
 
     -- ----------------------------------------------------------- database --
     -- 0.12.0. Runs the CALLING resource's sql/install.sql, then any pending
