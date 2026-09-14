@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_util'
 author 'Poggy'
 description 'Optional server utilities: AOP, armor, clock, duty count, music zones, object removal, unstuck, weapon jam, help menu, stipend.'
-version '2.0.4'
+version '2.0.5'
 poggy_core_min '0.13.0'
 
 dependencies {
