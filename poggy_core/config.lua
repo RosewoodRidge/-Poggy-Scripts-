@@ -25,6 +25,23 @@ PoggyCoreConfig.DetectionOrder = { "vorp", "rsg", "qbr", "redem", "rpx" }
 PoggyCoreConfig.FrameworkTimeout = 30000
 
 -- ---------------------------------------------------------------------------
+-- Restarting poggy_core (0.15.0)
+-- ---------------------------------------------------------------------------
+
+--- Every Poggy script depends on poggy_core, so `restart poggy_core` stops all
+--- of them and FXServer does not start them again. With this on, poggy_core
+--- starts them itself once it is back (`ensure <script>`, through the same
+--- `add_ace resource.poggy_core command.ensure allow` line the updater uses),
+--- and prints one line naming them.
+---
+--- It only ever starts scripts that were running when poggy_core stopped: it
+--- keeps a note of them in the convar `poggy_core_last_stop`, which a server
+--- restart clears, so on a fresh boot (when every script is simply not started
+--- yet) nothing is touched and server.cfg starts them in its own order. A script
+--- you stopped yourself is not started. `poggycore dependents` lists them.
+PoggyCoreConfig.RestartDependents = true
+
+-- ---------------------------------------------------------------------------
 -- Storage
 -- ---------------------------------------------------------------------------
 
@@ -168,6 +185,12 @@ PoggyCoreConfig.Updates = {
     -- Updates installed while players are online: files are written at once, but
     -- the restarts wait until the server is empty. At start they happen at once.
     RestartWhenEmptyOnly = true,
+
+    -- After the start-up check, list the published Poggy scripts this server
+    -- does not have, once per boot: name and store link, grey, at most ten
+    -- rows. Nothing is printed when every published script is installed.
+    -- `poggycore catalog` prints it on demand whatever this says.
+    ShowCatalog          = true,
 }
 
 -- ---------------------------------------------------------------------------

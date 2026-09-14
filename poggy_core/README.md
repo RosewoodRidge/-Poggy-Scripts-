@@ -1,19 +1,24 @@
 # poggy_core
 
 One documented framework API for RedM. Write a script once; run it on VORP, RSG
-Core, QBCore RedM, RedEM:RP or RPX.
+Core or QBCore RedM.
 
-**Version 0.14.1.** The VORP adapter is complete and every Poggy resource runs
+**Version 0.15.0.** The VORP adapter is complete and every Poggy resource runs
 on it through `Poggy(verb, payload)`; see [Verbs added in 0.11.0](#verbs-added-in-0110).
 Scripts are known by their `poggy_id`, so a server owner may rename any
-script's folder; see [Script identity](#script-identity).
+script's folder; see [Script identity](#script-identity). `restart poggy_core`
+brings the scripts that stopped with it back; see
+[Restarting poggy_core](#restarting-poggy_core-0150). After the start-up update
+check it lists, once, the Poggy scripts a server does not have; see
+[The catalogue](#the-catalogue-0150).
 poggy_core is a hard dependency of every script, and it no longer needs
 poggy_util, vorp_menu or vorp_inputs for anything: it draws notifications,
 menus and text boxes itself; see [Menu and input](#menu-and-input-0140). The RSG
 adapter (rsg-core 2.3.13 / rsg-inventory 2.8.5) is proven in game; see
 [RSG](#rsg). The QBR adapter is written against qbr-core 1.0.3 / qbr-inventory
-1.0.1 and **not yet verified in game**; see [QBR](#qbr). RedEM:RP and RPX are
-detected but fall back to standalone, which refuses every framework call
+1.0.1 and **proven in game on 14 September 2026** (`poggycore selftest full` passes); see [QBR](#qbr). RedEM:RP and RPX are
+detected but not supported, and no adapter is planned for them: on those
+poggy_core falls back to standalone, which refuses every framework call
 honestly rather than pretending to succeed, and reports
 `Core.HasAdapter() == false`. See [What is not built yet](#what-is-not-built-yet).
 
@@ -49,15 +54,17 @@ ensure vorp_core
 ensure vorp_inventory
 ensure poggy_core
 
-# lets poggy_core restart the Poggy scripts it has just updated
+# lets poggy_core restart the Poggy scripts it has just updated, and bring
+# them back after `restart poggy_core`
 add_ace resource.poggy_core command.refresh allow
 add_ace resource.poggy_core command.ensure allow
 ```
 
 No database import. Automatic updates are on from the moment you install (see
-Updates); the two `add_ace` lines let poggy_core restart what it updated, and it
-prints them in the console if they are missing. Every value in `config.lua` has a
-working default.
+Updates); the two `add_ace` lines let poggy_core restart what it updated and
+start the scripts that stop with it (see
+[Restarting poggy_core](#restarting-poggy_core-0150)), and it prints them in the
+console if they are missing. Every value in `config.lua` has a working default.
 
 `lua54 'yes'` is set. Any resource that consumes poggy_core should set it too.
 
@@ -92,6 +99,56 @@ What uses the id rather than the folder: the updater (see [Updates](#updates)),
 the prefix of namespaced container ids (`pg_<poggy_id>_<id>`), and the
 `poggy_migrations` table. `poggycore scripts` lists every registered script
 with its folder and version.
+
+---
+
+## Restarting poggy_core (0.15.0)
+
+Every Poggy script declares `dependency 'poggy_core'`, so `restart poggy_core`
+stops all of them, and FXServer does not start them again. poggy_core does: a
+couple of seconds after it is back it runs `ensure <script>` for each one that
+stopped with it and prints one line:
+
+```
+[Poggy Core] restarted 3 Poggy script(s) that stopped with it: poggy_fishing, poggy_markets, poggy_scene
+```
+
+Nothing is printed when nothing stopped with it. A script that does not come
+back is named in yellow with the `ensure` to run. The `ensure` goes through
+the `add_ace resource.poggy_core command.ensure allow` line from
+[Install](#install); without it poggy_core falls back to `StartResource`.
+
+**Which scripts.** A dependent is any resource whose `fxmanifest.lua` declares
+a `poggy_id`, or lists poggy_core under `dependency` / `dependencies`.
+`poggycore dependents` lists them with their state.
+
+**Restart or fresh boot.** On a fresh server boot every Poggy script is
+"stopped" too — `server.cfg` has just not reached them yet, and it will start
+them in its own order — so poggy_core must not touch them then. The rule:
+
+1. While it runs, poggy_core keeps a record of every dependent it has seen
+   started (each `onResourceStart`, plus whatever was already running when it
+   came up). A script you stop yourself leaves the record; one that stops in the
+   fifteen seconds before poggy_core stops is kept, because it stopped with it.
+2. The record lives in the convar `poggy_core_last_stop`, written on every
+   change and once more when poggy_core stops. A convar set at run time exists
+   in the server process only, so a server restart clears it: on a fresh boot
+   there is no record and nothing is started.
+3. When poggy_core starts and finds a record, it was restarted on a running
+   server. Every recorded script that is still a dependent and is `stopped` is
+   ensured; a script the server never started is not in the record and is left
+   alone. The record is then consumed and this run starts its own. As a second
+   check, a record found in the first ten seconds of server uptime is ignored.
+
+A poggy_core older than 0.15.0 kept no record, so the first
+`refresh` + `ensure poggy_core` after upgrading finds none: when the server has
+been up for more than five minutes and dependents are stopped, one grey line
+names them with the `ensure` commands to run. Every restart after that has a
+record.
+
+`PoggyCoreConfig.RestartDependents = false` turns the restart off; the record is
+still kept, so the switch works without a server restart. This is not a file
+write, so it also runs on a development server.
 
 ---
 
@@ -847,6 +904,39 @@ downloads, compares, writes, backs up or deletes one, in any resource. A feed
 entry for one is skipped with a single grey `ignored .fxap in feed` line, and
 `PoggyWriteOwnFile` refuses any path ending in `.fxap`.
 
+### The catalogue (0.15.0)
+
+The feed's `index.json` lists every published Poggy script. After the start-up
+check, poggy_core compares that list with the scripts on this server (an id is
+installed when a folder registered it or declares it in its manifest, the same
+lookup the updater uses) and prints the rest once, as one grey and blue block:
+
+```
+[Poggy Core] Other Poggy scripts (not installed here):
+[Poggy Core]    Poggy Markets                https://rosewoodridge.xyz/store/poggy-markets
+[Poggy Core]    Poggy Fishing                https://rosewoodridge.xyz/store/poggy-fishing
+[Poggy Core]    Poggy Admin Blips (free)     https://rosewoodridge.xyz/store/poggy-admin-blips
+[Poggy Core]    … see https://rosewoodridge.xyz/store
+```
+
+It is a notice, not an advert: never red or yellow, at most ten rows and then
+`and N more`, nothing at all when every published script is installed, once per
+boot, on every server including a development server.
+`PoggyCoreConfig.Updates.ShowCatalog = false` turns it off; `poggycore catalog`
+prints it on demand, reading the feed afresh.
+
+**Feed fields.** Each entry in `index.json` (`resources[<poggy_id>]`) carries
+`version` and `files`; from 0.15.0 the updater also reads three optional fields
+a publish may add, each with a fallback:
+
+| Field | Meaning | When missing |
+|---|---|---|
+| `label` | the display name, e.g. `"Poggy Markets"` | the id is shown |
+| `store` | the absolute product page, e.g. `https://rosewoodridge.xyz/store/poggy-markets` (must start with `http`) | the store front, `https://rosewoodridge.xyz/store` |
+| `free` | `true` for a free script: `(free)` is shown after the name | not free |
+
+Rows are sorted by label.
+
 ## Database (0.12.0)
 
 Every Poggy script with tables keeps them in exactly one file, `sql/install.sql`.
@@ -942,6 +1032,8 @@ bridge adds `no_core` and `core_too_old` (see [Minimum poggy_core](#minimum-pogg
 /poggycore caps     the full capability map
 /poggycore scripts  registered Poggy scripts: poggy_id, folder (when different), version
 /poggycore usables  usable items registered through poggy_core: item → script
+/poggycore dependents  resources that stop with poggy_core, their state, and the restart record
+/poggycore catalog  published Poggy scripts this server does not have, with store links
 ```
 
 Admin-gated in game; available unrestricted from the server console. The smoke
@@ -957,8 +1049,8 @@ Honest list. Phase 0 was scoped to everything except menus.
 |---|---|
 | `Core.Menu.Open` / `Core.Input` | **Built in 0.14.0** (`menu.open`, `menu.close`, `input.text`); a list menu and a text box. Sliders, grids, tick boxes and item images from `vorp_menu` are not abstracted; `Core.Menu.Native()` still hands over the framework's own menu for those. |
 | RSG adapter | **Proven in game (14 September 2026).** `poggycore selftest full` passes 64/64 on the RSG test server (rsg-core 2.3.13 / rsg-inventory 2.8.5); every Poggy script starts and its menus, shops, storage and auctions work there. |
-| QBR adapter | **Written, untested in game** (0.14.1, against qbr-core 1.0.3 / qbr-inventory 1.0.1, read from source). Passes a lupa harness against a fake qbr-core; nothing has run on the QBR test server yet. See [QBR](#qbr). |
-| RedEM, RPX adapters | **Not written.** Detection knows about them, and `Core.HasAdapter()` returns false so a consumer can keep its own path; without an adapter the core falls back to standalone and refuses framework calls. |
+| QBR adapter | **Proven in game (14 September 2026).** 0.14.1 against qbr-core 1.0.3 / qbr-inventory 1.0.1; `poggycore selftest full` passes on the QBR test server and every Poggy script runs there. |
+| RedEM:RP, RPX | **Not supported, not planned.** Detection still names them so `Core.HasAdapter()` is false and every framework verb refuses honestly. |
 | `Core.Job.SetDuty` on VORP | Unsupported. `vorp_core` has no duty concept and `vorp_police` exposes no setter. |
 | `money.bank` on VORP | Unsupported. `vorp_core` genuinely has no bank. |
 | Client prompt natives | Written but **not yet verified in game.** Nothing consumes `Core.Prompt` yet, so the risk is contained; test before relying on it. |

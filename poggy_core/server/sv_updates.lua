@@ -83,6 +83,14 @@
     touching anything, with one yellow line per run. check and nettest still
     work, the start-up check still lists what is newer, and the banner says
     "dev server: updates read-only". See Updates.IsDevServer.
+
+    Catalogue (0.15.0). After the start-up check, the scripts the feed's
+    index.json lists that are not on this server (no folder registered the id
+    or declares it) are printed once as one grey and blue block, name and store
+    link, at most ten rows then "and N more". An index entry's optional `label`,
+    `store` and `free` fields feed it; without them the id and the store front
+    stand in. Updates.ShowCatalog = false turns it off; `poggycore catalog`
+    prints it on demand. See Updates.Catalog.
 ]]
 
 PoggyCore = PoggyCore or {}
@@ -433,6 +441,12 @@ local function feedSource(label, fetchPath, explainFn)
         for name in pairs(index.resources) do names[#names + 1] = name end
         table.sort(names)
         return names
+    end
+
+    --- Every index entry by id, for the catalogue: version, and the optional
+    --- label, store and free fields a newer publish may add.
+    function src.entries()
+        return index.resources
     end
 
     function src.find(resource)
@@ -989,12 +1003,33 @@ end
 -- The command
 -- ---------------------------------------------------------------------------
 
+--- The source a run reads from, chosen from the flags and the config. Returns
+--- the source (not loaded yet) and the line that names it, or nil plus a reason.
+local function chooseSource(resource, opts, all)
+    local c = cfg()
+    local kind = opts.repo and "repo" or opts.url and "website" or opts.feed and "github" or (c.Source or "github")
+
+    if kind == "repo" then
+        local repo = opts.repo or (not all and (c.Repos or {})[resource]) or c.SourceRepo
+        if not repo then return nil, "^1❌ no source repository set. Pass repo=Owner/Name.^7" end
+        local source = githubSource(repo, opts.branch or c.SourceBranch or "main")
+        return source, ("source repository %s (token: %s)"):format(source.label, token() and "set" or "none")
+    elseif kind == "website" then
+        local url = opts.url or c.Url
+        if not url or url == "" then return nil, "^1❌ no update address set. Add PoggyCoreConfig.Updates.Url.^7" end
+        local source = websiteSource(url)
+        return source, source.label
+    end
+    local repo = opts.feed or c.Repo
+    if not repo or repo == "" then return nil, "^1❌ no update repository set. Add PoggyCoreConfig.Updates.Repo.^7" end
+    local source = githubFeedSource(repo, opts.branch or c.Branch or "main")
+    return source, ("%s (%s)"):format(source.label, token() and "token set" or "no token: public repo")
+end
+
 --- The body of a run. Returns { counts = {status = n}, updated = {folders},
 --- newDuplicates = n }, or nil plus a reason when nothing could be checked.
 --- updated holds local FOLDER names: they are what gets restarted.
 local function runAll(resource, mode, opts, say)
-    local c = cfg()
-
     if not resource or resource == "" then
         say("usage: poggycore update <resource|all> [check|stage|apply] [force] [feed=Owner/Name] [url=...] [repo=Owner/Name] [branch=main]")
         return nil, "usage"
@@ -1005,43 +1040,23 @@ local function runAll(resource, mode, opts, say)
     local I = PoggyCore.Identity
     if I then I.Refresh() end
     local all = resource == "all"
-    local source
-    local kind = opts.repo and "repo" or opts.url and "website" or opts.feed and "github" or (c.Source or "github")
     local what = ("update %s %s"):format(mode, resource)
 
-    if kind == "repo" then
-        local repo = opts.repo or (not all and (c.Repos or {})[resource]) or c.SourceRepo
-        if not repo then
-            say("^1❌ no source repository set. Pass repo=Owner/Name.^7")
-            return nil, "no repo"
-        end
-        source = githubSource(repo, opts.branch or c.SourceBranch or "main")
-        say(("^9%s · source repository %s (token: %s)^7"):format(
-            what, source.label, token() and "set" or "none"))
-    elseif kind == "website" then
-        local url = opts.url or c.Url
-        if not url or url == "" then
-            say("^1❌ no update address set. Add PoggyCoreConfig.Updates.Url.^7")
-            return nil, "no url"
-        end
-        source = websiteSource(url)
-        say(("^9%s · %s^7"):format(what, source.label))
-    else
-        local repo = opts.feed or c.Repo
-        if not repo or repo == "" then
-            say("^1❌ no update repository set. Add PoggyCoreConfig.Updates.Repo.^7")
-            return nil, "no repo"
-        end
-        source = githubFeedSource(repo, opts.branch or c.Branch or "main")
-        say(("^9%s · %s (%s)^7"):format(what, source.label,
-            token() and "token set" or "no token: public repo"))
+    local source, described = chooseSource(resource, opts, all)
+    if not source then
+        say(described)
+        return nil, (described:gsub("%^%d", ""))
     end
+    say(("^9%s · %s^7"):format(what, described))
 
     local ok, err = source.load()
     if not ok then
         say("^1❌ " .. tostring(err) .. "^7")
         return nil, tostring(err)
     end
+    -- The catalogue reads the last feed that loaded (a source repository has
+    -- no index, so it never replaces a feed here).
+    if source.entries then Updates.lastSource = source end
     if source.truncated then
         say("^3⚠️  GitHub truncated the listing; very large repositories may miss files.^7")
     end
@@ -1135,6 +1150,86 @@ function Updates.Run(resource, mode, opts, say)
         return nil, tostring(result)
     end
     return result, why
+end
+
+-- ---------------------------------------------------------------------------
+-- Catalogue: published Poggy scripts this server does not have (0.15.0)
+--
+-- The feed's index.json lists every published script. After the start-up
+-- check, the ids it lists that resolve to no folder here (the same lookup the
+-- updater uses: the registry, then the manifests) are printed once, as one
+-- grey and blue block. An index entry may carry `label` (a display name),
+-- `store` (its product page) and `free = true`; each is optional, so the id
+-- and the store front stand in. Never red or yellow: it is a notice.
+-- ---------------------------------------------------------------------------
+
+local STORE_FRONT = "https://rosewoodridge.xyz/store"
+local CATALOG_ROWS = 10
+
+Updates.catalogShown = false
+
+--- Print the catalogue through say(). opts.force prints it again (the
+--- command) and reads the feed afresh. Returns the missing entries
+--- ({ id, label, store, free }, sorted by label), or nil when nothing was
+--- printed because it was off, already shown, or the feed is not loaded.
+function Updates.Catalog(say, opts)
+    opts = opts or {}
+    local c = cfg()
+    if not opts.force and (c.ShowCatalog == false or Updates.catalogShown) then return nil end
+
+    local source = Updates.lastSource
+    if opts.force then
+        local chosen, described = chooseSource("all", {}, true)
+        if not chosen then
+            say(described)
+            return nil
+        end
+        local ok, err = chosen.load()
+        if not ok then
+            say("^1❌ " .. tostring(err) .. "^7")
+            return nil
+        end
+        if chosen.entries then Updates.lastSource = chosen end
+        source = chosen
+    end
+    if not source or not source.entries then return nil end
+
+    local I = PoggyCore.Identity
+    if I then I.Refresh() end
+
+    local missing = {}
+    for id, entry in pairs(source.entries() or {}) do
+        -- An id that errors during lookup is not reported as missing.
+        local okLook, folder, problem = pcall(localFolder, id)
+        if okLook and not folder and problem ~= "duplicate" and type(entry) == "table" then
+            local label = (type(entry.label) == "string" and entry.label:match("%S")) and entry.label or id
+            local store = (type(entry.store) == "string" and entry.store:match("^https?://")) and entry.store or STORE_FRONT
+            missing[#missing + 1] = { id = id, label = label, store = store, free = entry.free == true }
+        end
+    end
+    Updates.catalogShown = true
+
+    if #missing == 0 then
+        if opts.force then say("^9every published Poggy script is installed on this server^7") end
+        return missing
+    end
+    table.sort(missing, function(a, b)
+        local la, lb = a.label:lower(), b.label:lower()
+        if la ~= lb then return la < lb end
+        return a.id < b.id
+    end)
+
+    say("^5Other Poggy scripts^7 ^9(not installed here):^7")
+    local shown = math.min(#missing, CATALOG_ROWS)
+    for i = 1, shown do
+        local m = missing[i]
+        say(("   ^9%-28s^7 ^5%s^7"):format(m.label .. (m.free and " (free)" or ""), m.store))
+    end
+    if #missing > shown then
+        say(("   ^9and %d more^7"):format(#missing - shown))
+    end
+    say(("   ^9… see ^5%s^7"):format(STORE_FRONT))
+    return missing
 end
 
 -- ---------------------------------------------------------------------------
@@ -1352,6 +1447,11 @@ function Updates.Auto(reason)
         if not result or (n.available or 0) + (n.updated or 0) + (n.error or 0) + (n.skipped or 0) + newDuplicates > 0 then
             for _, msg in ipairs(held) do say(msg) end
         end
+    end
+    -- Once per boot, after the start-up check: the published scripts this
+    -- server does not have. Plain lines, no run label: it is not part of the run.
+    if reason == "startup" and result then
+        pcall(Updates.Catalog, function(msg) print(PREFIX .. msg) end)
     end
     if not result or not apply or #result.updated == 0 then return result end
 

@@ -11,6 +11,8 @@
     /poggycore selftest [full]  exercise every verb and report pass/fail
     /poggycore scripts registered Poggy scripts: poggy_id, folder (when different), version
     /poggycore usables usable items registered through poggy_core: item -> script
+    /poggycore dependents  resources that stop with poggy_core, with their state (sv_dependents.lua)
+    /poggycore catalog     published Poggy scripts this server does not have (sv_updates.lua)
     /poggycore update <resource|all> [check|stage|apply|writetest] [force]
                        GitHub updates, gated on the fxmanifest version (sv_updates.lua)
 
@@ -397,6 +399,17 @@ RegisterCommand("poggycore", function(src, args)
         end)
     elseif sub == "scripts" then
         CreateThread(function() scripts(src) end)
+    elseif sub == "dependents" then
+        if not PoggyCore.Dependents then
+            reply(src, "the dependents list is not loaded.")
+            return
+        end
+        CreateThread(function() PoggyCore.Dependents.Command(function(msg) reply(src, msg) end) end)
+    elseif sub == "catalog" or sub == "catalogue" then
+        -- Reads the feed when no run has loaded it yet, so it needs a thread.
+        CreateThread(function()
+            PoggyCore.Updates.Catalog(function(msg) reply(src, msg) end, { force = true })
+        end)
     elseif sub == "usables" then
         CreateThread(function() usables(src) end)
     elseif sub == "detect" then
