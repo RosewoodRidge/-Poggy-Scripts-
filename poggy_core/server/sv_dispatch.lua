@@ -256,48 +256,7 @@ end
 H["perms.group"]   = function(C, p) return ret(C.Perms.GetGroup(p.src)) end
 H["perms.isAdmin"] = function(C, p) return true, C.Perms.IsAdmin(p.src) and true or false, nil end
 
-H["perms.groups"] = function(C, p)
-    local seen, out = {}, {}
-    local function add(g)
-        g = tostring(g or ""):lower()
-        if g ~= "" and not seen[g] then
-            seen[g] = true
-            out[#out + 1] = g
-        end
-    end
-
-    add(C.Perms.GetGroup(p.src))
-
-    local ch = C.GetChar(p.src)
-    if ch then add(ch.group) end
-
-    -- The framework's own user object can carry a different group than the
-    -- character record. Scripts used to reach for Core.Native() to read it,
-    -- which meant every one of them handling a raw framework object. It is
-    -- cheaper and safer to do it once, here.
-    -- Indexing the field is itself guarded: on QBR the core object is an
-    -- exports proxy, and reading a name it does not export throws
-    -- ("No such export getUser in resource qbr-core") rather than yielding nil.
-    local native = C.Native()
-    local okIdx, getUser = pcall(function() return native and native.getUser end)
-    if okIdx and PoggyCore.IsCallable(getUser) then
-        local ok, u = pcall(getUser, p.src)
-        if ok and u then add(u.getGroup) end
-    end
-
-    -- An adapter that can list every group a player holds (RSG: the ACE
-    -- permission levels, where an admin also holds mod and helper) adds them
-    -- all; the first is the one perms.group already returned.
-    local a = PoggyCore.State and PoggyCore.State.adapter
-    if a and a.permGroups then
-        local ok, groups = pcall(a.permGroups, a, p.src)
-        if ok and type(groups) == "table" then
-            for _, g in ipairs(groups) do add(g) end
-        end
-    end
-
-    return true, out, nil
-end
+H["perms.groups"] = function(C, p) return true, C.Perms.Groups(p.src), nil end
 
 -- core -----------------------------------------------------------------------
 

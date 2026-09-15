@@ -846,10 +846,43 @@ local function buildCore(resource)
         return a:permGroup(n)
     end
 
+    --- Every group poggy_core can see for a player, lower-cased and deduped:
+    --- the character's group, the framework's own user object (VORP keeps
+    --- admin on the USER, not the character) and, where the adapter can
+    --- list them, every permission level held (RSG's ACE levels).
+    function Core.Perms.Groups(src)
+        local seen, out = {}, {}
+        local function add(g)
+            g = tostring(g or ""):lower()
+            if g ~= "" and not seen[g] then seen[g] = true; out[#out + 1] = g end
+        end
+        add(Core.Perms.GetGroup(src))
+        local ch = Core.GetChar(src)
+        if ch then add(ch.group) end
+        local native = Core.Native()
+        local okIdx, getUser = pcall(function() return native and native.getUser end)
+        if okIdx and PoggyCore.IsCallable(getUser) then
+            local ok, u = pcall(getUser, src)
+            if ok and u then add(u.getGroup) end
+        end
+        local a = State.adapter
+        if a and a.permGroups then
+            local ok, groups = pcall(a.permGroups, a, src)
+            if ok and type(groups) == "table" then for _, g in ipairs(groups) do add(g) end end
+        end
+        return out
+    end
+
+    local ADMIN_GROUPS = { admin = true, superadmin = true, god = true, owner = true, headadmin = true, developer = true }
+
+    --- 0.17.1: an admin on the framework's USER record counts, not only one
+    --- on the character. On VORP that is where admins usually are, so before
+    --- this a server owner was refused by their own admin commands.
     function Core.Perms.IsAdmin(src)
-        local group = tostring(Core.Perms.GetGroup(src)):lower()
-        return group == "admin" or group == "superadmin" or group == "god"
-            or group == "owner" or group == "headadmin" or group == "developer"
+        for _, g in ipairs(Core.Perms.Groups(src)) do
+            if ADMIN_GROUPS[g] then return true end
+        end
+        return false
     end
 
     -- --- menus and input (0.14.0) -------------------------------------------

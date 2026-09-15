@@ -3,7 +3,7 @@
 One documented framework API for RedM. Write a script once; run it on VORP, RSG
 Core or QBCore RedM.
 
-**Version 0.15.0.** The VORP adapter is complete and every Poggy resource runs
+**Version 0.17.1.** Admins on the framework's user record now pass `perms.isAdmin`; see [Fixed in 0.17.1](#fixed-in-0171-admins-on-the-user-record). The VORP adapter is complete and every Poggy resource runs
 on it through `Poggy(verb, payload)`; see [Verbs added in 0.11.0](#verbs-added-in-0110).
 Scripts are known by their `poggy_id`, so a server owner may rename any
 script's folder; see [Script identity](#script-identity). `restart poggy_core`
@@ -805,6 +805,17 @@ Use these rather than reading a framework's limit yourself. A script that reads
 VORP's `limit` column is right on VORP and silently wrong on RSG and QBR, which
 have no such column and cap by weight instead. A script calling them declares
 `poggy_core_min '0.16.0'`.
+
+## Fixed in 0.17.1: admins on the user record
+
+`perms.isAdmin` used to read only the character's group. VORP keeps admin on
+the **user** record, so a server owner who was plainly an admin was refused
+by their own admin commands (Balloon's spawn command, Supply Drops' admin
+commands, and any script that asks `perms.isAdmin`). It now checks every
+group poggy_core can see: the character's, the framework's user object, and
+the adapter's permission levels (RSG's ACE levels). The recognised admin
+groups are unchanged: admin, superadmin, god, owner, headadmin, developer.
+`perms.groups` and `Core.Perms.Groups(src)` return that same list.
 
 ## Verbs added in 0.17.0: providers
 
