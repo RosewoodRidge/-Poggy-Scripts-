@@ -11,6 +11,19 @@ Config.BaitPropDefault  = "p_lgoc_spinner_v4"
 
 Config.HideUndiscoveredFish = true  -- hide fish the player hasn't caught yet from the fishing UI (requires poggy_fishing_journal)
 
+---------------------------------------------------------------------------
+--  INTERFACE
+---------------------------------------------------------------------------
+Config.UI = {
+    -- The look of the fishing HUD and the bait menu.
+    --   "default"  the built-in dark water theme
+    --   "brass"    riveted brass and gunmetal, in the style of the reel
+    --              plate in the corner (ui/skin-brass.css)
+    -- Any other name loads ui/skin-<name>.css, so a skin of your own is
+    -- a copy of skin-brass.css under a new name, plus its images.
+    skin = "brass",
+}
+
 Config.BiteTimeMin = 3
 Config.BiteTimeMax = 20
 
@@ -93,11 +106,17 @@ Config.ProRod = {
     SplashLayers      = 2,      -- layers per ambient splash
     SplashScaleBase   = 0.5,    -- base scale for ambient splashes
 
-    -- Forward jerk: random impulses that shove the pull bar left/right
+    -- Forward pull: while the fish pulls "forward" the return force is off and
+    -- the fish shoves the bar steadily toward one side (picked when the
+    -- forward phase starts), so the player has to hold it at centre.  Keep
+    -- this below PullReturnForce: holding centre is harder than holding an
+    -- edge, so forward pushes more gently than left and right pull back.
+    ForwardPushForce  = 8,      -- steady shove off centre (units/sec)
+    -- Forward jerk: random nudges that glide the pull bar left/right
     -- while the fish is pulling "forward" to keep the player on their toes.
     ForwardJerkMin    = 0.8,    -- min seconds between jerks
     ForwardJerkMax    = 2.0,    -- max seconds between jerks
-    ForwardJerkForce  = 20,     -- impulse force added to pullPos (±)
+    ForwardJerkForce  = 6,      -- how far each jerk moves the bar, as a quick glide (±)
 
     -- Starting progress (you begin with some line already reeled in)
     StartProgress     = 0,

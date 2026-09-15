@@ -178,8 +178,23 @@ All mechanics are tunable in `config.lua`:
 | `Config.Sounds` | SFX files and volumes |
 | `Config.MusicTracks` | Available music tracks |
 | `Config.Season` | Percentage of fish active per season cycle |
+| `Config.UI` | Interface skin |
 
 Zone definitions and fish-per-zone assignments are built into the script and are not user-editable; the Water Zones section above lists what is included. Everything owners tune lives in `config.lua`.
+
+### Interface skin
+
+`Config.UI.skin` in `config.lua` sets the look of the fishing HUD and the bait
+menu. `"default"` is the dark water theme. `"brass"` is riveted brass and
+gunmetal, in the style of the reel plate in the corner of the HUD.
+
+A skin is a stylesheet and its images in `ui`: `skin-<name>.css` and
+`skin-<name>-*.png`. The manifest picks up any file named that way. To make
+your own, copy `skin-brass.css` under a new name, change the image names in
+it, and set `skin` to that name. Every image is optional. A missing one leaves
+that piece in plain colour, so nothing breaks while the art is unfinished. The
+image sizes are listed at the top of `skin-brass.css`, and the prompts that
+make them are in `docs/ui-skin-brass-prompts.md`.
 
 ## File Structure
 
@@ -199,8 +214,10 @@ poggy_fishing/
 └── ui/
     ├── index.html           # NUI overlay structure
     ├── style.css            # Styling & animations
-    ├── app.js               # NUI logic (skillcheck, pull bar, HUD)
-    ├── img/                 # Fishing item icons
+    ├── app.js               # NUI logic (fish window, pull bar, HUD)
+    ├── skin.js              # Applies Config.UI.skin
+    ├── skin-brass.css       # The brass skin (its images sit beside it as skin-brass-*.png)
+    ├── img/                 # Reel overlay art
     └── sfx/                 # Sound effects & music (mp3)
 ```
 
@@ -210,4 +227,5 @@ Set `Config.Debug = true` for console logging. Set `Config.DebugState = true` to
 
 ## Changelog
 
+- **1.3.0** — The fish window now means something: a hook hangs from the surface on a line, the fish swims in from the right as interest rises and backs off as it falls, the line reddens and jitters with tension, and on the bite the fish lunges onto the hook and the line jerks before the fight starts. There is no fish until the line is in the water; it then swims in over the random time until the bite (with the Pro Rod it reaches the hook exactly as the fish bites; with the normal rod it arrives where the interest game takes over). Every fill bar (progress, interest, tension, pull tension) carries its water texture across the whole bar and loops without a jump; the wave along the top of the HUD loops cleanly too. The LEFT / FORWARD / RIGHT labels stay sharp while the pull needle moves. Pro Rod: when the fish pulls FORWARD it now shoves the bar steadily off centre (`ForwardPushForce`) and the jerks in `ForwardJerk*` actually fire; before, the push and the return force cancelled out and the bar just jittered at centre. Interface skins: `Config.UI.skin = "brass"` restyles the HUD and bait menu in riveted brass and gunmetal to match the reel plate; `"default"` looks as before. A server can add its own skin as `ui/skin-<name>.css` without touching any code.
 - **1.2.1** — Runs on frameworks without an `items` table (RSG): the item rows in `sql/install.sql` are skipped there instead of stopping the install, and the script prints one yellow line at start naming the items your framework's item list lacks.
