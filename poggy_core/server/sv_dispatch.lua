@@ -69,11 +69,43 @@ H["players.onDuty"] = function(C, p) return ret(C.GetPlayersOnDuty(p.job, p.minG
 
 -- money ----------------------------------------------------------------------
 
-H["money.get"]      = function(C, p) return ret(C.Money.Get(p.src, p.currency)) end
+H["money.get"]      = function(C, p) return ret(C.Money.Get(p.src, p.currency, p.raw)) end
 H["money.add"]      = function(C, p) return did(C.Money.Add(p.src, p.currency, p.amount, p.reason)) end
 H["money.remove"]   = function(C, p) return did(C.Money.Remove(p.src, p.currency, p.amount, p.reason)) end
-H["money.set"]      = function(C, p) return did(C.Money.Set(p.src, p.currency, p.amount, p.reason)) end
+H["money.set"]      = function(C, p) return did(C.Money.Set(p.src, p.currency, p.amount, p.reason, p.raw)) end
 H["money.supports"] = function(C, p) return true, C.Money.Supports(p.currency) and true or false, nil end
+
+-- providers (0.17.0) ---------------------------------------------------------
+-- A bank or a treasury supplied by a Poggy script (server/sv_providers.lua).
+-- The owner is the calling resource from the dispatcher. treasury.* forwards
+-- to the registered provider and refuses with 'unsupported' without one, so
+-- Markets and the Auction House default quietly when no treasury is installed.
+
+H["bank.register"]     = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "bank", p.fns)) end
+H["treasury.register"] = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "treasury", p.fns)) end
+
+local function treasury(name, ...) return PoggyCore.Providers.Call("treasury", name, ...) end
+
+H["treasury.collect"] = function(_, p, resource)
+    local amt, aerr = PoggyCore.Util.Amount(p.amount)
+    if not amt then return false, nil, aerr end
+    return treasury("collect", {
+        kind = p.kind, amount = amt, src = p.src, charId = p.charId,
+        source = p.source or resource, meta = p.meta,
+    })
+end
+H["treasury.index"]    = function() return treasury("index") end
+H["treasury.rates"]    = function() return treasury("rates") end
+H["treasury.state"]    = function() return treasury("state") end
+H["treasury.balance"]  = function(_, p) return treasury("balance", p.account) end
+H["treasury.disburse"] = function(_, p, resource)
+    local amt, aerr = PoggyCore.Util.Amount(p.amount)
+    if not amt then return false, nil, aerr end
+    return treasury("disburse", { account = p.account, amount = amt, src = p.src, reason = p.reason, source = resource })
+end
+H["treasury.report"]   = function(_, p, resource)
+    return treasury("report", { metric = p.metric, value = tonumber(p.value) or 0, source = p.source or resource, meta = p.meta })
+end
 
 -- jobs -----------------------------------------------------------------------
 

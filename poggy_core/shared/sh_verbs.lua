@@ -45,11 +45,34 @@ PoggyCore.Verbs = {
     ["players.onDuty"]  = { side = "server", args = {}, optional = {"job", "minGrade"},                        returns = "array of server ids" },
 
     -- -------------------------------------------------------------- money --
-    ["money.get"]       = { side = "server", args = {"src"},   optional = {"currency"},                      returns = "number" },
+    -- raw = true (0.17.0) reads or sets the framework's own field even when a
+    -- bank provider is registered; only the provider itself has a use for it.
+    ["money.get"]       = { side = "server", args = {"src"},   optional = {"currency", "raw"},               returns = "number" },
     ["money.add"]       = { side = "server", args = {"src", "amount"}, optional = {"currency", "reason"},    returns = "true" },
     ["money.remove"]    = { side = "server", args = {"src", "amount"}, optional = {"currency", "reason"},    returns = "true" },
-    ["money.set"]       = { side = "server", args = {"src", "amount"}, optional = {"currency", "reason"},    returns = "true" },
+    ["money.set"]       = { side = "server", args = {"src", "amount"}, optional = {"currency", "reason", "raw"}, returns = "true" },
     ["money.supports"]  = { side = "both",   args = {"currency"},                                           returns = "boolean" },
+
+    -- ---------------------------------------------------- providers (0.17.0) --
+    -- A Poggy script supplies what the framework lacks and registers once at
+    -- start; poggy_core routes the matching verbs to it (server/sv_providers.lua).
+    -- fns is a table of functions, each answering ok, value, err.
+    --   bank:     get(src) add(src, amount, reason) remove(...) set(...)
+    --             -> money.* with currency = 'bank' go there on every framework.
+    --   treasury: collect(p) index() rates() state() disburse(p) balance(account) report(p)
+    ["bank.register"]     = { side = "server", args = {"fns"},                                                 returns = "true" },
+    ["treasury.register"] = { side = "server", args = {"fns"},                                                 returns = "true" },
+    -- Every treasury verb refuses with 'unsupported' when no treasury is
+    -- installed; callers default (a fee is deleted, the index is 1.0).
+    ["treasury.collect"]  = { side = "server", args = {"kind", "amount"}, optional = {"src", "charId", "source", "meta"}, returns = "true" },
+    ["treasury.index"]    = { side = "server", args = {},                                                       returns = "number, the price index" },
+    ["treasury.rates"]    = { side = "server", args = {},                                                       returns = "{ withdrawalLevy, transferFee, depositInterest, loanRate, salesTaxAdjust }" },
+    ["treasury.state"]    = { side = "server", args = {},                                                       returns = "{ verdict, event, index, supply, reserveWeeks, warmup }" },
+    ["treasury.disburse"] = { side = "server", args = {"account", "amount", "src"}, optional = {"reason"},     returns = "true" },
+    ["treasury.balance"]  = { side = "server", args = {"account"},                                             returns = "number" },
+    -- Activity, fire-and-forget: what players did, so the treasury can build
+    -- a baseline. metric is a short name ('shop_sale'); value a number.
+    ["treasury.report"]   = { side = "server", args = {"metric", "value"}, optional = {"source", "meta"},       returns = "true" },
 
     -- --------------------------------------------------------------- jobs --
     ["job.get"]         = { side = "both",   args = {},        optional = {"src"},

@@ -806,6 +806,28 @@ VORP's `limit` column is right on VORP and silently wrong on RSG and QBR, which
 have no such column and cap by weight instead. A script calling them declares
 `poggy_core_min '0.16.0'`.
 
+## Verbs added in 0.17.0: providers
+
+A **provider** is a Poggy script that supplies something the framework lacks
+and registers once at start; poggy_core then routes the matching verbs to it
+(`server/sv_providers.lua`). Without one nothing changes.
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `bank.register` | server | `fns` = `{ get(src), add(src, amount, reason), remove(...), set(...) }` | `true` | From then on `money.get/add/remove/set` with `currency = 'bank'` go to the provider on every framework, and `money.supports 'bank'` is true even on VORP. Poggy Banking is the provider; it keeps accounts per branch and pays a wage into the character's home branch. |
+| `treasury.register` | server | `fns` = `{ collect, index, rates, state, disburse, balance, report }` | `true` | One provider per kind; a second registration while the first runs is refused by name. |
+| `treasury.collect` | server | `kind`, `amount`, `src?`, `charId?`, `source?`, `meta?` | `true` | A levy or fee lands in the treasury. `unsupported` when none is installed, so a script deletes the fee as it always did. |
+| `treasury.index` | server | | the price index, `1.0` = normal | Markets and the Auction House multiply their own prices by it, defaulting to `1.0` when refused. |
+| `treasury.rates` | server | | `{ withdrawalLevy, transferFee, depositInterest, loanRate, salesTaxAdjust }` | |
+| `treasury.state` | server | | `{ verdict, event, index, supply, reserveWeeks, warmup }` | |
+| `treasury.disburse` | server | `account`, `amount`, `src`, `reason?` | `true` | A department account pays a player. |
+| `treasury.balance` | server | `account` | number | |
+| `treasury.report` | server | `metric`, `value`, `source?`, `meta?` | `true` | Activity, fire-and-forget: `shop_sale`, `auction_sale`, `order`… The treasury builds a per-server baseline from it. |
+
+Every provider function answers the verb contract (`ok, value, err`) and runs
+under `pcall`; one that throws is named once and the caller sees
+`framework_error`. A script calling these declares `poggy_core_min '0.17.0'`.
+
 ---
 
 ## Minimum poggy_core
@@ -1065,7 +1087,7 @@ Honest list. Phase 0 was scoped to everything except menus.
 | QBR adapter | **Proven in game (14 September 2026).** 0.14.1 against qbr-core 1.0.3 / qbr-inventory 1.0.1; `poggycore selftest full` passes on the QBR test server and every Poggy script runs there. |
 | RedEM:RP, RPX | **Not supported, not planned.** Detection still names them so `Core.HasAdapter()` is false and every framework verb refuses honestly. |
 | `Core.Job.SetDuty` on VORP | Unsupported. `vorp_core` has no duty concept and `vorp_police` exposes no setter. |
-| `money.bank` on VORP | Unsupported. `vorp_core` genuinely has no bank. |
+| `money.bank` on VORP | Unsupported by `vorp_core` itself. **Since 0.17.0** a bank provider (Poggy Banking, `bank.register`) answers for `'bank'` on every framework, VORP included. |
 | Client prompt natives | Written but **not yet verified in game.** Nothing consumes `Core.Prompt` yet, so the risk is contained; test before relying on it. |
 | Kind-specific notification styling | Notifications render, but `kind` does not yet change icon or colour. Icon dictionaries differ per framework and were not guessable from source alone. |
 | VORP store window | Not abstracted. vorp_inventory's store window (the `syn_store` events) is used directly by the scripts that need it. |

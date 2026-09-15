@@ -444,14 +444,29 @@ local function buildCore(resource)
 
     Core.Money = {}
 
+    --- 0.17.0: a registered bank provider (poggy_banking) answers for 'bank'
+    --- ahead of the adapter, on every framework. See server/sv_providers.lua.
+    local BANK = PoggyCore.Currency.BANK
+    --- raw = true bypasses the provider: the provider itself uses it to read
+    --- and mirror the framework's own bank field on RSG and QBR.
+    local function bankProvided(currency, raw)
+        return currency == BANK and not raw and PoggyCore.Providers.Has("bank")
+    end
+
     function Core.Money.Supports(currency)
+        if bankProvided(currency) then return true end
         return Core.Has("money." .. tostring(currency))
     end
 
-    function Core.Money.Get(src, currency)
+    function Core.Money.Get(src, currency, raw)
         local a, n, err = guardSrc(src)
         if not a then return nil, err end
         currency = currency or PoggyCore.Currency.CASH
+        if bankProvided(currency, raw) then
+            local ok, v, perr = PoggyCore.Providers.Call("bank", "get", n)
+            if not ok then return nil, perr end
+            return tonumber(v) or 0
+        end
         if not Core.Money.Supports(currency) then
             Util.WarnOnce(tag, "money." .. currency,
                 "asked for '%s' but %s has no such currency.", currency, State.framework)
@@ -460,12 +475,18 @@ local function buildCore(resource)
         return a:moneyGet(n, currency)
     end
 
-    local function moneyMutate(op, src, currency, amount, reason)
+    local function moneyMutate(op, src, currency, amount, reason, raw)
         local a, n, err = guardSrc(src)
         if not a then return false, err end
         currency = currency or PoggyCore.Currency.CASH
         local amt, aerr = Util.Amount(amount)
         if not amt then return false, aerr end
+        if bankProvided(currency, raw) then
+            Util.Debug("[%s] money.%s bank %s (%s) -> %s", tag, op, amt, reason or "-", PoggyCore.Providers.Owner("bank"))
+            local ok, _, perr = PoggyCore.Providers.Call("bank", op, n, amt, reason or tag)
+            if not ok then return false, perr or Err.FRAMEWORK_ERR end
+            return true
+        end
         if not Core.Money.Supports(currency) then
             Util.WarnOnce(tag, "money." .. currency,
                 "tried to %s '%s' but %s has no such currency.", op, currency, State.framework)
@@ -485,8 +506,8 @@ local function buildCore(resource)
         return moneyMutate("remove", src, currency, amount, reason)
     end
 
-    function Core.Money.Set(src, currency, amount, reason)
-        return moneyMutate("set", src, currency, amount, reason)
+    function Core.Money.Set(src, currency, amount, reason, raw)
+        return moneyMutate("set", src, currency, amount, reason, raw)
     end
 
     -- --- jobs ---------------------------------------------------------------
