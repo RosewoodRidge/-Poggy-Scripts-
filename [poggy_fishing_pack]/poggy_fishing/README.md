@@ -115,6 +115,7 @@ Equip bait through the bait menu (**G** key). Each bait has:
 | $1.00 – $2.99 | Medium | Largemouth Bass, Smallmouth Bass, Rainbow Trout, Salmon (md) |
 | $3.00 – $5.99 | Hard | Large bass, Large trout, Sockeye Salmon (lg) |
 | ≥ $6.00 | Expert | Channel Catfish, Northern Pike, Longnose Gar, Muskie, Lake Sturgeon |
+| ≥ $20.00 | Legendary | The four legendary fish, hooked only on the Legendary Dragon Fly Lure |
 
 Many fish have **time-of-day windows** (e.g., Bullhead Catfish is nocturnal 8PM–6AM, Chain Pickerel feeds 5AM–12PM). Fish outside their active hours cannot be caught.
 
@@ -227,5 +228,6 @@ Set `Config.Debug = true` for console logging. Set `Config.DebugState = true` to
 
 ## Changelog
 
+- **1.3.1** — Legendary fish are fairer. Their skillchecks no longer appear further off centre than any other fish's, where they could land behind the fishing HUD and be impossible to hit. The great zone is larger and each hit fills more of the bar, so a legendary fight is about one hit shorter on the rod and two on the Pro Rod. Every other tier is unchanged.
 - **1.3.0** — The fish window now means something: a hook hangs from the surface on a line, the fish swims in from the right as interest rises and backs off as it falls, the line reddens and jitters with tension, and on the bite the fish lunges onto the hook and the line jerks before the fight starts. There is no fish until the line is in the water; it then swims in over the random time until the bite (with the Pro Rod it reaches the hook exactly as the fish bites; with the normal rod it arrives where the interest game takes over). Every fill bar (progress, interest, tension, pull tension) carries its water texture across the whole bar and loops without a jump; the wave along the top of the HUD loops cleanly too. The LEFT / FORWARD / RIGHT labels stay sharp while the pull needle moves. Pro Rod: when the fish pulls FORWARD it now shoves the bar steadily off centre (`ForwardPushForce`) and the jerks in `ForwardJerk*` actually fire; before, the push and the return force cancelled out and the bar just jittered at centre. Interface skins: `Config.UI.skin = "brass"` restyles the HUD and bait menu in riveted brass and gunmetal to match the reel plate; `"default"` looks as before. A server can add its own skin as `ui/skin-<name>.css` without touching any code.
 - **1.2.1** — Runs on frameworks without an `items` table (RSG): the item rows in `sql/install.sql` are skipped there instead of stopping the install, and the script prints one yellow line at start naming the items your framework's item list lacks.

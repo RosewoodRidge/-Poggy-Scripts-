@@ -149,6 +149,14 @@ Config.LootDrops = {
 --  Speed: 3 minimum, 5 maximum.  Rounds: 3 minimum, 10 maximum.
 --  Good/Great/Miss affect percentage fill of the progress bar.
 --  Consecutive misses escalate difficulty (speed + shake).
+--
+--  `randomizer` is how far off centre a check can appear (0 centred, 5 up to
+--  50%).  Keep it at 2 or lower: at 3 a check could land behind the fishing
+--  HUD, where it cannot be seen, let alone hit.
+--
+--  The fight ends when the progress bar reaches 100, so `good` sets its
+--  length: 12 means nine hits (more on the Pro Rod, whose multipliers in
+--  Config.ProRod cut each gain).  `rounds` is only printed in debug.
 ---------------------------------------------------------------------------
 Config.SkillCheck = {
     SpeedMin      = 3,
@@ -161,7 +169,7 @@ Config.SkillCheck = {
         medium = { speed = 3, diff = 2, rounds = 4,  good = 18, great = 26, miss = -8,  shake = true, greatPct = 25, randomizer = 2, shakeSpeed = 2, shakeDist = 2, timeBetween = 250, direction = "cw"   },
         hard   = { speed = 4, diff = 3, rounds = 8,  good = 16, great = 23, miss = -6,  shake = true,  greatPct = 20, randomizer = 2, shakeSpeed = 3, shakeDist = 2, timeBetween = 200, direction = "rand" },
         expert    = { speed = 4, diff = 4, rounds = 10, good = 12, great = 18, miss = -5,  shake = true,  greatPct = 15, randomizer = 2, shakeSpeed = 3, shakeDist = 2, timeBetween = 150, direction = "rand" },
-        legendary = { speed = 5, diff = 5, rounds = 12, good = 10, great = 14, miss = -6,  shake = true,  greatPct = 10, randomizer = 3, shakeSpeed = 4, shakeDist = 2, timeBetween = 120, direction = "rand" },
+        legendary = { speed = 5, diff = 5, rounds = 12, good = 12, great = 17, miss = -6,  shake = true,  greatPct = 14, randomizer = 2, shakeSpeed = 4, shakeDist = 2, timeBetween = 120, direction = "rand" },
     },
 }
 

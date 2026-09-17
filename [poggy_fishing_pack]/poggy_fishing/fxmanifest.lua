@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_fishing'
 author 'Poggy'
 description 'Skillcheck-based rod fishing with zone-specific fish.'
-version '1.3.0'
+version '1.3.1'
 poggy_core_min '0.13.0'
 
 dependencies {
