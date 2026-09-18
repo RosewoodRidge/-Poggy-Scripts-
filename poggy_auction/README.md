@@ -49,6 +49,18 @@ Owners, and staff whose role lets them deposit items, can send an order straight
 
 Without `poggy_markets` the box is hidden and every order goes to the mailbox. Set `Config.Shipment.ShopDelivery = false` to turn shop delivery off.
 
+## The treasury
+
+With Poggy Banking's treasury module running, the auction house takes part in
+the server's economy: the sales tax on every sale and want-request fill, the
+listing deposit and the catalogue's shipping fee are paid to the treasury
+instead of being deleted; sales, listings, orders and fills are reported so
+the treasury can build a baseline of normal trade; the treasury's price index
+scales catalogue prices, and its policy may add a few points to the sales tax.
+
+Without a treasury nothing changes: the fees are deleted as before, the index
+is 1.0 and the reports go nowhere. There is no setting.
+
 ## Admin commands
 
 | Command | What it does |
@@ -61,4 +73,5 @@ Admins are characters in the groups `admin`, `superadmin` and `god`. Each comman
 
 ## Changelog
 
+- **1.3.0** — Treasury hooks (poggy_core 0.17.0): tax, deposits and shipping fees go to Poggy Banking's treasury when it is installed; sales, listings, orders and fills are reported; catalogue prices follow the price index. No change without a treasury.
 - **1.2.1** — Categories and item icons come from poggy_core's item registry instead of VORP's `items` / `item_group` tables, so the auction house opens on RSG (it failed with "Table 'item_group' doesn't exist"). `Config.Categories` maps item groups to categories; the stock VORP list is unchanged.
