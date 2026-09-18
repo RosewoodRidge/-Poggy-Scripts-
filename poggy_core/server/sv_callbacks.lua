@@ -27,20 +27,94 @@ local function newId()
 end
 
 -- ---------------------------------------------------------------------------
+-- Argument and result lists on the wire (0.18.0)
+--
+-- Lists travel as table.pack's { n = count, ... }. On RedM the msgpack encoder
+-- can pack such a table as a plain array and drop `n`, and a missing count
+-- reads as "nothing": answers arrived empty and arguments were lost (found 18
+-- September 2026 through the settings hub). So a list is wrapped in a table
+-- with only named keys, which always travels as a map, and the count is put
+-- back on arrival. A bare list from an older build is still understood.
+-- ---------------------------------------------------------------------------
+
+local function wire(list)
+    if type(list) ~= "table" then list = { n = 0 } end
+    return { __pc = list.n or #list, __pv = list }
+end
+
+local function unwire(w)
+    if type(w) ~= "table" then return nil end
+    if w.__pc ~= nil then
+        local list = type(w.__pv) == "table" and w.__pv or {}
+        list.n = tonumber(w.__pc) or #list
+        return list
+    end
+    if w.n == nil then w.n = #w end
+    return w
+end
+
+-- ---------------------------------------------------------------------------
+-- Large payloads (0.18.0)
+--
+-- One net event carries everything in one reliable burst, and a big one (the
+-- settings hub sends its search index and a script's whole config model, often
+-- hundreds of KB) can stall or drop a connection. So anything packed larger
+-- than CHUNK_BYTES is msgpack-packed into one string, cut into CHUNK_BYTES
+-- pieces and sent as ordinary events a few milliseconds apart. The other side
+-- joins the pieces and unpacks them into exactly the table that was packed.
+--
+-- Not latent events. They were tried first, and on RedM a large latent answer
+-- reached the client empty, with no error on either side (18 September 2026).
+-- ---------------------------------------------------------------------------
+
+local CHUNK_BYTES  = 16 * 1024
+local CHUNK_PAUSE  = 25                  -- ms between pieces, about 640 KB/s
+local MAX_INCOMING = 8 * 1024 * 1024     -- the most one client request may carry
+local INCOMING_TTL = 60000               -- a request whose pieces stop arriving is dropped after this
+
+local function pack(value)
+    local ok, packed = pcall(msgpack.pack, value)
+    if ok and type(packed) == "string" then return packed end
+    return nil, packed
+end
+
+--- Send `results` to one client as the answer to requestId. Runs on a thread:
+--- a large answer waits between its pieces.
+local function respond(src, requestId, results, name)
+    results = wire(results)
+    local packed, why = pack(results)
+    if not packed then
+        Util.Warn("the answer to '%s' for player %d could not be packed (%s); it was sent empty",
+            tostring(name), src, tostring(why))
+        TriggerClientEvent("poggy_core:cb:response", src, requestId, { n = 0 })
+        return
+    end
+    if #packed <= CHUNK_BYTES then
+        TriggerClientEvent("poggy_core:cb:response", src, requestId, results)
+        return
+    end
+    local total = math.ceil(#packed / CHUNK_BYTES)
+    Util.Debug("answer to '%s' for %d: %d bytes in %d pieces", tostring(name), src, #packed, total)
+    for i = 1, total do
+        if not GetPlayerName(src) then return end   -- they left mid-answer
+        TriggerClientEvent("poggy_core:cb:chunk", src, requestId, i, total,
+            packed:sub((i - 1) * CHUNK_BYTES + 1, i * CHUNK_BYTES))
+        if i < total then Wait(CHUNK_PAUSE) end
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Client -> server
 -- ---------------------------------------------------------------------------
 
-RegisterNetEvent("poggy_core:cb:request", function(requestId, name, args)
-    local src = source
-
-    if type(requestId) ~= "string" or type(name) ~= "string" then return end
-
+local function handleRequest(src, requestId, name, args)
+    args = unwire(args) or { n = 0 }
     local entry = handlers[name]
     if not entry then
         -- Answer anyway. A client left waiting on a name that no longer exists
         -- is the failure mode this whole file is meant to remove.
         TriggerClientEvent("poggy_core:cb:response", src, requestId, { n = 0 })
-        Util.Debug("unknown callback '%s' requested by %d", name, src)
+        Util.Warn("player %d asked for callback '%s', which nothing on the server has registered", src, name)
         return
     end
 
@@ -54,8 +128,66 @@ RegisterNetEvent("poggy_core:cb:request", function(requestId, name, args)
         end
         -- Drop the pcall status, keep the rest.
         local results = table.pack(table.unpack(packed, 2, packed.n))
-        TriggerClientEvent("poggy_core:cb:response", src, requestId, results)
+        respond(src, requestId, results, name)
     end)
+end
+
+RegisterNetEvent("poggy_core:cb:request", function(requestId, name, args)
+    local src = source
+    if type(requestId) ~= "string" or type(name) ~= "string" then return end
+    handleRequest(src, requestId, name, args)
+end)
+
+-- A large request arrives in pieces (see Large payloads above).
+local incoming = {}   -- "<src>:<requestId>" -> { name, total, got, size, parts, started }
+
+local function sweepIncoming()
+    local now = GetGameTimer()
+    for key, c in pairs(incoming) do
+        if now - c.started > INCOMING_TTL then incoming[key] = nil end
+    end
+end
+
+RegisterNetEvent("poggy_core:cb:requestChunk", function(requestId, name, i, total, part)
+    local src = source
+    if type(requestId) ~= "string" or type(name) ~= "string" or type(part) ~= "string" then return end
+    i, total = math.tointeger(i), math.tointeger(total)
+    if not i or not total or i < 1 or total < 1 or i > total or total * CHUNK_BYTES > MAX_INCOMING then return end
+
+    local key = src .. ":" .. requestId
+    local c = incoming[key]
+    if not c then
+        sweepIncoming()
+        c = { name = name, total = total, got = 0, size = 0, parts = {}, started = GetGameTimer() }
+        incoming[key] = c
+    end
+    if c.name ~= name or c.total ~= total or c.parts[i] then return end
+
+    c.size = c.size + #part
+    if c.size > MAX_INCOMING then
+        incoming[key] = nil
+        Util.Warn("player %d sent more than %d bytes for '%s'; dropped", src, MAX_INCOMING, name)
+        return
+    end
+    c.parts[i] = part
+    c.got = c.got + 1
+    if c.got < c.total then return end
+
+    incoming[key] = nil
+    local ok, args = pcall(msgpack.unpack, table.concat(c.parts, "", 1, c.total))
+    if not ok or type(args) ~= "table" then
+        Util.Warn("player %d sent a request for '%s' that could not be unpacked", src, name)
+        TriggerClientEvent("poggy_core:cb:response", src, requestId, { n = 0 })
+        return
+    end
+    handleRequest(src, requestId, name, args)
+end)
+
+AddEventHandler("playerDropped", function()
+    local prefix = tostring(source) .. ":"
+    for key in pairs(incoming) do
+        if key:sub(1, #prefix) == prefix then incoming[key] = nil end
+    end
 end)
 
 -- ---------------------------------------------------------------------------
@@ -68,7 +200,7 @@ RegisterNetEvent("poggy_core:cb:clientResponse", function(requestId, results)
     -- request id is ignored, so a player cannot answer another player's menu.
     if not entry or entry.src ~= source then return end
     clientPending[requestId] = nil
-    entry.p:resolve(results or { n = 0 })
+    entry.p:resolve(unwire(results) or { n = 0 })
 end)
 
 --- A player who leaves takes every answer they owed with them. Resolve those
@@ -106,7 +238,7 @@ function PoggyCore.AwaitClientPacked(tag, src, name, timeoutMs, ...)
     local p = promise.new()
     clientPending[requestId] = { p = p, src = n }
 
-    TriggerClientEvent("poggy_core:cb:clientRequest", n, requestId, name, table.pack(...))
+    TriggerClientEvent("poggy_core:cb:clientRequest", n, requestId, name, wire(table.pack(...)))
 
     SetTimeout(timeoutMs or PoggyCoreConfig.RpcTimeout, function()
         if clientPending[requestId] then

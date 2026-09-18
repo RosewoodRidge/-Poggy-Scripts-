@@ -124,6 +124,13 @@ H["job.has"]       = function(C, p) return true, C.Job.Has(p.src, p.job, p.minGr
 H["job.isLaw"]     = function(C, p) return true, C.Job.IsLaw(p.src) and true or false, nil end
 H["job.isMedical"] = function(C, p) return true, C.Job.IsMedical(p.src) and true or false, nil end
 
+-- 0.18.0. Straight to the adapter: a list of the server's jobs, for pickers.
+H["jobs.list"] = function()
+    local a = PoggyCore.State.adapter
+    if not a or not a.jobsList then return true, {}, nil end
+    return ret(a:jobsList())
+end
+
 -- inventory ------------------------------------------------------------------
 
 H["inv.add"]     = function(C, p) return did(C.Inventory.Add(p.src, p.item, p.qty or 1, p.meta)) end

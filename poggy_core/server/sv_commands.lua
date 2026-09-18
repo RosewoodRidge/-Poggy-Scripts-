@@ -15,6 +15,9 @@
     /poggycore catalog     published Poggy scripts this server does not have (sv_updates.lua)
     /poggycore update <resource|all> [check|stage|apply|writetest] [force]
                        GitHub updates, gated on the fxmanifest version (sv_updates.lua)
+    /poggycore settings [show <id> | set <id> <path> <json> | unlock <id>]
+                       the settings hub (/poggy) from the console (sv_hub.lua);
+                       set and unlock run from the server console only
 
     Admin-gated through the adapter's own permission model. Available from the
     server console too, where source is 0 and the gate is skipped.
@@ -396,6 +399,16 @@ RegisterCommand("poggycore", function(src, args)
         end
         CreateThread(function()
             PoggyCore.Sql.Command(mode, args[3], function(msg) reply(src, msg) end)
+        end)
+    elseif sub == "settings" then
+        if not PoggyCore.Hub or not PoggyCore.Hub.Command then
+            reply(src, "the settings hub is not loaded.")
+            return
+        end
+        local rest = {}
+        for i = 2, #args do rest[#rest + 1] = args[i] end
+        CreateThread(function()
+            PoggyCore.Hub.Command(src, rest, function(msg) reply(src, msg) end)
         end)
     elseif sub == "scripts" then
         CreateThread(function() scripts(src) end)

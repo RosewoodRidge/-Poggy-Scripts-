@@ -238,3 +238,37 @@ PoggyCoreConfig.Ui = {
     --- positions (and the least gap a centred panel keeps from the edges).
     Margin   = 40,
 }
+
+-- ---------------------------------------------------------------------------
+-- Settings hub (0.18.0)
+-- ---------------------------------------------------------------------------
+--- /poggy opens a full-screen hub in game where an admin edits every Poggy
+--- script's settings. It changes the config files themselves (every comment
+--- and every line it does not touch stays as it was), keeps a backup of each
+--- file in poggy_core/update_backups/, and offers to restart the script.
+---
+--- Who may use it: players with the ACE poggy.settings, or anyone the
+--- framework counts as an admin. Taking over a script someone else is
+--- editing needs poggy.settings.takeover. Restarting a script from the hub
+--- needs this line in server.cfg (the updater uses the same one):
+---     add_ace resource.poggy_core command.ensure allow
+PoggyCoreConfig.Hub = {
+    Command         = "poggy",  -- the chat command that opens the hub
+    IdleMinutes     = 10,       -- a script's lock is released after this long with no activity
+    IdleWarnMinutes = 8,        -- the editor is warned at this point
+    HistoryDays     = 90,       -- change history older than this is deleted when poggy_core starts
+}
+
+--- Master job and group lists, edited from the hub's Roles page. A job or
+--- group list in any Poggy script's config can be linked to one of these from
+--- the hub; saving a role then rewrites every linked list and restarts the
+--- scripts that use it. The link is a comment on that setting's line
+--- (-- poggy:role lawmen), so the script itself never reads this.
+---     label  what the hub shows
+---     kind   "jobs" or "groups" (admin groups)
+---     list   the names, exactly as the framework spells them
+PoggyCoreConfig.Roles = {
+    lawmen = { label = "Lawmen", kind = "jobs", list = { "sheriff", "deputy", "marshal" } },
+    medics = { label = "Medics", kind = "jobs", list = { "doctor" } },
+    staff  = { label = "Staff groups", kind = "groups", list = { "admin", "superadmin", "god" } },
+}

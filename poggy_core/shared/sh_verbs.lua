@@ -86,6 +86,11 @@ PoggyCore.Verbs = {
     ["job.has"]         = { side = "both",   args = {"job"},   optional = {"src", "minGrade"},              returns = "boolean" },
     ["job.isLaw"]       = { side = "both",   args = {},        optional = {"src"},                          returns = "boolean" },
     ["job.isMedical"]   = { side = "both",   args = {},        optional = {"src"},                          returns = "boolean" },
+    -- 0.18.0. Every job the server knows, for pickers (the settings hub).
+    -- RSG and QBR: the core's shared jobs table. VORP keeps jobs as free text,
+    -- so it is the distinct jobs in the characters table, labels = names, best
+    -- effort. Standalone: an empty list.
+    ["jobs.list"]       = { side = "server", yields = true, args = {},                                      returns = "array of { name, label, grades = { { grade, label }, ... } }" },
 
     -- ---------------------------------------------------------- inventory --
     ["inv.add"]         = { side = "server", yields = true, args = {"src", "item"}, optional = {"qty", "meta"},            returns = "true" },

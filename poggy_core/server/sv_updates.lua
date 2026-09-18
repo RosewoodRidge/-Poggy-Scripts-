@@ -91,6 +91,13 @@
     `store` and `free` fields feed it; without them the id and the store front
     stand in. Updates.ShowCatalog = false turns it off; `poggycore catalog`
     prints it on demand. See Updates.Catalog.
+
+    Settings hub (0.18.0). While someone edits a script in /poggy
+    (PoggyCore.Hub.IsLocked), nothing here writes to it: an automatic run
+    reports it "held" and tries again on the next check, and a manual stage or
+    apply refuses with the editor's name. Updates.FetchShipped hands the hub
+    the config files a published version shipped with (its "changed" badges
+    and Reset), read the same way the merge reads its base.
 ]]
 
 PoggyCore = PoggyCore or {}
@@ -123,7 +130,7 @@ local ICON = {
     current = "✅", updated = "✅", staged = "✅",
     available = "⬆️ ", newer = "⚠️ ", noversion = "⚠️ ",
     error = "❌", missing = "➖", skipped = "➖", unpublished = "➖",
-    duplicate = "❌",
+    duplicate = "❌", held = "⏳",
 }
 
 local function statusLine(status, resource, current, remote, verdict)
@@ -784,6 +791,23 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
         say("   ^3force: continuing anyway^7")
     end
 
+    -- Someone is editing this script in the settings hub (/poggy). Its config
+    -- files are theirs until they finish: an automatic run waits for the next
+    -- check, a command refuses and says who it is.
+    local Hub = PoggyCore.Hub
+    local holder = Hub and Hub.IsLocked and Hub.IsLocked(resource) or nil
+    if holder then
+        if opts.auto then
+            say(("%s %-24s ^3held: %s is editing it in /poggy; the update waits for the next check^7")
+                :format(ICON.held, shown, tostring(holder.name)))
+        else
+            say(("%s %-24s ^1refused: %s is editing it in /poggy. Do not change its files until they finish"
+                .. " (or release the lock: poggycore settings unlock %s), then run the update again.^7")
+                :format(ICON.held, shown, tostring(holder.name), resource))
+        end
+        return "held"
+    end
+
     -- Only a started resource can save files: its own bridge does the writing.
     if localRes ~= GetCurrentResourceName() and state ~= "started" then
         say(("%s %-24s ^3skipped: it is %s, and only a started resource can receive files."
@@ -1111,6 +1135,7 @@ local function runAll(resource, mode, opts, say)
     part("newer", "newer locally", "^3")
     part("noversion", "without a version", "^3")
     part("skipped", "skipped (not started)", "^3")
+    part("held", "held (being edited in /poggy)", "^3")
     part("error", "error(s)", "^1")
     part("duplicate", "declared by two folders (not updated)", "^1")
     part("missing", "not on this server", "^9")
@@ -1150,6 +1175,46 @@ function Updates.Run(resource, mode, opts, say)
         return nil, tostring(result)
     end
     return result, why
+end
+
+-- ---------------------------------------------------------------------------
+-- Shipped config files, for the settings hub (0.18.0)
+--
+-- The hub's "changed" badges and Reset compare an owner's config with the one
+-- the running version shipped with: the same base the merge reads, from the
+-- same source (Updates.Source), through src.base(). Read-only, so it also
+-- works on a development server, and it does not take Updates.busy.
+-- ---------------------------------------------------------------------------
+
+--- The published text of `rels` (config file paths) in version `version` of
+--- the script `id`. Yields; call from a thread. Returns { [rel] = text } with
+--- every file that version shipped (a file it did not ship is simply absent),
+--- or nil plus a reason when the version cannot be read at all (offline, or
+--- an unpublished development build).
+function Updates.FetchShipped(id, version, rels)
+    if type(id) ~= "string" or not version or type(rels) ~= "table" then return nil, "bad arguments" end
+    local source, described = chooseSource(id, {}, false)
+    if not source then return nil, (tostring(described):gsub("%^%d", "")) end
+    if not source.base then return nil, "this source cannot read published versions" end
+    local out, found, lastErr = {}, 0, nil
+    for _, rel in ipairs(rels) do
+        local okCall, text, err = pcall(source.base, id, version, rel, {})
+        if okCall and type(text) == "string" then
+            out[rel] = text
+            found = found + 1
+        else
+            lastErr = okCall and err or text
+            -- The version's file list itself is missing: nothing else will be found.
+            if tostring(lastErr):find("not published", 1, true) or tostring(lastErr):find("no response", 1, true)
+                or tostring(lastErr):find("could not be read", 1, true) then
+                return nil, tostring(lastErr)
+            end
+        end
+    end
+    if found == 0 and lastErr and not tostring(lastErr):find("did not exist", 1, true) then
+        return nil, tostring(lastErr)
+    end
+    return out
 end
 
 -- ---------------------------------------------------------------------------
@@ -1444,7 +1509,8 @@ function Updates.Auto(reason)
     if periodic then
         local n = result and result.counts or {}
         local newDuplicates = result and tonumber(result.newDuplicates) or 0
-        if not result or (n.available or 0) + (n.updated or 0) + (n.error or 0) + (n.skipped or 0) + newDuplicates > 0 then
+        if not result or (n.available or 0) + (n.updated or 0) + (n.error or 0) + (n.skipped or 0)
+            + (n.held or 0) + newDuplicates > 0 then
             for _, msg in ipairs(held) do say(msg) end
         end
     end

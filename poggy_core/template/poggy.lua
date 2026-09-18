@@ -341,12 +341,26 @@ local function isDevServer()
     return false
 end
 
+--- The settings hub (/poggy) edits config and translation files by hand, as
+--- the owner would in a text editor. Those writes are allowed on a development
+--- server too; update files never are.
+local function isSettingsFile(rel)
+    if type(rel) ~= "string" then return false end
+    rel = rel:gsub("\\", "/")
+    return rel == "config.lua" or rel == "translations.lua"
+        or (rel:match("^config/[^/]+%.lua$") ~= nil)
+end
+
 if IsDuplicityVersion() then
-    exports("PoggyWriteOwnFile", function(rel, data)
+    --- purpose: nil for the updater, "settings" for the settings hub.
+    exports("PoggyWriteOwnFile", function(rel, data, purpose)
         if GetInvokingResource() ~= "poggy_core" then
             return { ok = false, err = "refused: only poggy_core may write files here" }
         end
-        if isDevServer() then
+        if purpose == "settings" and not isSettingsFile(rel) then
+            return { ok = false, err = "refused: the settings hub only writes config and translation files: " .. tostring(rel) }
+        end
+        if isDevServer() and purpose ~= "settings" then
             return { ok = false, err = "refused: development server (poggy_dev_server); update files are never written here" }
         end
         if type(rel) ~= "string" or type(data) ~= "string" then

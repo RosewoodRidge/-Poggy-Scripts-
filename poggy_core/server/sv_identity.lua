@@ -144,6 +144,11 @@ function Identity.Register(folder, id, version)
     }
     byId[id] = entry
     byFolder[folder] = id
+
+    -- The settings hub (sv_hub.lua) rebuilds its database mirror of a script's
+    -- config when the script starts. Loaded after this file, so looked up now.
+    local Hub = PoggyCore.Hub
+    if Hub and Hub.OnRegister then pcall(Hub.OnRegister, entry) end
     return true, entry
 end
 

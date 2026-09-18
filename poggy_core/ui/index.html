@@ -10,6 +10,8 @@
         Driven by client/cl_menu.lua; see the message shapes at the top of script.js.
     -->
     <link rel="stylesheet" href="style.css">
+    <!-- The settings hub (/poggy, 0.18.0): client/cl_hub.lua drives it. -->
+    <link rel="stylesheet" href="hub/hub.css">
 </head>
 <body>
 
@@ -45,6 +47,17 @@
         </div>
     </div>
 
+    <!-- ── settings hub (/poggy) ───────────────────────────────────────── -->
+    <div id="poggy-hub" class="ph" hidden></div>
+
     <script src="script.js"></script>
+    <script src="hub/md.js"></script>
+    <script src="hub/hub-core.js"></script>
+    <script src="hub/hub-state.js"></script>
+    <script src="hub/hub-fields.js"></script>
+    <script src="hub/hub-lists.js"></script>
+    <script src="hub/hub-pages.js"></script>
+    <script src="hub/hub-roles.js"></script>
+    <script src="hub/hub.js"></script>
 </body>
 </html>

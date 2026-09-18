@@ -1232,6 +1232,34 @@ function QBR:notifyRich(src, opts)
 end
 
 -- ---------------------------------------------------------------------------
+-- Job list (0.18.0)
+-- ---------------------------------------------------------------------------
+
+--- Every job in QBShared.Jobs through qbr-core's GetJobs() (shared/main.lua:69).
+--- Keyed by name, no name field; grades keyed '0', '1' ... each { name, payment }.
+function QBR:jobsList()
+    local ok, jobs = pcall(function() return self.qb:GetJobs() end)
+    if not ok or type(jobs) ~= "table" then return nil, Err.FRAMEWORK_ERR end
+    local out = {}
+    for key, job in pairs(jobs) do
+        if type(job) == "table" then
+            local grades = {}
+            for g, def in pairs(type(job.grades) == "table" and job.grades or {}) do
+                local n = tonumber(g)
+                if n then
+                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n) }
+                end
+            end
+            table.sort(grades, function(a, b) return a.grade < b.grade end)
+            local name = tostring(job.name or key)
+            out[#out + 1] = { name = name, label = job.label or name, grades = grades }
+        end
+    end
+    table.sort(out, function(a, b) return a.name < b.name end)
+    return out
+end
+
+-- ---------------------------------------------------------------------------
 -- Escape hatch
 -- ---------------------------------------------------------------------------
 

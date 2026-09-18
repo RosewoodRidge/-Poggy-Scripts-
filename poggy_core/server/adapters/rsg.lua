@@ -1067,6 +1067,40 @@ function RSG:notifyRich(src, opts)
 end
 
 -- ---------------------------------------------------------------------------
+-- Job list (0.18.0)
+-- ---------------------------------------------------------------------------
+
+--- Every job in RSGShared.Jobs (shared/jobs.lua): { name, label, grades }.
+--- Grades are keyed '0', '1' ... there, each { name = 'Deputy', payment }.
+--- Read from a fresh core object: AddJob can add jobs after we resolved.
+function RSG:jobsList()
+    local jobs
+    local ok, core = pcall(function() return exports["rsg-core"]:GetCoreObject() end)
+    if ok and type(core) == "table" and type(core.Shared) == "table" and type(core.Shared.Jobs) == "table" then
+        jobs = core.Shared.Jobs
+    else
+        jobs = (type(self.core.Shared) == "table" and self.core.Shared.Jobs) or {}
+    end
+    local out = {}
+    for key, job in pairs(jobs) do
+        if type(job) == "table" then
+            local grades = {}
+            for g, def in pairs(type(job.grades) == "table" and job.grades or {}) do
+                local n = tonumber(g)
+                if n then
+                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n) }
+                end
+            end
+            table.sort(grades, function(a, b) return a.grade < b.grade end)
+            local name = tostring(job.name or key)
+            out[#out + 1] = { name = name, label = job.label or name, grades = grades }
+        end
+    end
+    table.sort(out, function(a, b) return a.name < b.name end)
+    return out
+end
+
+-- ---------------------------------------------------------------------------
 -- Escape hatch
 -- ---------------------------------------------------------------------------
 

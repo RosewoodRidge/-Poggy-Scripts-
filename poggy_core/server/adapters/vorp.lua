@@ -832,6 +832,41 @@ function VORP:notifyRich(src, opts)
 end
 
 -- ---------------------------------------------------------------------------
+-- Job list (0.18.0)
+-- ---------------------------------------------------------------------------
+
+--- VORP has no jobs table: a job is whatever text was set on a character. The
+--- best answer is the distinct jobs (and grades) in the characters table, with
+--- the name as the label. Without oxmysql: an empty list.
+function VORP:jobsList()
+    if not Util.DbAvailable() then return {} end
+    local rows, err = Util.DbQuery(
+        "SELECT DISTINCT job, jobgrade FROM characters WHERE job IS NOT NULL AND job <> '' LIMIT 5000", {})
+    if not rows then return nil, err end
+    local byName, out = {}, {}
+    for _, r in ipairs(rows) do
+        local name = tostring(r.job)
+        local entry = byName[name]
+        if not entry then
+            entry = { name = name, label = name, grades = {}, seen = {} }
+            byName[name] = entry
+            out[#out + 1] = entry
+        end
+        local g = tonumber(r.jobgrade)
+        if g and not entry.seen[g] then
+            entry.seen[g] = true
+            entry.grades[#entry.grades + 1] = { grade = g, label = tostring(g) }
+        end
+    end
+    for _, e in ipairs(out) do
+        e.seen = nil
+        table.sort(e.grades, function(a, b) return a.grade < b.grade end)
+    end
+    table.sort(out, function(a, b) return a.name < b.name end)
+    return out
+end
+
+-- ---------------------------------------------------------------------------
 -- Escape hatch
 -- ---------------------------------------------------------------------------
 

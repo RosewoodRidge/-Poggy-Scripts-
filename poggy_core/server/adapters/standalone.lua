@@ -103,6 +103,11 @@ PoggyCore.Adapters.standalone = {
     weaponCanCarry  = UNSUPPORTED,                         -- (src, qty, weapon)
     stGetWeapons    = function() return nil, PoggyCore.Err.UNSUPPORTED end,  -- (id)
 
+    -- --- 0.18.0 -------------------------------------------------------------
+    --- Every job, for pickers: array of { name, label, grades = { { grade, label } } }.
+    --- No framework, no jobs: an empty list, not a refusal.
+    jobsList        = function() return {} end,
+
     -- --- escape hatch -------------------------------------------------------
     nativeCore = function(self) return self.core end,
 }

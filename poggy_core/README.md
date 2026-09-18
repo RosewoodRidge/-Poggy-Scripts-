@@ -152,6 +152,143 @@ write, so it also runs on a development server.
 
 ---
 
+## Settings hub: /poggy (0.18.0)
+
+`/poggy` in game opens a full-screen hub with a card for every Poggy script on
+the server. Opening a card shows that script's settings, its lists (shops,
+recipes, locations...), its commands, its README and help pages, and the
+history of every change made from the hub, and lets you restart it.
+
+**The config file is the truth.** The hub changes the script's own
+`config.lua` (and `config/*.lua`, `translations.lua`) in place: every comment
+and every line it does not change stays exactly as it was. There is no second
+copy of your settings anywhere; the script reads its `Config` as it always has.
+After a save the hub offers a restart, because most scripts read their config
+once when they start. The database tables below are a mirror and a history,
+rebuilt from the files and never written back into them. If they disagree, the
+file wins.
+
+### Who can use it
+
+| ACE | What it allows |
+|---|---|
+| `poggy.settings` | open the hub and edit (anyone the framework counts as an admin may too) |
+| `poggy.settings.takeover` | take over a script someone else is editing |
+
+```cfg
+add_ace group.admin poggy.settings allow
+add_ace group.admin poggy.settings.takeover allow
+
+# lets the hub restart a script after you save (the updater uses the same line)
+add_ace resource.poggy_core command.ensure allow
+```
+
+Without the `command.ensure` line, restarts fall back to stopping and starting
+the resource, which some servers refuse. Every call the page makes is checked
+again on the server; nothing the game client sends is trusted.
+
+### One editor per script
+
+Opening a script takes its lock. Anyone else who opens it sees it read-only,
+with who is editing it and since when. The lock is released when you leave the
+script, close the hub, disconnect, or do nothing for `Hub.IdleMinutes` (a
+warning comes at `Hub.IdleWarnMinutes`). Someone with
+`poggy.settings.takeover` can take it over: you are told who took it, and your
+unsaved changes are dropped.
+
+While a script is locked the console says so:
+
+```
+[poggy] Jane is editing Supply Drops in /poggy. Do not edit its config files by hand until they finish.
+```
+
+and the updater leaves it alone: an automatic update waits for the next check,
+and `poggycore update <id> apply` refuses and names the editor.
+
+If a file changes on disk while you have it open (someone edited it by hand,
+or an update merged it), your save is refused rather than overwriting it.
+Reload the script and make the change again.
+
+### What a save does
+
+1. Every value is checked on the server: it must have the setting's type and
+   meet the limits in the script's `docs/hub.json` (min, max, allowed values,
+   length, webhook and colour formats). Settings `docs/hub.json` marks
+   `readonly` or `hidden`, and rows the hub cannot rewrite safely, are refused
+   whatever the page sends. One bad value refuses the whole save.
+2. Each file is copied to
+   `poggy_core/update_backups/<folder>__<yyyymmdd-hhmmss>__settings__<file>`
+   (the folder the updater uses; `/` in the file name becomes `_`).
+3. The file is written by the script itself (`PoggyWriteOwnFile` in the
+   bridge), so the script must be running. A stopped script can be viewed but
+   not saved; the hub offers Start.
+4. One history row per change, with who made it.
+
+poggy_core's own card works the same way, except that poggy_core never
+restarts itself: restart it by hand (it restarts every Poggy script).
+
+### Roles
+
+`PoggyCoreConfig.Roles` in `config.lua` holds master lists of jobs and admin
+groups (`lawmen`, `medics`, `staff` to start with). In the hub, any list of
+job or group names in any script can be linked to a role; the link is a
+comment on that line, `-- poggy:role lawmen`, and the script never reads it.
+Saving a role on the hub's Roles page rewrites every linked list in every
+script and restarts the scripts that changed. Scripts someone else is editing,
+and stopped scripts, are skipped and named.
+
+### Changed from the shipped config
+
+The hub marks settings you changed from the version as it shipped, and can
+reset them. The shipped files come from the update feed (the same copy the
+updater merges against) and are cached in the database. Offline, or on a
+development build that was never published, the badges and Reset are simply
+not shown.
+
+### Console
+
+```
+poggycore settings                              every script, its state, who is editing it, file fingerprints
+poggycore settings show <id>                    every setting, its value, file:line
+poggycore settings set <id> <path> <json value> the same save the hub makes, logged as "console" (console only)
+poggycore settings unlock <id>                  release a script's lock; the editor is told (console only)
+```
+
+`show` and the list also work from chat for admins; `set` and `unlock` run from
+the server console only. For example:
+
+```
+poggycore settings set poggy_markets Config.Debug true
+poggycore settings set poggy_markets Config.Webhook "https://discord.com/api/webhooks/..."
+```
+
+### Database
+
+poggy_core creates both tables at start when they are missing (no import):
+
+| Table | What it holds |
+|---|---|
+| `poggy_settings` | one row per script: the mirror of its settings (`toggles`, `inputs`, `lists`, as JSON), the file fingerprint, and the shipped config of the running version (`defaults`) |
+| `poggy_settings_log` | one row per change: script, file, path, operation, old and new value, who, when. Rows older than `Hub.HistoryDays` are deleted at start. |
+
+Without oxmysql the hub still edits files; it only keeps no history.
+
+### For script authors: docs/hub.json
+
+Everything in the hub works without it (labels come from the setting names,
+tooltips from the config comments). `docs/hub.json` adds the card (label,
+tagline, category, description), commands, help pages, tabs, and per-setting
+labels, tooltips, limits, pickers, `live` (no restart needed), `advanced`,
+`hidden` and `readonly`, plus list columns, row fields and templates. Add
+`'docs/icon.png'` to the manifest's `files` for the card's icon. The format is
+in `docs/reference/poggy-hub-spec.md` §5 (in the development repository).
+
+Anything a script runs as code (a Lua string passed to `load`, text spliced
+into SQL) must be marked `"readonly": true`: the server then refuses to change
+it from the hub.
+
+---
+
 ## Design rules
 
 These are promises, not preferences. Code against them.
@@ -806,6 +943,12 @@ VORP's `limit` column is right on VORP and silently wrong on RSG and QBR, which
 have no such column and cap by weight instead. A script calling them declares
 `poggy_core_min '0.16.0'`.
 
+## Verbs added in 0.18.0
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `jobs.list` | server, thread | | array of `{ name, label, grades = { { grade, label } } }`, sorted by name | RSG and QBR: the core's shared jobs table. VORP keeps a job as free text on the character, so it is the distinct jobs and grades in the `characters` table, with the name as the label (best effort; empty without oxmysql). Standalone: `{}`. The settings hub's job picker uses it. |
+
 ## Fixed in 0.17.1: admins on the user record
 
 `perms.isAdmin` used to read only the character's group. VORP keeps admin on
@@ -1080,6 +1223,7 @@ bridge adds `no_core` and `core_too_old` (see [Minimum poggy_core](#minimum-pogg
 /poggycore usables  usable items registered through poggy_core: item → script
 /poggycore dependents  resources that stop with poggy_core, their state, and the restart record
 /poggycore catalog  published Poggy scripts this server does not have, with store links
+/poggycore settings [show <id>]  the settings hub from the console: scripts, lock holders, every setting (see Settings hub)
 ```
 
 Admin-gated in game; available unrestricted from the server console. The smoke

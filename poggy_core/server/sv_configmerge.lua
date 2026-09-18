@@ -649,16 +649,20 @@ local function makeStub()
     return s
 end
 
-local function evaluate(text, name)
-    local env = {}
-    env.math = setmetatable({ random = function(a) return a or 0 end }, { __index = math })
-    setmetatable(env, {
-        __index = function(_, k)
-            local g = _G[k]
-            if g ~= nil then return g end
-            return makeStub()
-        end,
-    })
+--- Run a config in a sandbox and return its globals. env: a ready sandbox to
+--- run in instead of the default one (the settings model brings its own).
+local function evaluate(text, name, env)
+    if not env then
+        env = {}
+        env.math = setmetatable({ random = function(a) return a or 0 end }, { __index = math })
+        setmetatable(env, {
+            __index = function(_, k)
+                local g = _G[k]
+                if g ~= nil then return g end
+                return makeStub()
+            end,
+        })
+    end
     local fn, err = load(text, "=" .. name, "t", env)
     if not fn then return nil, err end
     local ok, runErr = pcall(fn)
@@ -870,5 +874,15 @@ end
 
 -- Exposed for tests.
 M._index = index
+
+-- Exposed for the settings model (sv_settings_model.lua), which reads the same
+-- files with the same lexer and checks its edits in the same sandbox.
+M._lex = lex
+M._parseExpr = parseExpr
+M._skipBlock = skipBlock
+M._KEYWORDS = KEYWORDS
+M._BINOP = BINOP
+M._evaluate = evaluate
+M._same = same
 
 return M

@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.17.1"
+version "0.18.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -28,6 +28,7 @@ client_scripts {
     "client/cl_notify.lua",
     "client/cl_prompt.lua",
     "client/cl_menu.lua",            -- the menu and text input (ui/); after cl_callbacks.lua, which it registers with
+    "client/cl_hub.lua",             -- the settings hub, /poggy (0.18.0); after cl_callbacks.lua and cl_menu.lua
 }
 
 server_scripts {
@@ -49,13 +50,17 @@ server_scripts {
     "server/sv_ui.lua",              -- menu / input round trip to a client; after sv_callbacks.lua
     "server/sv_selftest.lua",
     "server/sv_configmerge.lua",
+    "server/sv_settings_model.lua",  -- config files as editable settings (0.18.0); after sv_configmerge.lua
     "server/sv_updates.lua",
+    "server/sv_hub.lua",             -- the settings hub, server side (0.18.0); after sv_settings_model.lua
+    "server/sv_hub_save.lua",        -- the hub's saving, history, roles, restarts; after sv_hub.lua
     "server/sv_nettest.lua",
     "server/sv_commands.lua",
 }
 
--- The menu and text input every Poggy script uses (menu.open, input.text).
--- Hidden until asked for; nothing in it needs the internet.
+-- The menu and text input every Poggy script uses (menu.open, input.text),
+-- and the settings hub (/poggy). Hidden until asked for; nothing in either
+-- needs the internet.
 ui_page "ui/index.html"
 
 files {
@@ -66,6 +71,16 @@ files {
     "ui/index.html",
     "ui/style.css",
     "ui/script.js",
+    -- The settings hub (/poggy). Its browser mock for development lives in
+    -- tools\hub-mock on the development machine, not here.
+    "ui/hub/*.js",
+    "ui/hub/*.css",
+    "ui/hub/fonts/*",
+    "ui/hub/img/*",
+    -- Every Poggy script's icon, shown on its card when the script's own
+    -- manifest does not list a docs/icon.png (older installs) (hub spec §8.8).
+    "ui/hub/img/icons/*.png",
+    "docs/icon.png",
 }
 
 -- Everything in this resource is meant to be readable by the people building
@@ -79,4 +94,5 @@ escrow_ignore {
     "server/adapters/*.lua",
     "template/*.lua",
     "ui/*",
+    "ui/hub/**",
 }
