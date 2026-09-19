@@ -279,7 +279,7 @@
             sub      the selected list inside that row
             section  a settings section to scroll to once
     */
-    PH.scriptView = { tab: null, item: null, row: null, sub: null, section: null, q: '', changedOnly: false, advanced: false, loading: false, helpPage: 0 };
+    PH.scriptView = { tab: null, item: null, row: null, sub: null, section: null, flag: null, q: '', changedOnly: false, advanced: false, loading: false, helpPage: 0 };
 
     /**
      * Open a script. opts: { tab, item, row, sub, entry, reveal: path }.
@@ -296,7 +296,7 @@
             if (!ok) return false;
             PH.view = 'script';
             var v = PH.scriptView;
-            v.tab = opts.tab || null; v.item = opts.item || null; v.row = opts.row !== undefined ? opts.row : null; v.sub = opts.sub || null;
+            v.tab = opts.tab || null; v.item = opts.item || null; v.row = opts.row !== undefined ? opts.row : null; v.sub = opts.sub || null; v.flag = opts.flag || null;
             v.section = null; v.q = ''; v.changedOnly = false; v.advanced = false; v.loading = true; v.helpPage = 0;
             v.history = null;
             v.id = id;
@@ -346,7 +346,7 @@
     // Kinds that hold their own contents: nothing inside them is a setting of its own.
     var CONTAINER = { list: 1, map: 1, strings: 1, readonly: 1 };
     var GENERIC = { sell: 1, buy: 1, items: 1, item: 1, list: 1, entries: 1, data: 1, rows: 1, options: 1, values: 1, loot: 1, rewards: 1, config: 1, settings: 1 };
-    var KIND_ICON = { list: 'list', map: 'rows', collection: 'grid', keytable: 'keyboard' };
+    var KIND_ICON = { list: 'list', map: 'rows', collection: 'grid', keytable: 'keyboard', panel: 'database' };
     PH.KIND_ICON = KIND_ICON;
 
     function nodeList() { var cur = S.cur; return cur.order.map(function (p) { return cur.nodes[p]; }).filter(Boolean); }
@@ -434,6 +434,39 @@
         return !!ancestorOf(node, function (a) { return CONTAINER[a.kind] || cur.coll[a.path] || cur.nav.itemByCanon[PH.canon(a.path)]; });
     }
 
+    // §10: a data panel is an item with no node. Its path is "panel:<id>";
+    // `info` is the script answer's entry for it (label, tooltip, resource,
+    // available, reason). Its rows are read when it is opened (L.panel).
+    function panelInfo(cur, id) {
+        var list = cur.data && Array.isArray(cur.data.panels) ? cur.data.panels : [];
+        return list.filter(function (p) { return p && p.id === id; })[0] || null;
+    }
+    function panelItem(cur, id, label, tab) {
+        if (!id) return null;
+        var path = 'panel:' + id;
+        if (cur.nav.itemByCanon[path]) return null;
+        var info = panelInfo(cur, id) || { id: id, label: label, available: false, reason: 'The server did not describe this panel.' };
+        var it = { path: path, label: info.label || label || PH.readable(id), kind: 'panel', panel: id, info: info, node: null, tab: tab };
+        cur.nav.itemByCanon[path] = it;
+        return it;
+    }
+    /** Panels the navigation did not place (an older nav): under their tab, else "Data". */
+    function placePanels(cur) {
+        (cur.data && Array.isArray(cur.data.panels) ? cur.data.panels : []).forEach(function (p) {
+            if (!p || !p.id || cur.nav.itemByCanon['panel:' + p.id]) return;
+            var tid = p.tab && cur.nav.byId[p.tab] ? p.tab : 'data';
+            var tab = cur.nav.byId[tid];
+            if (!tab) {
+                tab = { id: tid, label: tid === 'data' ? 'Data' : PH.readable(tid), icon: 'database', sections: [], secById: {}, items: [] };
+                cur.nav.byId[tid] = tab;
+                cur.nav.tabs.push(tab);
+            }
+            var it = panelItem(cur, p.id, p.label, tab);
+            if (it) tab.items.push(it);
+        });
+    }
+    PH.panelInfo = function (id) { return S.cur ? panelInfo(S.cur, id) : null; };
+
     function navFromServer(cur) {
         var tabs = [], byId = {};
         cur.data.nav.forEach(function (t) {
@@ -452,6 +485,11 @@
         cur.data.nav.forEach(function (t) {
             var tab = byId[t.id];
             (t.items || []).forEach(function (it) {
+                if (it && it.kind === 'panel') {
+                    var pi = panelItem(cur, it.panel || String(it.path || '').replace(/^panel:/, ''), it.label, tab);
+                    if (pi) tab.items.push(pi);
+                    return;
+                }
                 var node = it && it.path ? S.node(it.path) : null;
                 if (!node || cur.nav.itemByCanon[PH.canon(node.path)]) return;
                 var kind = it.kind === 'collection' || isCollectionNode(node) ? 'collection'
@@ -638,6 +676,7 @@
         cur.nav = { tabs: [], byId: {}, itemByCanon: {}, tabOfNode: {} };
         if (Array.isArray(cur.data.nav) && cur.data.nav.length) navFromServer(cur);
         else navDerived(cur);
+        placePanels(cur);
         cur.nav.tabs = cur.nav.tabs.filter(function (t) {
             return t.items.length || t.sections.some(function (s) { return s.nodes.length; });
         });
@@ -657,6 +696,8 @@
         var v = PH.scriptView;
         if (!v.tab || !cur.tabById[v.tab]) { v.tab = cur.tabs[0] ? cur.tabs[0].id : 'history'; v.item = null; }
         if (v.item && !itemAt(v.item)) v.item = null;
+        // A deep link to an item (a panel from search) opens the tab it is under.
+        if (v.item && itemAt(v.item) && itemAt(v.item).tab) v.tab = itemAt(v.item).tab.id;
     }
     PH.computeTabs = computeTabs;
 
@@ -681,6 +722,7 @@
 
     function itemVisible(it) {
         var v = PH.scriptView;
+        if (it.kind === 'panel') return true;   // live data: never "changed", never advanced
         if (F.metaFor(it.node).advanced && !v.advanced) return false;
         if (v.changedOnly && !itemStats(it).changed) return false;
         return true;
@@ -688,6 +730,12 @@
 
     function itemStats(it) {
         var cur = S.cur;
+        if (it.kind === 'panel') {
+            // Rows are known once the panel has been read; until then no count.
+            var ps = cur.panelState && cur.panelState[it.panel];
+            var rows = ps && ps.data && Array.isArray(ps.data.rows) ? ps.data.rows : null;
+            return { n: rows ? (ps.data.total || rows.length) : null, changed: false };
+        }
         if (it.kind === 'collection') {
             var info = cur.coll[it.path];
             var ks = info.rowKeys();
@@ -701,7 +749,7 @@
     PH.itemStats = itemStats;
 
     function tabStats(t) {
-        var n = 0, ch = false;
+        var n = 0, ch = false, unknown = false;
         t.sections.forEach(function (s) {
             s.nodes.forEach(function (node) {
                 if (F.metaFor(node).advanced && !PH.scriptView.advanced) return;
@@ -712,10 +760,12 @@
         t.items.forEach(function (it) {
             if (F.metaFor(it.node).advanced && !PH.scriptView.advanced) return;
             var st = itemStats(it);
-            n += st.n;
+            if (st.n === null) unknown = true;
+            n += st.n || 0;
             if (st.changed) ch = true;
         });
-        return { n: n, changed: ch };
+        // A tab of data panels not read yet has no count to show.
+        return { n: unknown && !n ? null : n, changed: ch };
     }
 
     function sectionsShown(t) { return t.sections.filter(function (s) { return s.nodes.some(fieldVisible); }); }
@@ -741,7 +791,8 @@
 
     /**
      * Go somewhere inside the open script and draw it.
-     * t: { tab, item, row, sub, section, entry (a row of a list, or of the sublist), field (a path to flash) }
+     * t: { tab, item, row, sub, section, entry (a row of a list, or of the sublist), field (a path to flash),
+     *      flag (a list's problem filter: 'missing' | 'noicon' | 'hidden', §9.3) }
      */
     PH.navTo = function (t) {
         var cur = S.cur;
@@ -753,6 +804,7 @@
         v.item = item ? item.path : null;
         v.row = t.row !== undefined ? t.row : null;
         v.sub = t.sub || null;
+        v.flag = t.flag || null;
         v.section = t.section !== undefined ? t.section : null;
         if (t.advanced) v.advanced = true;
         if (t.field) v.changedOnly = false;
@@ -845,6 +897,37 @@
         PH.navTo(t);
     };
 
+    /**
+     * The list the script's diagnostics are about (§9.2): the one with the
+     * most rows flagged. Returns its navigation item, or null.
+     */
+    PH.hiddenList = function () {
+        var cur = S.cur;
+        var rows = cur && cur.data && cur.data.diagnostics && cur.data.diagnostics.rows;
+        if (!rows || typeof rows !== 'object' || !cur.nav) return null;
+        var tally = {}, best = null;
+        Object.keys(rows).forEach(function (p) {
+            var segs = PH.parsePath(p);
+            for (var i = segs.length; i > 0; i--) {
+                var q = String(segs[0]);
+                for (var j = 1; j < i; j++) q = PH.joinPath(q, segs[j]);
+                var it = cur.nav.itemByCanon[PH.canon(q)];
+                if (!it) continue;
+                tally[it.path] = (tally[it.path] || 0) + 1;
+                if (!best || tally[it.path] > tally[best.path]) best = it;
+                break;
+            }
+        });
+        return best;
+    };
+
+    /** Open that list with only the rows hidden in game showing. */
+    PH.showHidden = function () {
+        var it = PH.hiddenList();
+        if (!it) return;
+        PH.navTo({ item: it.path, advanced: F.metaFor(it.node).advanced, flag: 'hidden' });
+    };
+
     /** "Open" on a reference: the row of the target list or collection with that key (§8.5). */
     PH.openRef = function (target, key, refField) {
         var item = itemAt(target);
@@ -912,6 +995,23 @@
         PH.drawHeadActions = drawActions;
         drawActions();
 
+        // §9.2: what the script says about its own rows, with a way to see them.
+        var diag = cur.data.diagnostics;
+        var summary = diag && typeof diag.summary === 'string' && diag.summary ? diag.summary : null;
+        var hiddenAt = summary ? PH.hiddenList() : null;
+        var diagEl = summary ? h(hiddenAt ? 'button.ph-diagsum' : 'div.ph-diagsum', {
+            type: hiddenAt ? 'button' : null,
+            title: hiddenAt ? 'Show only the rows the script hides in game' : null,
+            onclick: hiddenAt ? function () { PH.showHidden(); } : null,
+        }, [icon('alert'), h('span.ph-diagsum__text', summary), hiddenAt ? h('span.ph-diagsum__go', ['Show them', icon('right')]) : null]) : null;
+        if (diagEl) PH.tip(diagEl, function () {
+            return h('div', [h('div.ph-tip__text', summary), h('div.ph-tip__code', 'As the script is running now: save and restart to check again.')]);
+        });
+        // No diagnostics this time (the script is stopped, or its export failed): say why, quietly.
+        if (!diagEl && typeof cur.data.diagnosticsNote === 'string' && cur.data.diagnosticsNote) {
+            diagEl = h('div.ph-diagnote', [icon('info'), h('span', cur.data.diagnosticsNote)]);
+        }
+
         var lockState = cur.lock.mine
             ? h('span.ph-lockpill.is-mine', [icon('pencil'), 'You are editing'])
             : cur.lock.holder ? h('span.ph-lockpill', [icon('lock'), cur.lock.holder.name + ' is editing']) : h('span.ph-lockpill.is-free', [icon('eye'), 'Read only']);
@@ -931,6 +1031,7 @@
                         [icon('file'), PH.plural(cur.data.files.length, 'config file')]) : null,
                     cur.data.defaultsKnown === false ? h('span.ph-tag.ph-tag--muted', { title: 'The shipped config for this version could not be fetched, so changed badges and Reset are hidden.' }, 'Defaults unknown') : null,
                 ]),
+                diagEl,
             ]),
             actions,
         ]);
@@ -947,7 +1048,8 @@
         } else if (cur.lock.holder) {
             var since = PH.when(cur.lock.holder.since);
             host.appendChild(banner('lock', 'lock', [h('b', cur.lock.holder.name + ' is editing ' + (c.label || cur.id) + '.'),
-                ' Since ' + (since.abs || since.rel) + (since.abs ? ' (' + since.rel + ')' : '') + '. You can look around, but nothing can be changed until they finish.'], [
+                ' Since ' + (since.abs || since.rel) + (since.abs ? ' (' + since.rel + ')' : '') + '. You can look around, but nothing can be changed until they finish.'
+                + (Array.isArray(cur.data.panels) && cur.data.panels.length ? ' Data panels are not locked: they apply at once.' : '')], [
                 PH.boot && PH.boot.canTakeover ? h('button.ph-btn.ph-btn--danger.ph-btn--sm', { type: 'button', onclick: function () { PH.lock.takeover(cur.id); } }, [icon('unlock'), 'Take over']) : null,
                 h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', onclick: function () { PH.lock.acquire(cur.id, true); } }, [icon('restart'), 'Check again']),
             ]));
@@ -1055,7 +1157,7 @@
                 icon(t.icon || 'sliders'),
                 h('span.ph-rail__label', t.label),
                 st.changed ? h('span.ph-rail__dot', { title: 'Something here is changed or unsaved' }) : null,
-                h('span.ph-rail__count', String(st.n)),
+                st.n === null ? null : h('span.ph-rail__count', String(st.n)),
             ]);
             chev.addEventListener('click', function (e) {
                 e.stopPropagation();
@@ -1081,11 +1183,13 @@
             items.forEach(function (it) {
                 var ist = itemStats(it);
                 var on = !v.q && v.item && PH.canon(v.item) === PH.canon(it.path);
-                sub.appendChild(h('button.ph-rail__sub.is-item' + (on ? '.is-active' : ''), { type: 'button', title: it.label + ' (' + kindWord(it.kind) + ')', onclick: function () { PH.navTo({ item: it.path }); } }, [
+                var off = it.kind === 'panel' && it.info && it.info.available === false;
+                var title = it.label + ' (' + kindWord(it.kind) + ')' + (off && it.info.reason ? ': ' + it.info.reason : '');
+                sub.appendChild(h('button.ph-rail__sub.is-item' + (on ? '.is-active' : '') + (off ? '.is-off' : ''), { type: 'button', title: title, onclick: function () { PH.navTo({ item: it.path }); } }, [
                     h('span.ph-rail__subico.is-' + it.kind, icon(KIND_ICON[it.kind] || 'list')),
                     h('span.ph-rail__sublabel', it.label),
                     ist.changed ? h('span.ph-rail__dot') : null,
-                    h('span.ph-rail__count', String(ist.n)),
+                    ist.n === null ? (off ? h('span.ph-rail__count', icon('stop')) : null) : h('span.ph-rail__count', String(ist.n)),
                 ]));
             });
             sec.appendChild(sub);
@@ -1104,7 +1208,7 @@
     PH.renderRail = renderRail;
 
     function kindWord(kind) {
-        return { list: 'list', map: 'keyed list', collection: 'collection', keytable: 'key table' }[kind] || 'list';
+        return { list: 'list', map: 'keyed list', collection: 'collection', keytable: 'key table', panel: 'live data, changes apply at once' }[kind] || 'list';
     }
 
     // ------------------------------------------------------------ content --
@@ -1159,6 +1263,7 @@
 
     /** A card for a list or collection on its tab's page: what it is, how many, and a way in. */
     function itemCard(it) {
+        if (it.kind === 'panel') return panelCard(it);
         var st = itemStats(it);
         var meta = F.metaFor(it.node);
         var what = it.kind === 'collection' ? (meta.itemLabel || PH.singular(it.label) || 'entry') : it.kind === 'keytable' ? 'key' : (meta.itemLabel || (it.kind === 'map' ? 'entry' : 'row'));
@@ -1175,6 +1280,31 @@
         ]);
     }
 
+    /** A data panel's card on its tab page (§10): live data, how many, or why it cannot be read. */
+    function panelCard(it) {
+        var st = itemStats(it);
+        var info = it.info || {};
+        var off = info.available === false;
+        var what = info.itemLabel || 'row';
+        return h('button.ph-itemcard.is-panel' + (off ? '.is-off' : ''), { type: 'button', onclick: function () { PH.navTo({ item: it.path }); } }, [
+            h('span.ph-itemcard__ico.is-panel', icon('database')),
+            h('span.ph-itemcard__main', [
+                h('span.ph-itemcard__title', [it.label, h('span.ph-livetag', 'Live')]),
+                h('span.ph-itemcard__meta', off ? (info.reason || 'Not available right now.')
+                    : [st.n !== null ? PH.plural(st.n, what) + ' · ' : '', 'changes apply at once', info.resource ? ' · from ' + info.resource : ''].join('')),
+                info.tooltip ? h('span.ph-itemcard__desc', String(info.tooltip).split('\n')[0]) : null,
+            ]),
+            icon('right', 'ph-itemcard__go'),
+        ]);
+    }
+
+    function tabMeta(nSettings, items) {
+        var panels = items.filter(function (it) { return it.kind === 'panel'; }).length;
+        var lists = items.length - panels;
+        return [nSettings ? PH.plural(nSettings, 'setting') : null, lists ? PH.plural(lists, 'list') : null, panels ? PH.plural(panels, 'data panel') : null]
+            .filter(Boolean).join(' · ');
+    }
+
     function tabPage(t) {
         var wrap = h('div.ph-tab');
         var v = PH.scriptView;
@@ -1184,7 +1314,7 @@
         t.sections.forEach(function (s) { nSettings += s.nodes.filter(fieldVisible).length; });
         wrap.appendChild(h('div.ph-tabhead', [
             h('h2.ph-tabhead__title', [icon(t.icon || 'sliders'), t.label]),
-            h('span.ph-tabhead__meta', [nSettings ? PH.plural(nSettings, 'setting') : null, nSettings && items.length ? ' · ' : null, items.length ? PH.plural(items.length, 'list') : null]),
+            h('span.ph-tabhead__meta', tabMeta(nSettings, items)),
         ]));
         if (items.length) {
             wrap.appendChild(h('div.ph-itemgrid', items.map(itemCard)));
@@ -1217,17 +1347,20 @@
         if (it.kind === 'collection') {
             var info = S.cur.coll[it.path];
             wrap.appendChild(L.collection(info, {
-                row: v.row, sub: v.sub,
+                row: v.row, sub: v.sub, flag: v.flag,
                 onState: function (row, sub) {
                     v.row = row;
                     if (sub !== undefined) v.sub = sub;
                     drawCrumbs();
                 },
+                onFlag: function (f) { v.flag = f; },
             }));
+        } else if (it.kind === 'panel') {
+            wrap.appendChild(L.panel(it));
         } else if (it.kind === 'keytable') {
             wrap.appendChild(L.keytable(it.node));
         } else {
-            wrap.appendChild(L.section(it.node, { label: it.label, onChange: function () { onFieldChange(); } }));
+            wrap.appendChild(L.section(it.node, { label: it.label, flag: v.flag, onFlag: function (f) { v.flag = f; }, onChange: function () { onFieldChange(); } }));
         }
         return wrap;
     }
@@ -1274,6 +1407,13 @@
             var hits = [];
             t.items.forEach(function (it) {
                 var base = [t.label];
+                if (it.kind === 'panel') {
+                    // A panel's rows are live data read on demand: search finds the panel by name.
+                    if (PH.matches(q, [it.label, it.info && it.info.tooltip, it.info && it.info.itemLabel])) {
+                        hits.push(hit('database', base, it.label, 'Data panel · changes apply at once', function () { PH.navTo({ item: it.path }); }));
+                    }
+                    return;
+                }
                 var nameHit = PH.matches(q, [it.label, it.path, F.tooltipFor(it.node)]);
                 var st = itemStats(it);
                 if (it.kind === 'collection') {
@@ -1484,18 +1624,28 @@
             var tb = h('tbody');
             hs.rows.forEach(function (row) {
                 var when = PH.when(row.at);
-                var node = S.resolve(row.path);
-                var label = node && node.node.path === row.path ? F.labelFor(node.node) : row.path;
+                var isPanel = !!row.panel || !!row.container || /^(panel|container):/.test(String(row.file || ''));
+                var node = isPanel ? null : S.resolve(row.path);
+                var label = isPanel ? (row.label || row.path) : node && node.node.path === row.path ? F.labelFor(node.node) : row.path;
                 var oldV = decodeLogged(row.old), newV = decodeLogged(row['new']);
                 var change;
-                if (row.op === 'set' || row.op === 'reset' || !row.op) {
+                if (/^action:/.test(String(row.op || ''))) {
+                    var inp = newV && typeof newV === 'object' && newV.input && typeof newV.input === 'object' ? newV.input : null;
+                    var inpText = inp ? Object.keys(inp).map(function (k) { return PH.readable(k) + ' ' + PH.fmtValue(inp[k], 30); }).join(', ') : '';
+                    change = h('span.ph-diffline', [h('span.ph-opbadge', 'Action'), h('span.ph-diff__new', inpText || 'ran')]);
+                } else if (row.container && (row.op === 'add' || row.op === 'remove' || row.op === 'empty')) {
+                    change = h('span.ph-diffline', [h('span.ph-opbadge', { add: 'Added', remove: 'Removed', empty: 'Emptied' }[row.op]),
+                        row.op === 'empty' ? h('span.ph-diff__old', PH.fmtValue(oldV, 60)) : h('span.ph-diffline', [h('span.ph-diff__old', PH.fmtValue(oldV, 20)), icon('right'), h('span.ph-diff__new', PH.fmtValue(newV, 20))])]);
+                } else if (row.op === 'set' || row.op === 'reset' || !row.op) {
                     change = h('span.ph-diffline', [h('span.ph-diff__old', PH.fmtValue(oldV, 60)), icon('right'), h('span.ph-diff__new', PH.fmtValue(newV, 60))]);
                 } else {
                     change = h('span.ph-diffline', [h('span.ph-opbadge', opLabel(row.op)), h('span.ph-diff__new', PH.fmtValue(newV !== undefined && newV !== null ? newV : oldV, 60))]);
                 }
                 // A row that added something has no earlier value to go back to.
-                var noOld = row.old === undefined || row.old === null;
-                var undo = noOld ? null : h('button.ph-btn.ph-btn--ghost.ph-btn--sm', {
+                var noOld = row.old === undefined || row.old === null || row.canUndo === false;
+                // A data panel write is undone through the panel: no lock, nothing pending in the way.
+                var undo = noOld ? null : isPanel ? h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Put the old value back (applies at once)' }, [icon('reset'), 'Undo'])
+                    : h('button.ph-btn.ph-btn--ghost.ph-btn--sm', {
                     type: 'button', disabled: S.isReadOnly() || pendingBlock,
                     title: S.isReadOnly() ? 'You need the edit lock to undo' : pendingBlock ? 'Save or discard your unsaved changes first' : 'Put the old value back (saved at once)',
                 }, [icon('reset'), 'Undo']);
@@ -1503,8 +1653,12 @@
                 tb.appendChild(h('tr', [
                     h('td', [h('div', when.rel), h('div.ph-table__sub', when.abs)]),
                     h('td', [icon('user'), ' ', row.by || 'console']),
-                    h('td', [h('button.ph-linkbtn', { type: 'button', onclick: function () { PH.reveal(row.path); } }, label),
-                        h('div.ph-table__sub.ph-cellmono', (row.file ? row.file + '  ·  ' : '') + row.path)]),
+                    h('td', [h('button.ph-linkbtn', { type: 'button', onclick: function () {
+                        if (isPanel) { if (row.panel && itemAt('panel:' + row.panel)) PH.navTo({ item: 'panel:' + row.panel }); return; }
+                        PH.reveal(row.path);
+                    } }, isPanel ? [icon('database'), ' ', label] : label),
+                        h('div.ph-table__sub.ph-cellmono', isPanel ? (row.container ? 'Container  ·  ' + row.container : 'Data panel  ·  ' + String(row.file).replace(/^panel:/, '')) + '  ·  ' + row.path
+                            : (row.file ? row.file + '  ·  ' : '') + row.path)]),
                     h('td', change),
                     h('td.ph-table__acts', undo),
                 ]));

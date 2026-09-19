@@ -95,7 +95,7 @@ end
 ---@return table answer { ok, value?, err?, ... }
 --- Calls that can restart scripts get longer than RpcTimeout: the server waits
 --- up to ten seconds for each restart before it answers.
-local SLOW_CALLS = { restart = true, start = true, save = true, undo = true, saveRoles = true }
+local SLOW_CALLS = { restart = true, start = true, save = true, undo = true, saveRoles = true, itemList = true }
 local SLOW_TIMEOUT = 30000
 
 local function callServer(call, args)

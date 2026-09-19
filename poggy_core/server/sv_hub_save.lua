@@ -235,6 +235,36 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)]], {
     end
 end
 
+--- §10: one data panel write, so History shows it beside the config changes.
+--- file = "panel:<resource>:<panelId>", path = "<key>.<field>".
+function I.logPanel(script, panel, folder, key, field, old, new, who)
+    logRows(script, { {
+        file = "panel:" .. tostring(folder) .. ":" .. panel.id,
+        path = tostring(key) .. "." .. tostring(field),
+        op = "set", old = old, new = new,
+    } }, who or I.who(0))
+end
+
+--- §10.5: a panel action. op = "action:<id>" (cut to the column), path = the
+--- row key ("" for the panel); new = { action, input } keeps the whole id.
+function I.logPanelAction(script, panel, folder, action, key, input, who)
+    logRows(script, { {
+        file = "panel:" .. tostring(folder) .. ":" .. panel.id,
+        path = key ~= nil and tostring(key) or "",
+        op = "action:" .. action.id,
+        new = { action = action.id, input = input },
+    } }, who or I.who(0))
+end
+
+--- §10.5: a change to a container's contents. file = "container:<id>",
+--- path = the item ("*" when emptied), op = add | remove | empty.
+function I.logContainer(script, containerId, item, op, old, new, who)
+    logRows(script, { {
+        file = "container:" .. tostring(containerId),
+        path = tostring(item), op = op, old = old, new = new,
+    } }, who or I.who(0))
+end
+
 local function unixSeconds(v)
     local n = tonumber(v)
     if n then return n > 1e11 and math.floor(n / 1000) or math.floor(n) end
@@ -248,7 +278,7 @@ function Hub.History(id, page)
     local rows = DB.query(("SELECT `id`, `file`, `path`, `op`, `old_value`, `new_value`, `changed_by_name`, `changed_at`"
         .. " FROM `poggy_settings_log` WHERE `poggy_id` = ? ORDER BY `id` DESC LIMIT %d OFFSET %d")
         :format(PAGE + 1, (page - 1) * PAGE), { id }) or {}
-    local out = {}
+    local out, built = {}, false
     for i, r in ipairs(rows) do
         if i > PAGE then break end
         local row = { id = tonumber(r.id), file = r.file, path = r.path, op = r.op,
@@ -256,6 +286,21 @@ function Hub.History(id, page)
         -- A stored false is a value; only a missing one is nil.
         if r.old_value ~= nil then row.old = I.decode(r.old_value) end
         if r.new_value ~= nil then row.new = I.decode(r.new_value) end
+        -- §10: a data panel write reads "Shop jobs · valentine_general · job".
+        if type(r.file) == "string" and (r.file:sub(1, 6) == "panel:" or r.file:sub(1, 10) == "container:") and I.panelLogInfo then
+            if built == false then
+                local s = Hub.Find(id)
+                local okB, b = false, nil
+                if s then okB, b = pcall(Hub.Build, s) end
+                built = okB and b or nil
+            end
+            local info = I.panelLogInfo(built, r.file, r.path, r.op)
+            if info then
+                row.panel, row.container, row.label = info.panel, info.container, info.label
+                row.panelKey, row.panelField = info.panelKey, info.panelField
+                row.canUndo = info.canUndo
+            end
+        end
         out[#out + 1] = row
     end
     return { rows = out, more = #rows > PAGE }
@@ -1554,6 +1599,21 @@ function Hub.Undo(src, logId)
     if not r then return I.fail("invalid", "No such history entry.", { reason = "not found" }) end
     local s, failure = I.script(r.poggy_id)
     if not s then return failure end
+    -- §10: a data panel write is undone through the panel, not the files.
+    -- Actions, container changes and drill-down writes are not undone here.
+    if type(r.file) == "string" and (r.file:sub(1, 6) == "panel:" or r.file:sub(1, 10) == "container:") then
+        local okB, b = pcall(Hub.Build, s)
+        local info = I.panelLogInfo(okB and b or nil, r.file, r.path, r.op)
+        if not info or not info.canUndo then
+            return I.fail("invalid", "That change cannot be undone from History; make it again in the panel.",
+                { reason = "not undoable" })
+        end
+        if r.old_value == nil then
+            return I.fail("invalid", "That cell was empty before; there is no earlier value to go back to.",
+                { path = r.path, reason = "no earlier value" })
+        end
+        return Hub.PanelWrite(src, s.id, info.panel, info.panelKey, info.panelField, I.decode(r.old_value))
+    end
     if r.old_value == nil then
         return I.fail("invalid", "That change added the setting; there is no earlier value to go back to.",
             { path = r.path, reason = "no earlier value" })

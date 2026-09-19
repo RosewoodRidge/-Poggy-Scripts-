@@ -26,6 +26,18 @@
       - locks: one editor per script, idle timeout with a warning, takeover,
         release on close and on disconnect. Hub.IsLocked(id) is what the
         updater asks before it writes a script's files.
+      - item checks (§9.1): every item name a script's config uses, checked
+        against the server's item registry (exact case) and for its icon
+        file, when the script's hub.json says "itemCheck": true; the whole
+        registry for type-ahead (`itemList`) and checks of newly typed names
+        (`itemCheck`)
+      - script diagnostics (§9.2): a running script's own report on its rows,
+        from the server export its hub.json names ("diagnostics")
+      - data panels (§10): live data a script owns (its database), shown as a
+        table and edited cell by cell, with actions and drill-down, through
+        that script's own export (`panel`, `panelWrite`, `panelAction`), and
+        container contents built from the storage verbs (`container`,
+        `containerAction`); every change is logged to History
       - the callbacks poggy_core:hub:<call> and the push event
         poggy_core:hub:event (type, data) the client relays to the page
       - `poggycore settings` for the server console (routed from sv_commands.lua)
@@ -1831,6 +1843,22 @@ function I.organise(b, priv)
         t.secBy = nil
     end
 
+    -- 4b. Data panels (§10): each is an item of kind "panel" under its tab.
+    -- A tab hub.json declares (or one the settings already use) takes it,
+    -- even when it has nothing else; any other tab id goes to "Data".
+    b.panels = I.panelDecls(meta)
+    for _, p in ipairs(b.panels) do
+        local id
+        if p.tab and (declared[p.tab] or tabs[p.tab]) then
+            id = useTab(p.tab)
+        else
+            id = useTab("data", "Data", "database")
+        end
+        p.tab = id
+        local t = navTab(id)
+        t.items[#t.items + 1] = { path = "panel:" .. p.id, panel = p.id, label = p.label, kind = "panel" }
+    end
+
     -- Order: General, hub.json's tabs as declared, the rest in file order,
     -- then Text & language and Advanced. Empty tabs are left out.
     local list, pushed = {}, {}
@@ -2048,6 +2076,1158 @@ function I.buildRefs(b, ctx)
 end
 
 -- ---------------------------------------------------------------------------
+-- Item checks (§9.1)
+--
+-- Item names are typed by hand, and the first real use (BritanniaRP) found
+-- them wrong in case or spelling with nothing to say so, and crafting hid
+-- recipes whose items had no icon without the hub knowing. So, for a script
+-- whose hub.json says "itemCheck": true, the `script` answer carries every
+-- item name the script's config uses, each checked against the server:
+--
+--   exists   the name is in the item registry, EXACTLY (case matters: the
+--            inventory looks items up by exact name). A weapon name
+--            (WEAPON_...) counts as existing: weapons are not items in the
+--            registry, and a recipe may still reward one.
+--   suggest  when it does not exist, the registry name that matches it
+--            case-insensitively, if there is one ("steel_Bar" -> "steel_bar")
+--   icon     whether the icon file is there, checked the way the game checks
+--            it: LoadResourceFile(resource, pattern with the name in it)
+--   label    the registry's label, when it exists
+--   file     "<resource>/<path>" the icon should be at, when it is missing
+--
+-- The registry is read once with Poggy('inv.items', { limit = 100000 }) and
+-- kept for five minutes (or read again on demand, `itemList` with fresh);
+-- icon answers are kept per file for as long as the registry is.
+--
+-- Where icons live: the inventory's image base (inv.imageBase, e.g.
+-- nui://vorp_inventory/html/img/items/ -> resource vorp_inventory, pattern
+-- html/img/items/%s.png). A script that looks icons up itself names its own
+-- settings in hub.json, "itemIcons": { "resourcePath": "Config.IconResource",
+-- "pathPath": "Config.IconPath" }, so the hub checks exactly the file the
+-- script checks. A setting that is missing from the config falls back to the
+-- inventory's answer.
+--
+-- Which names: every string value of every field whose meta says
+-- picker = "item": settings, lists of names, list fields ("Items[].name"),
+-- names inside a list field ("Items[].AltNames[]"), and the sublists of
+-- collections. Empty strings and non-strings (false = none) are skipped.
+-- ---------------------------------------------------------------------------
+
+local REGISTRY_SECONDS = 300        -- how long the item registry is kept
+local REGISTRY_RETRY_SECONDS = 30   -- how soon a registry that could not be read is tried again
+local MAX_CHECK_NAMES = 500         -- itemCheck(names): names per call
+
+local registry = { at = nil }       -- { at, ttl, list, byName, byLower, err }
+local iconSeen = {}                 -- resource .. "|" .. rel -> boolean
+
+--- The server's item registry: { list = { {name, label, image} } sorted by
+--- name, byName, byLower (ASCII lower case -> first item with that name),
+--- err }. list and byName are nil when the registry cannot be read (no
+--- framework, or one without an item table): nothing is then called missing.
+function Hub.ItemRegistry(fresh)
+    local age = registry.at and (I.now() - registry.at) or nil
+    if not fresh and age and age < (registry.ttl or REGISTRY_SECONDS) then return registry end
+    if fresh and PoggyCore.DropItemCache then pcall(PoggyCore.DropItemCache) end
+    local ok, list, err = PoggyCore.Do("inv.items", { limit = 100000 })
+    local r = { at = I.now(), ttl = REGISTRY_SECONDS }
+    if ok and type(list) == "table" then
+        r.list, r.byName, r.byLower = {}, {}, {}
+        for _, it in ipairs(list) do
+            if type(it) == "table" and type(it.name) == "string" and it.name ~= "" and not r.byName[it.name] then
+                local e = {
+                    name = it.name,
+                    label = type(it.label) == "string" and it.label ~= "" and it.label or it.name,
+                    image = type(it.image) == "string" and it.image or nil,
+                }
+                r.list[#r.list + 1] = e
+                r.byName[e.name] = e
+                local low = I.lower(e.name)
+                if r.byLower[low] == nil then r.byLower[low] = e end
+            end
+        end
+        table.sort(r.list, function(a, b)
+            local la, lb = I.lower(a.name), I.lower(b.name)
+            if la ~= lb then return la < lb end
+            return a.name < b.name
+        end)
+    else
+        r.err = tostring(err or "unsupported")
+        r.ttl = REGISTRY_RETRY_SECONDS
+    end
+    registry = r
+    iconSeen = {}   -- icons are looked at again with every fresh registry
+    return r
+end
+
+--- A weapon name: weapons are not rows of the item registry.
+local function isWeaponName(name)
+    return name:find("^[Ww][Ee][Aa][Pp][Oo][Nn]_") ~= nil
+end
+
+--- An item name that is safe inside a file path (no folders, no ..).
+local function pathSafeName(name)
+    return #name <= 100 and not name:find("..", 1, true) and not name:find("[/\\:%c]")
+end
+
+--- Where a script's item icons are: { resource, pattern, base, source =
+--- "config" | "inventory" } or nil when nothing says. pattern has one %s.
+function I.iconLocation(b)
+    local loc
+    local okBase, base = PoggyCore.Do("inv.imageBase", {})
+    if okBase and type(base) == "string" then
+        local res, dir = base:match("^nui://([^/]+)/(.*)$")
+        if res then loc = { resource = res, pattern = dir .. "%s.png", base = base, source = "inventory" } end
+    end
+    local ic = b and b.meta and plain(b.meta.itemIcons) and b.meta.itemIcons or nil
+    if ic then
+        local function setting(path)
+            if type(path) ~= "string" or path == "" then return nil end
+            local n = I.nodeAt(b.byPath, path)
+            return n and type(n.value) == "string" and n.value ~= "" and n.value or nil
+        end
+        local res, pattern = setting(ic.resourcePath), setting(ic.pathPath)
+        if pattern and not pattern:find("%s", 1, true) then pattern = nil end
+        if res or pattern then
+            loc = {
+                resource = res or (loc and loc.resource), pattern = pattern or (loc and loc.pattern),
+                base = loc and loc.base, source = "config",
+            }
+            if not loc.resource or not loc.pattern then loc = nil end
+        end
+    end
+    return loc
+end
+
+--- The icon file of one name, relative to loc.resource, or nil when the name
+--- cannot be part of a path. The inventory's own image for a registry item
+--- when icons come from the inventory (RSG and QBR name files by an image
+--- field, not always <name>.png); the pattern otherwise.
+local function iconRel(loc, name, item)
+    if not pathSafeName(name) then return nil end
+    if loc.source == "inventory" and item and item.image then
+        local prefix = "nui://" .. loc.resource .. "/"
+        if item.image:sub(1, #prefix) == prefix then return item.image:sub(#prefix + 1) end
+    end
+    return (loc.pattern:gsub("%%s", function() return name end, 1))
+end
+
+--- Is this icon file there? Cached with the registry.
+local function iconExists(resource, rel)
+    local key = resource .. "|" .. rel
+    local seen = iconSeen[key]
+    if seen == nil then
+        local okLoad, data = pcall(LoadResourceFile, resource, rel)
+        seen = okLoad and type(data) == "string" and #data > 0 or false
+        iconSeen[key] = seen
+    end
+    return seen
+end
+
+--- The §9.1 check of a set of names: { name = { exists, icon, label, suggest,
+--- weapon, file } }, plus counts { names, missing, wrongCase, noIcon }.
+--- exists is absent when the registry cannot be read; icon when no icon
+--- location is known.
+function I.itemValues(names, loc)
+    local reg = Hub.ItemRegistry()
+    local values, counts = {}, { names = 0, missing = 0, wrongCase = 0, noIcon = 0 }
+    for _, name in ipairs(names) do
+        if type(name) == "string" and name ~= "" and values[name] == nil then
+            local v = {}
+            local item = reg.byName and reg.byName[name] or nil
+            if reg.byName then
+                if item then
+                    v.exists, v.label = true, item.label
+                elseif isWeaponName(name) then
+                    v.exists, v.weapon = true, true
+                else
+                    v.exists = false
+                    local near = reg.byLower[I.lower(name)]
+                    if near then v.suggest = near.name end
+                    counts.missing = counts.missing + 1
+                    if near then counts.wrongCase = counts.wrongCase + 1 end
+                end
+            end
+            if loc then
+                local rel = iconRel(loc, name, item)
+                v.icon = rel ~= nil and iconExists(loc.resource, rel) or false
+                if not v.icon then
+                    if rel then v.file = loc.resource .. "/" .. rel end
+                    counts.noIcon = counts.noIcon + 1
+                end
+            end
+            values[name] = v
+            counts.names = counts.names + 1
+        end
+    end
+    return values, counts
+end
+
+--- Every item name a script's config uses (picker "item"), sorted, once per build.
+function I.itemNames(b)
+    if b.itemNames then return b.itemNames end
+    local seen, out = {}, {}
+    local function add(v)
+        if type(v) == "string" and v ~= "" and not seen[v] then seen[v] = true; out[#out + 1] = v end
+    end
+    for _, n in ipairs(b.nodes) do
+        local m = n.meta or {}
+        if m.picker == "item" and not n.cell then
+            if n.kind == "value" then
+                add(n.value)
+            elseif n.kind == "strings" and plain(n.value) then
+                for _, x in ipairs(n.value) do add(x) end
+            end
+        end
+        -- List fields. A collection kept as nodes is skipped as a whole: its
+        -- rows are nodes of their own and carry the merged field meta.
+        if (n.kind == "list" or n.kind == "map") and plain(n.value) and plain(m.fields)
+            and not (n.collection and n.collection.rowSource == "nodes") then
+            for fk, fm in pairs(m.fields) do
+                if type(fk) == "string" and plain(fm) and fm.picker == "item" then
+                    local segs = I.fieldSegs(fk)
+                    for _, r in ipairs(I.rowsOf(n.value)) do
+                        walkRef(r.value, segs, 1, I.child(n.path, r.key), "", nil, function(_, v) add(v) end)
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out)
+    b.itemNames = out
+    return out
+end
+
+--- The `itemCheck` block of the script answer (§9.1), or nil when hub.json
+--- does not ask for it.
+function I.itemCheck(b)
+    if b.meta.itemCheck ~= true then return nil end
+    local loc = I.iconLocation(b)
+    local values, counts = I.itemValues(I.itemNames(b), loc)
+    local reg = Hub.ItemRegistry()
+    return {
+        available = reg.byName ~= nil,     -- false: the registry could not be read; nothing is "missing"
+        reason = reg.byName == nil and ("The item list is not available on this server (%s)."):format(reg.err or "unsupported") or nil,
+        iconResource = loc and loc.resource or nil,
+        iconPattern = loc and loc.pattern or nil,
+        values = values,
+        counts = counts,
+    }
+end
+
+--- `itemList` (§9.1): the whole registry for type-ahead. image is sent only
+--- for an item whose icon is not imageBase .. name .. ".png".
+function I.itemList(fresh)
+    local reg = Hub.ItemRegistry(fresh == true)
+    local okBase, base = PoggyCore.Do("inv.imageBase", {})
+    base = okBase and type(base) == "string" and base or nil
+    local items = {}
+    for _, it in ipairs(reg.list or {}) do
+        local e = { name = it.name, label = it.label }
+        if it.image and (not base or it.image ~= base .. it.name .. ".png") then e.image = it.image end
+        items[#items + 1] = e
+    end
+    return {
+        items = items,
+        imageBase = base,
+        available = reg.list ~= nil,
+        reason = reg.list == nil and ("The item list is not available on this server (%s)."):format(reg.err or "unsupported") or nil,
+    }
+end
+
+-- ---------------------------------------------------------------------------
+-- Script diagnostics (§9.2)
+--
+-- Some things only the script knows: poggy_crafting hides a recipe when one
+-- of its items has no icon, and hides the recipes further down the chain that
+-- can no longer be made. A script says so through a server export that
+-- hub.json names ("diagnostics": "HubDiagnostics"), returning
+--   { summary = "...", rows = { ["Config.Crafting[37]"] = { { level, code,
+--     message, items = {...}, files = {...} } } } }
+-- It reflects the config the script is RUNNING, so it is asked only when the
+-- script is started, and changes after save + restart. The call is pcall'd;
+-- a failure is logged once per script and reason, and the hub opens without it.
+-- What comes back crosses a resource boundary, so it is copied into a known
+-- shape (strings and lists of strings, capped) before it goes to the page.
+-- ---------------------------------------------------------------------------
+
+local diagWarned = {}   -- folder .. "|" .. export .. "|" .. reason -> true
+local DIAG_LEVELS = { error = true, warning = true, info = true }
+
+--- A string or number as text of at most about n bytes, never cut inside a
+--- UTF-8 character.
+local function diagText(v, n)
+    if type(v) ~= "string" and type(v) ~= "number" then return nil end
+    local text = tostring(v)
+    if #text <= n then return text end
+    local cut = n - 1
+    while cut > 0 do
+        local byte = text:byte(cut + 1)
+        if not byte or byte < 0x80 or byte > 0xBF then break end
+        cut = cut - 1
+    end
+    return text:sub(1, cut) .. "…"
+end
+
+local function diagStrings(t, most)
+    if type(t) ~= "table" then return nil end
+    local out = {}
+    for _, x in ipairs(t) do
+        local s = type(x) == "string" and diagText(x, 200) or nil
+        if s then out[#out + 1] = s end
+        if #out >= most then break end
+    end
+    return #out > 0 and out or nil
+end
+
+--- The export's answer in the §9.2 shape: { summary, rows = { path = { entry } } }.
+function I.cleanDiagnostics(raw)
+    local out = { summary = diagText(raw.summary, 400), rows = {} }
+    local rows, n = type(raw.rows) == "table" and raw.rows or {}, 0
+    for path, entries in pairs(rows) do
+        if type(path) == "string" and type(entries) == "table" then
+            local list = {}
+            for _, e in ipairs(entries) do
+                if type(e) == "table" and diagText(e.message, 400) then
+                    list[#list + 1] = {
+                        level = DIAG_LEVELS[e.level] and e.level or "warning",
+                        code = diagText(e.code, 40),
+                        message = diagText(e.message, 400),
+                        items = diagStrings(e.items, 50),
+                        files = diagStrings(e.files, 50),
+                    }
+                end
+                if #list >= 20 then break end
+            end
+            if #list > 0 then
+                out.rows[I.canon(path)] = list
+                n = n + 1
+                if n >= 5000 then break end
+            end
+        end
+    end
+    return out
+end
+
+--- diagnostics for the script answer: value, note. The note is plain
+--- English for the page when hub.json asks for diagnostics and there are none.
+function I.diagnostics(s, b)
+    local name = b.meta.diagnostics
+    if type(name) ~= "string" or not name:find("^[%a_][%w_]*$") then return nil end
+    if GetResourceState(s.folder) ~= "started" then
+        return nil, "Start the script to see what it reports about its rows."
+    end
+    local okCall, res = pcall(function() return exports[s.folder][name]() end)
+    local why = not okCall and tostring(res) or (type(res) ~= "table" and ("it returned " .. type(res)) or nil)
+    if why then
+        local key = s.folder .. "|" .. name .. "|" .. why
+        if not diagWarned[key] then
+            diagWarned[key] = true
+            Util.Warn("hub: %s's diagnostics export %s could not be read (%s); the hub opens without it.",
+                s.folder, name, why)
+        end
+        return nil, "The script's own report could not be read; the server console says why."
+    end
+    return I.cleanDiagnostics(res)
+end
+
+-- ---------------------------------------------------------------------------
+-- Data panels (§10)
+--
+-- Some things owners manage live in a script's database, not its config
+-- (poggy_markets' shop jobs: which job each shop gives its staff). hub.json
+-- declares a panel:
+--     "panels": [ { "id": "shopjobs", "label": "Shop jobs", "tab": "shopjobs",
+--                   "resource": "poggy_markets", "export": "HubPanel",
+--                   "itemLabel": "shop", "tooltip": "..." } ]
+-- and the script that OWNS the data (resource; default the declaring script)
+-- answers through a server export:
+--     HubPanel(panelId, "read", payload)                      -> { columns, rows, note, actions }
+--     HubPanel(panelId, "write", { key, field, value }, who)  -> true, "message" | false, "reason"
+--     HubPanel(panelId, "action", { action, key, input }, who) -> true, "message" | false, "reason"
+-- A panel may sit in another script's hub.json (poggy_multijob shows markets'
+-- shop jobs). The hub adds nothing of its own: it asks, checks the shape,
+-- enforces the permission (register), refuses a write to a column the latest
+-- read does not call editable and an action the latest read does not offer,
+-- and logs every change to History. No edit lock: each change is one small
+-- step the script validates. Every export call is pcall'd and its answer
+-- copied into a known shape, so a failing script never breaks the hub.
+--
+-- §10.5 on top:
+--   actions     buttons per row or on the toolbar, with input fields asked
+--               first and a confirmation for dangerous ones (typed: the row's
+--               key, or CONFIRM for the panel), checked here as well
+--   drill-down  a row with `detail = "<panelId>"` opens that panel, read with
+--               payload { parent = <row key> }. The page sends the declared
+--               panel it started from (`root`), whose script and export answer.
+--   contents    a row with `container = "<id>"` gets Contents, built here
+--               from the storage verbs (storage.items / storage.weapons,
+--               storage.addItem / storage.removeItem): no script code.
+-- ---------------------------------------------------------------------------
+
+local PANEL_ROWS = 5000        -- rows sent to the page at most
+local PANEL_COLUMNS = 40
+local PANEL_ACTIONS = 20
+local PANEL_INPUTS = 12
+local PANEL_STRING = 4096      -- longest string a cell, a write or an input may carry
+local PANEL_LEVELS = { warning = true, error = true, info = true }
+local PANEL_PICKERS = { job = true, item = true, group = true, role = true, key = true, text = true,
+    multiline = true, color = true, coords = true }
+local INPUT_TYPES = { number = true, text = true, boolean = true }
+local CONFIRMS = { typed = true, simple = true }
+local panelWarned = {}         -- folder .. "|" .. panel .. "|" .. reason -> true
+
+local function scalar(v) return type(v) == "string" or type(v) == "number" or type(v) == "boolean" end
+local function finiteNumber(v) return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge end
+local function idLike(v, n) return type(v) == "string" and v ~= "" and #v <= (n or 64) and v:find("^[%w_%-]+$") ~= nil end
+local function rowKeyLike(v)
+    return (type(v) == "string" and v ~= "" and #v <= 200) or (type(v) == "number" and v == v)
+end
+
+--- hub.json `panels`, checked: { id, label, tab, itemLabel, tooltip, resource, export }.
+function I.panelDecls(meta)
+    local out, seen = {}, {}
+    if type(meta) ~= "table" or type(meta.panels) ~= "table" then return out end
+    for _, p in ipairs(meta.panels) do
+        if type(p) == "table" and idLike(p.id) and not seen[p.id] then
+            local export = type(p.export) == "string" and p.export ~= "" and p.export or "HubPanel"
+            if export:find("^[%a_][%w_]*$") then
+                seen[p.id] = true
+                out[#out + 1] = {
+                    id = p.id,
+                    label = type(p.label) == "string" and p.label ~= "" and diagText(p.label, 80) or I.readable(p.id),
+                    tab = type(p.tab) == "string" and p.tab ~= "" and p.tab or nil,
+                    itemLabel = type(p.itemLabel) == "string" and p.itemLabel ~= "" and diagText(p.itemLabel, 40) or nil,
+                    tooltip = diagText(p.tooltip, 600),
+                    resource = type(p.resource) == "string" and p.resource:find("^[%w_%-%.]+$") and p.resource or nil,
+                    export = export,
+                }
+            end
+        end
+    end
+    return out
+end
+
+--- The folder of the script that owns a panel's data: the declaring script,
+--- or the named one (a poggy_id or a folder, so a renamed folder still works).
+function I.panelFolder(s, p)
+    if not p.resource or p.resource == s.id or p.resource == s.folder then return s.folder end
+    for _, x in ipairs(Hub.Scripts()) do
+        if x.id == p.resource or x.folder == p.resource then return x.folder end
+    end
+    return p.resource
+end
+
+--- folder, available, reason (plain English when it is not available).
+function I.panelState(s, p)
+    local folder = I.panelFolder(s, p)
+    local okState, state = pcall(GetResourceState, folder)
+    state = okState and state or "missing"
+    if state == "missing" or state == "unknown" then
+        return folder, false, ("%s is not on this server, so there is nothing to show here."):format(folder)
+    end
+    if state ~= "started" then
+        return folder, false, ("%s is not running. Start it to see and change this data."):format(folder)
+    end
+    -- As CFX: asking a resource for an export it does not have is an error.
+    local okEx, fn = pcall(function() return exports[folder][p.export] end)
+    if not okEx or fn == nil then
+        return folder, false, ("%s has no %s export. Update it to a version that has this panel."):format(folder, p.export)
+    end
+    return folder, true
+end
+
+--- The panel as the script answer and the panel call describe it.
+function I.panelView(p, folder, available, reason)
+    return {
+        id = p.id, label = p.label, tab = p.tab, itemLabel = p.itemLabel, tooltip = p.tooltip,
+        resource = folder, available = available and true or false, reason = reason,
+    }
+end
+
+local function panelWarn(folder, p, why)
+    local key = folder .. "|" .. p.id .. "|" .. why
+    if panelWarned[key] then return end
+    panelWarned[key] = true
+    Util.Warn("hub: %s's %s export failed for the panel '%s' (%s).", folder, p.export, p.id, why)
+end
+
+--- exports[folder][export](panelId, action, payload, who), pcall'd: ok, ...
+local function callPanel(folder, p, action, payload, who)
+    return pcall(function()
+        local ex = exports[folder]
+        return ex[p.export](ex, p.id, action, payload, who)
+    end)
+end
+
+--- A value as plain JSON: strings (clipped), finite numbers, booleans, and
+--- small tables of those. Anything else is nil.
+local function panelValue(v, depth)
+    local t = type(v)
+    if t == "string" then return #v <= PANEL_STRING and v or diagText(v, PANEL_STRING) end
+    if t == "number" then return finiteNumber(v) and v or nil end
+    if t == "boolean" then return v end
+    if t == "table" and depth < 3 then
+        local out, n = {}, 0
+        for k, x in pairs(v) do
+            if type(k) == "string" or type(k) == "number" then
+                n = n + 1
+                if n > 100 then break end
+                out[k] = panelValue(x, depth + 1)
+            end
+        end
+        return out
+    end
+    return nil
+end
+I.panelValue = function(v) return panelValue(v, 0) end
+
+local function cleanOptions(list)
+    if type(list) ~= "table" then return nil end
+    local opts = {}
+    for _, o in ipairs(list) do
+        if type(o) == "table" and scalar(o.value) then
+            opts[#opts + 1] = { value = panelValue(o.value, 0), label = diagText(o.label, 120) or tostring(o.value) }
+        elseif scalar(o) then
+            opts[#opts + 1] = { value = panelValue(o, 0), label = tostring(o) }
+        end
+        if #opts >= 500 then break end
+    end
+    return #opts > 0 and opts or nil
+end
+
+--- An action's input fields: { field, label, picker, options, type, min, max, step, default, required, tooltip, placeholder }.
+local function cleanInputs(list)
+    local out, seen = {}, {}
+    if type(list) ~= "table" then return out end
+    for _, f in ipairs(list) do
+        if type(f) == "table" and type(f.field) == "string" and f.field:find("^[%w_%-%.]+$") and #f.field <= 64 and not seen[f.field] then
+            seen[f.field] = true
+            out[#out + 1] = {
+                field = f.field,
+                label = diagText(f.label, 80) or I.readable(f.field),
+                picker = type(f.picker) == "string" and PANEL_PICKERS[f.picker] and f.picker or nil,
+                options = cleanOptions(f.options),
+                type = INPUT_TYPES[f.type] and f.type or nil,
+                min = finiteNumber(f.min) and f.min or nil,
+                max = finiteNumber(f.max) and f.max or nil,
+                step = finiteNumber(f.step) and f.step > 0 and f.step or nil,
+                default = scalar(f.default) and panelValue(f.default, 0) or nil,
+                required = f.required == true or nil,
+                tooltip = diagText(f.tooltip, 300),
+                placeholder = diagText(f.placeholder, 120),
+            }
+            if #out >= PANEL_INPUTS then break end
+        end
+    end
+    return out
+end
+
+--- `actions` of a read answer (§10.5).
+local function cleanActions(list)
+    local out, seen = {}, {}
+    if type(list) ~= "table" then return out end
+    for _, a in ipairs(list) do
+        if type(a) == "table" and idLike(a.id, 40) and not seen[a.id] then
+            seen[a.id] = true
+            local danger = a.danger == true
+            local confirm = CONFIRMS[a.confirm] and a.confirm or (danger and "simple" or nil)
+            out[#out + 1] = {
+                id = a.id,
+                label = diagText(a.label, 60) or I.readable(a.id),
+                icon = type(a.icon) == "string" and #a.icon <= 24 and a.icon:find("^[%w_%-]+$") and a.icon or nil,
+                scope = a.scope == "panel" and "panel" or "row",
+                input = cleanInputs(a.input),
+                danger = danger or nil,
+                confirm = confirm,
+                tooltip = diagText(a.tooltip, 300),
+            }
+            if #out >= PANEL_ACTIONS then break end
+        end
+    end
+    return out
+end
+
+--- The export's read answer in the §10.2 / §10.5 shape, or nil and why.
+function I.cleanPanel(raw)
+    if type(raw) ~= "table" then return nil, "it returned " .. type(raw) .. ", not a table" end
+    if type(raw.columns) ~= "table" then return nil, "the answer has no columns" end
+    if raw.rows ~= nil and type(raw.rows) ~= "table" then return nil, "rows is not a list" end
+    local columns, byField = {}, {}
+    for _, c in ipairs(raw.columns) do
+        if type(c) == "table" and type(c.field) == "string" and c.field ~= "" and #c.field <= 64 and not byField[c.field] then
+            local col = {
+                field = c.field,
+                label = diagText(c.label, 80) or I.readable(c.field),
+                editable = c.editable == true,
+                picker = type(c.picker) == "string" and PANEL_PICKERS[c.picker] and c.picker or nil,
+                options = cleanOptions(c.options),
+                type = INPUT_TYPES[c.type] and c.type or nil,
+                min = finiteNumber(c.min) and c.min or nil,
+                max = finiteNumber(c.max) and c.max or nil,
+                step = finiteNumber(c.step) and c.step > 0 and c.step or nil,
+                tooltip = diagText(c.tooltip, 400),
+                width = (type(c.width) == "number" and c.width > 0 and c.width <= 2000 and c.width)
+                    or (type(c.width) == "string" and #c.width <= 12 and c.width) or nil,
+            }
+            byField[col.field] = col
+            columns[#columns + 1] = col
+            if #columns >= PANEL_COLUMNS then break end
+        end
+    end
+    -- No columns is fine while there is nothing to show (a script still
+    -- loading answers { columns = {}, rows = {}, note = "..." }).
+    if #columns == 0 and type(raw.rows) == "table" and raw.rows[1] ~= nil then
+        return nil, "the answer has rows but no usable columns"
+    end
+    local actions = cleanActions(raw.actions)
+    local rows, seen, total = {}, {}, 0
+    for _, r in ipairs(raw.rows or {}) do
+        local key = type(r) == "table" and r.key or nil
+        if rowKeyLike(key) then
+            local k = tostring(key)
+            if not seen[k] then
+                seen[k] = true
+                total = total + 1
+                if #rows < PANEL_ROWS then
+                    local cells = {}
+                    if type(r.cells) == "table" then
+                        for f in pairs(byField) do cells[f] = panelValue(r.cells[f], 0) end
+                    end
+                    local rowActions
+                    if type(r.actions) == "table" then
+                        rowActions = {}
+                        for _, a in ipairs(r.actions) do
+                            if idLike(a, 40) then rowActions[#rowActions + 1] = a end
+                            if #rowActions >= PANEL_ACTIONS then break end
+                        end
+                    end
+                    local details
+                    if type(r.details) == "table" then
+                        details = {}
+                        for _, d in ipairs(r.details) do
+                            if idLike(d) then details[#details + 1] = d end
+                            if #details >= 10 then break end
+                        end
+                        if #details == 0 then details = nil end
+                    end
+                    rows[#rows + 1] = {
+                        key = key, cells = cells, note = diagText(r.note, 300),
+                        level = PANEL_LEVELS[r.level] and r.level or nil,
+                        actions = rowActions,
+                        detail = idLike(r.detail) and r.detail or nil,   -- what a click on the row opens
+                        details = details,                              -- every drill-down it offers
+                        container = type(r.container) == "string" and r.container ~= "" and #r.container <= 128 and r.container or nil,
+                    }
+                end
+            end
+        end
+    end
+    return {
+        columns = columns, rows = rows, actions = actions, note = diagText(raw.note, 600),
+        label = diagText(raw.label, 80),   -- optional: a drill-down panel's own title
+        total = total, truncated = total > #rows or nil,
+    }
+end
+
+--- The script and the declared panel, or nil, nil, failure.
+function I.findPanel(id, panelId)
+    local s, failure = I.script(id)
+    if not s then return nil, nil, failure end
+    local b = Hub.Build(s)
+    for _, p in ipairs(b.panels or {}) do
+        if p.id == panelId then return s, p end
+    end
+    return nil, nil, I.fail("missing", ("This script has no data panel called %s."):format(tostring(panelId)))
+end
+
+--- Which panel a call is about. ctx (from the page, optional) = { parent =
+--- <row key>, root = <declared panel id> }: a drill-down panel (§10.5) is
+--- answered by its root's script and export, and read with { parent }.
+--- Returns s, p, parent, or nil, nil, nil, failure.
+function I.resolvePanel(id, panelId, ctx)
+    ctx = type(ctx) == "table" and ctx or {}
+    local parent = rowKeyLike(ctx.parent) and ctx.parent or nil
+    local root = idLike(ctx.root) and ctx.root or panelId
+    local s, p, failure = I.findPanel(id, root)
+    if not s and root == panelId and parent ~= nil then
+        -- A drill-down panel with no root named: when every panel the script
+        -- declares is answered by one export, that export answers this too.
+        local sx = I.script(id)
+        local decl = sx and (Hub.Build(sx).panels or {}) or {}
+        local same = decl[1] ~= nil
+        for _, d in ipairs(decl) do
+            if d.export ~= decl[1].export or d.resource ~= decl[1].resource then same = false break end
+        end
+        if same then s, p = sx, decl[1] end
+    end
+    if not s then return nil, nil, nil, failure end
+    if panelId ~= p.id then
+        if not idLike(panelId) then
+            return nil, nil, nil, I.fail("invalid", "That is not a panel name.", { reason = "bad panel id" })
+        end
+        if parent == nil then
+            return nil, nil, nil, I.fail("invalid", "A drill-down panel is opened from a row; the row is missing.", { reason = "no parent" })
+        end
+        -- Sub-panels are not declared: the declared panel's script and export answer them.
+        p = { id = panelId, label = I.readable(panelId), export = p.export, resource = p.resource, tab = p.tab, root = p.id }
+    end
+    return s, p, parent
+end
+
+--- Ask the owning script for its data: the clean read, or nil and a failure.
+function I.readPanel(s, p, folder, who, parent)
+    local okCall, res = callPanel(folder, p, "read", parent ~= nil and { parent = parent } or nil, who)
+    if not okCall then
+        panelWarn(folder, p, tostring(res))
+        return nil, I.fail("panel_error", ("%s could not read this data: %s"):format(folder, diagText(tostring(res), 300)))
+    end
+    local clean, why = I.cleanPanel(res)
+    if not clean then
+        panelWarn(folder, p, why)
+        return nil, I.fail("panel_error", ("%s answered in a shape the hub cannot show (%s)."):format(folder, why))
+    end
+    return clean
+end
+
+--- s, p, parent, folder, data (the latest read), or nil + failure. Every
+--- change starts here: the columns and actions are the ones the script
+--- offers now, not the ones the page was shown.
+local function freshRead(src, id, panelId, ctx)
+    local s, p, parent, failure = I.resolvePanel(id, panelId, ctx)
+    if not s then return nil, failure end
+    local folder, available, reason = I.panelState(s, p)
+    if not available then return nil, I.fail("unavailable", reason, { reason = reason }) end
+    local data, fail = I.readPanel(s, p, folder, I.who(src), parent)
+    if not data then return nil, fail end
+    return { s = s, p = p, parent = parent, folder = folder, data = data }
+end
+
+local function rowOf(data, key)
+    for _, r in ipairs(data.rows) do
+        if tostring(r.key) == tostring(key) then return r end
+    end
+    return nil
+end
+
+--- The export's answer to a write or an action: done, message.
+local function outcome(a, b)
+    if type(a) == "table" then return a.ok == true, diagText(a.message or a.reason, 400) end
+    return a == true, diagText(b, 400)
+end
+
+--- panel(id, panelId, ctx): the panel with its columns, rows and actions.
+function Hub.Panel(src, id, panelId, ctx)
+    local s, p, parent, failure = I.resolvePanel(id, panelId, ctx)
+    if not s then return failure end
+    local folder, available, reason = I.panelState(s, p)
+    local out = I.panelView(p, folder, available, reason)
+    out.parent, out.root = parent, p.root
+    -- A drill-down has no declared name; the page names it from its row
+    -- unless the script's answer carries a `label`.
+    if p.root then out.label = nil end
+    if not available then
+        out.columns, out.rows, out.actions = {}, {}, {}
+        return I.ok(out)
+    end
+    local data, fail = I.readPanel(s, p, folder, I.who(src), parent)
+    if not data then return fail end
+    for k, v in pairs(data) do out[k] = v end
+    out.readAt = I.now()
+    return I.ok(out)
+end
+
+--- panelWrite(id, panelId, key, field, value, ctx): one cell, through the script.
+function Hub.PanelWrite(src, id, panelId, key, field, value, ctx)
+    if not rowKeyLike(key) then
+        return I.fail("invalid", "Which row? The change named none.", { reason = "no row key" })
+    end
+    if type(field) ~= "string" or field == "" then
+        return I.fail("invalid", "Which column? The change named none.", { reason = "no field" })
+    end
+    if type(value) == "string" and #value > PANEL_STRING then
+        return I.fail("invalid", ("That text is too long (the most is %d characters)."):format(PANEL_STRING), { reason = "too long" })
+    end
+    local clean = panelValue(value, 0)
+    if value ~= nil and clean == nil then
+        return I.fail("invalid", "That value cannot be stored.", { reason = "bad value" })
+    end
+    local f, failure = freshRead(src, id, panelId, ctx)
+    if not f then return failure end
+    local col
+    for _, c in ipairs(f.data.columns) do if c.field == field then col = c break end end
+    if not col then
+        return I.fail("invalid", ("This panel has no %s column any more. Refresh it."):format(field), { reason = "no such column" })
+    end
+    if not col.editable then
+        return I.fail("readonly", ("%s cannot be changed here."):format(col.label), { reason = "read-only column" })
+    end
+    local row = rowOf(f.data, key)
+    if not row then
+        return I.fail("invalid", "That row is not there any more. Refresh the panel.", { reason = "no such row" })
+    end
+    if col.options then
+        local known = false
+        for _, o in ipairs(col.options) do if I.equal(o.value, clean) then known = true break end end
+        if not known then
+            return I.fail("invalid", ("That is not one of the choices for %s."):format(col.label), { reason = "not an option" })
+        end
+    end
+    if col.type == "number" then
+        local n = tonumber(clean)
+        if not finiteNumber(n) then
+            return I.fail("invalid", ("%s must be a number."):format(col.label), { reason = "not a number" })
+        end
+        if col.min and n < col.min then
+            return I.fail("invalid", ("%s must be at least %s."):format(col.label, tostring(col.min)), { reason = "below min" })
+        end
+        if col.max and n > col.max then
+            return I.fail("invalid", ("%s must be at most %s."):format(col.label, tostring(col.max)), { reason = "above max" })
+        end
+        clean = n
+    end
+    local who = I.who(src)
+    local old = row.cells[field]
+    local okCall, a, b = callPanel(f.folder, f.p, "write",
+        { key = row.key, field = field, value = clean, parent = f.parent }, who)
+    if not okCall then
+        panelWarn(f.folder, f.p, tostring(a))
+        return I.fail("panel_error", ("%s could not save it: %s"):format(f.folder, diagText(tostring(a), 300)))
+    end
+    local done, message = outcome(a, b)
+    if not done then
+        return I.fail("refused", message or "The script refused the change.", { reason = message or "refused" })
+    end
+    if I.logPanel then
+        local okLog, err = pcall(I.logPanel, f.s, f.p, f.folder, row.key, field, old, clean, who)
+        if not okLog then Util.Error("hub: could not log a panel change: %s", tostring(err)) end
+    end
+    return I.ok({ ok = true, message = message or ("%s saved."):format(col.label), key = row.key, field = field, old = old, value = clean })
+end
+
+--- An action's input, checked against its declared fields. Unknown fields
+--- are dropped. Returns the clean input, or nil, message.
+function I.cleanActionInput(fields, input)
+    input = type(input) == "table" and input or {}
+    local out = {}
+    for _, f in ipairs(fields or {}) do
+        local v = input[f.field]
+        if v == nil or v == "" then
+            if f.required then return nil, ("%s is needed."):format(f.label) end
+        elseif f.picker == "coords" then
+            if type(v) ~= "table" or not finiteNumber(v.x) or not finiteNumber(v.y) or not finiteNumber(v.z) then
+                return nil, ("%s needs a position (x, y, z)."):format(f.label)
+            end
+            out[f.field] = { x = v.x, y = v.y, z = v.z, heading = finiteNumber(v.heading) and v.heading or nil }
+        elseif f.type == "number" then
+            local n = tonumber(v)
+            if not finiteNumber(n) then return nil, ("%s must be a number."):format(f.label) end
+            if f.min and n < f.min then return nil, ("%s must be at least %s."):format(f.label, tostring(f.min)) end
+            if f.max and n > f.max then return nil, ("%s must be at most %s."):format(f.label, tostring(f.max)) end
+            out[f.field] = n
+        elseif f.type == "boolean" then
+            out[f.field] = v == true
+        else
+            if not scalar(v) then return nil, ("%s must be plain text."):format(f.label) end
+            if type(v) == "string" and #v > PANEL_STRING then return nil, ("%s is too long."):format(f.label) end
+            out[f.field] = v
+        end
+        if f.options and out[f.field] ~= nil then
+            local known = false
+            for _, o in ipairs(f.options) do if I.equal(o.value, out[f.field]) then known = true break end end
+            if not known then return nil, ("That is not one of the choices for %s."):format(f.label) end
+        end
+    end
+    return out
+end
+
+--- The confirmation a danger action needs (§10.5): typed = the row's key,
+--- or CONFIRM for the panel; simple = yes. Returns nil when it is given.
+function I.confirmRefusal(action, key, given)
+    if action.confirm == "typed" then
+        local want = action.scope == "panel" and "CONFIRM" or tostring(key)
+        if type(given) ~= "string" and type(given) ~= "number" or tostring(given) ~= want then
+            return ("Type %s to confirm %s."):format(want, action.label)
+        end
+    elseif action.confirm == "simple" or action.danger then
+        if given == nil or given == false or given == "" then
+            return ("%s needs confirming."):format(action.label)
+        end
+    end
+    return nil
+end
+
+--- panelAction(id, panelId, actionId, key, input, ctx): run one action
+--- through the script. ctx = { parent, root, confirm }.
+function Hub.PanelAction(src, id, panelId, actionId, key, input, ctx)
+    if not idLike(actionId, 40) then
+        return I.fail("invalid", "Which action? The request named none.", { reason = "no action" })
+    end
+    ctx = type(ctx) == "table" and ctx or {}
+    local f, failure = freshRead(src, id, panelId, ctx)
+    if not f then return failure end
+    local action
+    for _, a in ipairs(f.data.actions) do if a.id == actionId then action = a break end end
+    if not action then
+        return I.fail("invalid", "This panel does not offer that any more. Refresh it.", { reason = "no such action" })
+    end
+    local row
+    if action.scope == "row" then
+        if not rowKeyLike(key) then
+            return I.fail("invalid", ("%s needs a row."):format(action.label), { reason = "no row key" })
+        end
+        row = rowOf(f.data, key)
+        if not row then
+            return I.fail("invalid", "That row is not there any more. Refresh the panel.", { reason = "no such row" })
+        end
+        if row.actions then
+            local offered = false
+            for _, a in ipairs(row.actions) do if a == actionId then offered = true break end end
+            if not offered then
+                return I.fail("invalid", ("%s is not offered on that row."):format(action.label), { reason = "not offered on row" })
+            end
+        end
+        key = row.key
+    else
+        key = nil
+    end
+    local refusal = I.confirmRefusal(action, key, ctx.confirm)
+    if refusal then return I.fail("confirm", refusal, { reason = "confirmation" }) end
+    local clean, bad = I.cleanActionInput(action.input, input)
+    if not clean then return I.fail("invalid", bad, { reason = bad }) end
+    local who = I.who(src)
+    local okCall, a, b = callPanel(f.folder, f.p, "action",
+        { action = actionId, key = key, input = clean, parent = f.parent }, who)
+    if not okCall then
+        panelWarn(f.folder, f.p, tostring(a))
+        return I.fail("panel_error", ("%s could not do it: %s"):format(f.folder, diagText(tostring(a), 300)))
+    end
+    local done, message = outcome(a, b)
+    if not done then
+        return I.fail("refused", message or "The script refused it.", { reason = message or "refused" })
+    end
+    if I.logPanelAction then
+        local okLog, err = pcall(I.logPanelAction, f.s, f.p, f.folder, action, key, clean, who)
+        if not okLog then Util.Error("hub: could not log a panel action: %s", tostring(err)) end
+    end
+    return I.ok({ ok = true, message = message or ("%s done."):format(action.label), action = actionId, key = key })
+end
+
+-- ---------------------------------------------------------------------------
+-- Container contents (§10.5): generic, from the storage verbs
+-- ---------------------------------------------------------------------------
+
+local CONTAINER_MAX_QTY = 100000
+
+--- The container a panel row names, found by reading the panel again (the
+--- id never comes from the page). Returns f (freshRead) + containerId, or nil + failure.
+local function containerOf(src, id, panelId, key, ctx)
+    if not rowKeyLike(key) then return nil, nil, I.fail("invalid", "Which row? The request named none.", { reason = "no row key" }) end
+    local f, failure = freshRead(src, id, panelId, ctx)
+    if not f then return nil, nil, failure end
+    local row = rowOf(f.data, key)
+    if not row then return nil, nil, I.fail("invalid", "That row is not there any more. Refresh the panel.", { reason = "no such row" }) end
+    if not row.container then
+        return nil, nil, I.fail("invalid", "That row has no container.", { reason = "no container" })
+    end
+    return f, row.container
+end
+
+--- Items and weapons in a container, as panel rows. Returns rows, items, weapons, err.
+local function containerRows(cid)
+    local ok, items, err = PoggyCore.Do("storage.items", { id = cid })
+    if not ok then return nil, nil, nil, err or "unsupported" end
+    local reg = Hub.ItemRegistry()
+    local rows, list, seenName = {}, {}, {}
+    for _, it in ipairs(type(items) == "table" and items or {}) do
+        if type(it) == "table" and type(it.name) == "string" and it.name ~= "" then
+            seenName[it.name] = (seenName[it.name] or 0) + 1
+            local key = it.name .. "#" .. seenName[it.name]
+            local amount = tonumber(it.amount) or 0
+            local known = reg.byName and reg.byName[it.name]
+            list[key] = { name = it.name, amount = amount, meta = it.meta }
+            local hasMeta = type(it.meta) == "table" and next(it.meta) ~= nil
+            rows[#rows + 1] = {
+                key = key,
+                cells = {
+                    item = it.name,
+                    label = diagText(it.label, 80) or (known and known.label) or it.name,
+                    amount = amount,
+                    kind = hasMeta and "Item (with metadata)" or "Item",
+                },
+                actions = { "remove" },
+            }
+        end
+    end
+    local weapons = 0
+    local okW, ws = PoggyCore.Do("storage.weapons", { id = cid })
+    if okW and type(ws) == "table" then
+        for i, w in ipairs(ws) do
+            if type(w) == "table" and type(w.name) == "string" then
+                weapons = weapons + 1
+                rows[#rows + 1] = {
+                    key = "weapon:" .. tostring(w.id or i),
+                    cells = {
+                        item = w.name, label = diagText(w.label, 80) or w.name, amount = 1,
+                        kind = "Weapon", serial = diagText(w.serial, 60),
+                    },
+                    actions = {},
+                }
+            end
+        end
+    end
+    return rows, list, weapons
+end
+
+local CONTAINER_ACTIONS = {
+    { id = "add", label = "Add item", icon = "plus", scope = "panel", input = {
+        { field = "item", label = "Item", picker = "item", required = true },
+        { field = "amount", label = "Amount", type = "number", min = 1, max = CONTAINER_MAX_QTY, step = 1, default = 1, required = true },
+    } },
+    { id = "remove", label = "Remove", icon = "minus", scope = "row", input = {
+        { field = "amount", label = "Amount", type = "number", min = 1, max = CONTAINER_MAX_QTY, step = 1, default = 1, required = true },
+    } },
+    { id = "empty", label = "Empty", icon = "trash", scope = "panel", danger = true, confirm = "typed",
+      tooltip = "Removes every item. Weapons stay: the hub cannot take them out." },
+}
+
+--- container(id, panelId, key, ctx): what is inside the container a row names.
+function Hub.Container(src, id, panelId, key, ctx)
+    local f, cid, failure = containerOf(src, id, panelId, key, ctx)
+    if not f then return failure end
+    local rows, _, weapons, err = containerRows(cid)
+    if not rows then
+        return I.fail("unsupported", ("The contents of %s cannot be read on this server (%s)."):format(cid, tostring(err)))
+    end
+    local columns = {
+        { field = "item", label = "Item", picker = "item" },
+        { field = "label", label = "Name" },
+        { field = "amount", label = "Amount" },
+        { field = "kind", label = "Kind" },
+    }
+    if weapons > 0 then columns[#columns + 1] = { field = "serial", label = "Serial" } end
+    return I.ok({
+        id = "contents", container = cid, key = key, label = "Contents", itemLabel = "item",
+        available = true, columns = columns, rows = rows, actions = I.copy(CONTAINER_ACTIONS),
+        total = #rows, readAt = I.now(),
+        note = weapons > 0 and "Weapons are listed but cannot be taken out from here." or nil,
+    })
+end
+
+--- containerAction(id, panelId, key, actionId, rowKey, input, ctx): Add item,
+--- Remove, Empty, through the storage verbs. ctx = { parent, root, confirm }.
+function Hub.ContainerAction(src, id, panelId, key, actionId, rowKey, input, ctx)
+    ctx = type(ctx) == "table" and ctx or {}
+    local action
+    for _, a in ipairs(CONTAINER_ACTIONS) do if a.id == actionId then action = a break end end
+    if not action then return I.fail("invalid", "Contents cannot do that.", { reason = "no such action" }) end
+    local f, cid, failure = containerOf(src, id, panelId, key, ctx)
+    if not f then return failure end
+    local refusal = I.confirmRefusal(action, rowKey, ctx.confirm)
+    if refusal then return I.fail("confirm", refusal, { reason = "confirmation" }) end
+    local clean, bad = I.cleanActionInput(action.input, input)
+    if not clean then return I.fail("invalid", bad, { reason = bad }) end
+    local who = I.who(src)
+    local _, list = containerRows(cid)
+    list = list or {}
+    local file = "container:" .. cid
+
+    if actionId == "add" then
+        local name = clean.item
+        if type(name) ~= "string" or name == "" or #name > 100 then return I.fail("invalid", "Choose an item.", { reason = "no item" }) end
+        local qty = math.floor(clean.amount)
+        if qty < 1 then return I.fail("invalid", "Add at least one.", { reason = "amount" }) end
+        local reg = Hub.ItemRegistry()
+        if reg.byName and not reg.byName[name] then
+            local near = reg.byLower and reg.byLower[I.lower(name)]
+            return I.fail("invalid", near and ("There is no item called %s. Did you mean %s?"):format(name, near.name)
+                or ("There is no item called %s."):format(name), { reason = "no such item", suggest = near and near.name or nil })
+        end
+        local before = 0
+        for _, x in pairs(list) do if x.name == name then before = before + x.amount end end
+        local charId
+        if tonumber(src) and tonumber(src) > 0 then
+            local okC, cidv = PoggyCore.Do("char.id", { src = src })
+            if okC then charId = cidv end
+        end
+        local ok, _, err = PoggyCore.Do("storage.addItem", { id = cid, item = name, qty = qty, charId = charId })
+        if not ok then
+            return I.fail("refused", ("%s could not be added (%s). A full container, or an item the inventory refuses."):format(name, tostring(err)),
+                { reason = tostring(err) })
+        end
+        if I.logContainer then pcall(I.logContainer, f.s, cid, name, "add", before, before + qty, who) end
+        return I.ok({ ok = true, message = ("Added %d × %s to %s."):format(qty, name, cid) })
+    end
+
+    if actionId == "remove" then
+        local x = type(rowKey) == "string" and list[rowKey] or nil
+        if not x then
+            return I.fail("invalid", "That item is not in the container any more. Refresh it.", { reason = "no such item" })
+        end
+        local qty = math.floor(clean.amount)
+        if qty < 1 then return I.fail("invalid", "Remove at least one.", { reason = "amount" }) end
+        if qty > x.amount then
+            return I.fail("invalid", ("There are only %d × %s."):format(x.amount, x.name), { reason = "not that many" })
+        end
+        local ok, _, err = PoggyCore.Do("storage.removeItem", { id = cid, item = x.name, qty = qty, meta = x.meta })
+        if not ok then
+            return I.fail("refused", ("%s could not be removed (%s)."):format(x.name, tostring(err)), { reason = tostring(err) })
+        end
+        if I.logContainer then pcall(I.logContainer, f.s, cid, x.name, "remove", x.amount, x.amount - qty, who) end
+        return I.ok({ ok = true, message = ("Removed %d × %s from %s."):format(qty, x.name, cid) })
+    end
+
+    -- empty
+    local removed, failed, before = 0, {}, {}
+    local keys = {}
+    for k in pairs(list) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+        local x = list[k]
+        before[x.name] = (before[x.name] or 0) + x.amount
+        if x.amount > 0 then
+            local ok = PoggyCore.Do("storage.removeItem", { id = cid, item = x.name, qty = x.amount, meta = x.meta })
+            if ok then removed = removed + x.amount else failed[#failed + 1] = x.name end
+        end
+    end
+    if I.logContainer then pcall(I.logContainer, f.s, cid, "*", "empty", before, {}, who) end
+    if #failed > 0 then
+        return I.fail("partial", ("Removed %d item(s); these could not be removed: %s."):format(removed, table.concat(failed, ", ")),
+            { reason = "partial" })
+    end
+    return I.ok({ ok = true, message = removed > 0 and ("Emptied %s: %d item(s) removed."):format(cid, removed)
+        or ("%s was already empty."):format(cid) })
+end
+
+--- For History: what a logged panel or container change was, or nil when the
+--- row is neither. Panel: file = "panel:<resource>:<panelId>", path =
+--- "<key>.<field>" (an action: path = key, op = "action:<id>"). Container:
+--- file = "container:<id>", path = item name ("*" when emptied).
+function I.panelLogInfo(b, file, path, op)
+    if type(file) ~= "string" then return nil end
+    local cid = file:match("^container:(.+)$")
+    if cid then
+        return { container = cid, canUndo = false,
+            label = ("Contents of %s · %s"):format(cid, path == "*" and "everything" or tostring(path)) }
+    end
+    local pid = file:match("^panel:[^:]*:(.+)$")
+    if not pid then return nil end
+    local label, declared = I.readable(pid), false
+    for _, p in ipairs(b and b.panels or {}) do
+        if p.id == pid then label, declared = p.label, true break end
+    end
+    if type(op) == "string" and op:sub(1, 7) == "action:" then
+        return { panel = pid, canUndo = false,
+            label = label .. (path ~= nil and path ~= "" and (" · " .. tostring(path)) or "") .. " · " .. I.readable(op:sub(8)) }
+    end
+    local key, field = tostring(path or ""):match("^(.*)%.([^%.]+)$")
+    return {
+        panel = pid, panelKey = key or path, panelField = field,
+        canUndo = declared and field ~= nil,
+        label = label .. " · " .. tostring(key or path) .. (field and (" · " .. field) or ""),
+    }
+end
+
+-- ---------------------------------------------------------------------------
 -- Cards, commands, search index
 -- ---------------------------------------------------------------------------
 
@@ -2128,6 +3308,13 @@ function I.searchEntries(b, into)
                 kind = n.collection and "collection" or n.kind,
             }
         end
+    end
+    -- §10: data panels by name (their rows are live data, not indexed).
+    for _, p in ipairs(b.panels or {}) do
+        into[#into + 1] = {
+            id = id, panel = p.id, path = "panel:" .. p.id, label = p.label,
+            tooltip = clip(p.tooltip, 160), tab = p.tab, kind = "panel",
+        }
     end
     for _, c in ipairs(I.commands(b)) do
         if c.command then
@@ -2407,7 +3594,33 @@ function Hub.Script(src, id)
     local mine, holder = I.acquire(src, s.id)
     local l = locks[s.id]
     I.remember(src, s.id, b.files)
+    -- §9: item checks and the script's own report. Neither may stop the
+    -- script opening: a failure is logged and the answer goes without it.
+    local itemCheck, diagnostics, diagnosticsNote
+    if b.meta.itemCheck == true then
+        local okCheck, res = pcall(I.itemCheck, b)
+        if okCheck then itemCheck = res else Util.Error("hub: item check for %s failed: %s", s.id, tostring(res)) end
+    end
+    if b.meta.diagnostics ~= nil then
+        local okDiag, res, note = pcall(I.diagnostics, s, b)
+        if okDiag then diagnostics, diagnosticsNote = res, note
+        else Util.Error("hub: diagnostics for %s failed: %s", s.id, tostring(res)) end
+    end
+    -- §10: data panels, each with whether its owning script can answer now.
+    local panels = {}
+    for _, p in ipairs(b.panels or {}) do
+        local okState, folder, available, reason = pcall(I.panelState, s, p)
+        if okState then
+            panels[#panels + 1] = I.panelView(p, folder, available, reason)
+        else
+            panels[#panels + 1] = I.panelView(p, p.resource or s.folder, false, "The hub could not check this panel's script.")
+        end
+    end
     return I.ok({
+        panels = panels,                     -- §10
+        itemCheck = itemCheck,               -- §9.1
+        diagnostics = diagnostics,           -- §9.2
+        diagnosticsNote = diagnosticsNote,   -- why there are none, when hub.json asks for them
         card = Hub.Card(b),
         meta = b.meta,
         tabs = b.tabs,
@@ -2589,10 +3802,51 @@ register("items", function(src, search)
     return I.ok(out)
 end)
 
+-- §9.1: the whole item registry, for type-ahead. fresh = read it again now.
+register("itemList", function(src, fresh)
+    return I.ok(I.itemList(fresh == true))
+end)
+
+-- §9.1: names typed since the script was loaded, checked like the script
+-- answer's itemCheck.values. id (optional): the script whose icon location
+-- applies (hub.json itemIcons); without it, the inventory's.
+register("itemCheck", function(src, names, id)
+    if type(names) ~= "table" then return I.fail("invalid", "itemCheck takes a list of item names.") end
+    local list = {}
+    for _, name in ipairs(names) do
+        if type(name) == "string" and name ~= "" and #name <= 100 then list[#list + 1] = name end
+        if #list >= MAX_CHECK_NAMES then break end
+    end
+    local b = nil
+    if type(id) == "string" then
+        local s = Hub.Find(id)
+        if s then b = Hub.Build(s) end
+    end
+    local values = I.itemValues(list, I.iconLocation(b))
+    return I.ok({ values = values })
+end)
+
 register("jobs", function()
     local ok, list, err = PoggyCore.Do("jobs.list", {})
     if not ok then return I.fail(err or "unsupported", "The job list is not available on this server.") end
     return I.ok(list or {})
+end)
+
+-- §10: data panels. No edit lock (each write is one change the owning script
+-- validates), but register() still requires the permission to edit.
+-- ctx (optional, last) = { parent, root, confirm }: a drill-down panel's row
+-- and declared root, and a danger action's confirmation (§10.5).
+register("panel", function(src, id, panelId, ctx) return Hub.Panel(src, id, panelId, ctx) end)
+register("panelWrite", function(src, id, panelId, key, field, value, ctx)
+    return Hub.PanelWrite(src, id, panelId, key, field, value, ctx)
+end)
+register("panelAction", function(src, id, panelId, actionId, key, input, ctx)
+    return Hub.PanelAction(src, id, panelId, actionId, key, input, ctx)
+end)
+-- §10.5: a row's container, built by poggy_core from the storage verbs.
+register("container", function(src, id, panelId, key, ctx) return Hub.Container(src, id, panelId, key, ctx) end)
+register("containerAction", function(src, id, panelId, key, actionId, rowKey, input, ctx)
+    return Hub.ContainerAction(src, id, panelId, key, actionId, rowKey, input, ctx)
 end)
 
 -- save, restart, start, history, undo, roles, saveRoles: sv_hub_save.lua.

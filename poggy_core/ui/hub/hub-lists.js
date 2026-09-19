@@ -11,7 +11,8 @@
     (a catalog's "sells" and "buys"). It shows as a two-pane view: an index of
     its rows on the left, the chosen row's fields and its lists as tabs on
     the right. A key table (§8.9) is a map of control names to hashes, shown
-    as two columns with the key picker.
+    as two columns with the key picker. A data panel (§10) is live data a
+    script owns, edited a cell at a time with no save step (L.panel).
 
     Every edit is a §6.2 change against the working copy (hub-state.js):
         insert  { path: list, index (1-based, append when absent), value }
@@ -31,7 +32,7 @@
     'use strict';
 
     var PH = window.PoggyHub;
-    var h = PH.h, icon = PH.icon, S = PH.S, F = PH.F, R = PH.R;
+    var h = PH.h, icon = PH.icon, S = PH.S, F = PH.F, R = PH.R, IC = PH.IC;
 
     var L = PH.L = {};
     var PAGE = 50;
@@ -99,9 +100,18 @@
     function titleField(rows, meta) {
         if (meta.titleField) return meta.titleField;
         var sample = rows.slice(0, 10).map(function (r) { return r.value; }).filter(PH.isPlainObj);
+        // Case-insensitive: configs write `Text`, `Name`, `Label` as often as
+        // `text`, `name`, `label`, and without hub.json every row would
+        // otherwise be called "Row 1", "Row 2"… (poggy_crafting's recipes).
         for (var i = 0; i < TITLE_KEYS.length; i++) {
             var k = TITLE_KEYS[i];
-            if (sample.some(function (s) { return typeof s[k] === 'string' && s[k]; })) return k;
+            for (var j = 0; j < sample.length; j++) {
+                var keys = Object.keys(sample[j]);
+                for (var n = 0; n < keys.length; n++) {
+                    var v = sample[j][keys[n]];
+                    if (keys[n].toLowerCase() === k && typeof v === 'string' && v) return keys[n];
+                }
+            }
         }
         return null;
     }
@@ -132,7 +142,7 @@
         });
         function rank(k) {
             var t = seen[k];
-            var i = TITLE_KEYS.indexOf(k);
+            var i = TITLE_KEYS.indexOf(String(k).toLowerCase());
             if (k === tf) return -100;
             if (i !== -1) return -50 + i;
             return { string: 0, number: 1, boolean: 2, vector3: 3, vector4: 3, vector2: 3, hash: 4, array: 5, table: 6 }[t] || 7;
@@ -183,6 +193,20 @@
         if (/^vector/.test(t)) return h('span.ph-cellmono', PH.fmtValue(v));
         if (t === 'hash') return h('span.ph-cellmono', v.name);
         if (t === 'number') return h('span.ph-cellnum', PH.num(v) + (colMeta && colMeta.unit ? ' ' + colMeta.unit : ''));
+        if (t === 'string' && colMeta && colMeta.picker === 'item' && v && IC.enabled()) {
+            // §9.3: the name as written, red when it does not exist, yellow when it has no icon.
+            var st = IC.status(v);
+            if (st && st.state === 'missing') {
+                return h('span.ph-cellbad', { title: 'Item does not exist' + (st.suggest ? ': did you mean ' + st.suggest + '?' : '') }, [icon('alert'), h('span', v)]);
+            }
+            var cimg = h('img.ph-cellimg', { alt: '' });
+            cimg.style.visibility = 'hidden';
+            var url = st && st.state === 'ok' ? IC.imageUrl(v) : null;
+            if (url) { cimg.onload = function () { cimg.style.visibility = ''; }; cimg.src = url; }
+            var lab0 = st && st.label && st.label !== v ? st.label : v;
+            return h('span.ph-cellitem' + (st && st.state === 'noicon' ? '.is-warn' : ''), { title: st && st.state === 'noicon' ? 'No icon: add ' + IC.iconFile(v) : v },
+                [cimg, h('span', lab0)]);
+        }
         if (t === 'string' && colMeta && colMeta.picker === 'item' && v) {
             var img = h('img.ph-cellimg', { alt: '' });
             img.style.visibility = 'hidden';
@@ -305,6 +329,28 @@
         var badges = h('span.ph-field__badges');
         var isTarget = R.isTarget(node.path);
         var decls = refDeclsOn(node);
+        // §9.3: item names in the rows, and what the script says about them.
+        var icPats = IC.patterns(meta);
+        var flagHost = h('div.ph-list__flags');
+        state.flag = opts.flag || null;
+        var issMemo = { stamp: null, map: {} };
+
+        function checking() { return (IC.enabled() && icPats.length > 0) || IC.diagUnder(node.path); }
+        /** The problems of one row (null when this list checks nothing). */
+        function issuesOf(r) {
+            if (!checking()) return null;
+            var st = IC.stamp();
+            if (issMemo.stamp !== st) issMemo = { stamp: st, map: {} };
+            var k = r.path;
+            if (!issMemo.map[k]) issMemo.map[k] = IC.issues(r.value, r.path, icPats, { noDiag: IC.diagStale(node.path) });
+            return issMemo.map[k];
+        }
+        function setFlag(f) {
+            state.flag = f || null;
+            state.page = 0;
+            if (opts.onFlag) opts.onFlag(state.flag);
+            draw();
+        }
 
         searchInput.addEventListener('input', PH.debounce(function () { state.q = searchInput.value.trim(); state.page = 0; draw(); }, 120));
         searchInput.addEventListener('keydown', function (e) { if (e.key === 'Escape' && searchInput.value) { e.stopPropagation(); searchInput.value = ''; state.q = ''; draw(); } });
@@ -351,6 +397,7 @@
             resetBtn,
             h('span.ph-split', [addBtn, addMore]),
         ]));
+        el.appendChild(flagHost);
         el.appendChild(problems);
         el.appendChild(body);
 
@@ -365,6 +412,8 @@
                     var hay = [String(r.key)];
                     if (PH.isPlainObj(r.value)) {
                         (searchFields || Object.keys(r.value)).forEach(function (k) {
+                            // hub.json search paths may reach into lists: Items[].name.
+                            if (/\[\]/.test(k)) { R.expand(r.value, r.path, k).forEach(function (hit) { if (hit.value !== undefined && typeof hit.value !== 'object') hay.push(String(hit.value)); }); return; }
                             var v = getField(r.value, k);
                             if (v !== undefined && (typeof v !== 'object' || PH.isVec(v) || Array.isArray(v))) hay.push(PH.fmtValue(v, 400));
                         });
@@ -372,6 +421,8 @@
                     return PH.matches(state.q, hay);
                 });
             }
+            var searched = rows;
+            if (state.flag) rows = rows.filter(function (r) { var iss = issuesOf(r); return !!iss && IC.passes(iss, state.flag); });
             if (state.sort) {
                 var f = state.sort, d = state.dir;
                 rows = rows.slice().sort(function (a, b) {
@@ -382,7 +433,25 @@
                     return a.n - b.n;
                 });
             }
-            return { rows: rows, tf: tf };
+            return { rows: rows, tf: tf, searched: searched };
+        }
+
+        /** The filter chips over the table, with a count for each problem. */
+        function drawFlags(searched) {
+            PH.clear(flagHost);
+            if (!checking()) { state.flag = null; return; }
+            var counts = { missing: 0, noicon: 0, hidden: 0 };
+            searched.forEach(function (r) {
+                var iss = issuesOf(r);
+                if (!iss) return;
+                if (iss.missing.length) counts.missing++;
+                if (iss.noicon.length) counts.noicon++;
+                if (iss.hidden) counts.hidden++;
+            });
+            var note = IC.diagUnder(node.path) && IC.diagStale(node.path)
+                ? 'Hidden-in-game marks are held back until you save and restart: ' + PH.pluralOf(itemLabel) + ' were added, removed or moved.' : null;
+            var bar = IC.flagBar(counts, state.flag, setFlag, note);
+            if (bar) flagHost.appendChild(bar);
         }
 
         /** Rows whose reference fields point at nothing: listed above the table so the owner sees them. */
@@ -429,14 +498,20 @@
             var all = rowsOf(node, meta);
             var res = filtered();
             var rows = res.rows, tf = res.tf;
-            countEl.textContent = state.q ? rows.length + ' of ' + PH.plural(all.length, itemLabel) : PH.plural(all.length, itemLabel);
+            countEl.textContent = state.q || state.flag ? rows.length + ' of ' + PH.plural(all.length, itemLabel) : PH.plural(all.length, itemLabel);
             drawProblems(all, tf);
+            drawFlags(res.searched);
 
             if (!all.length) {
                 body.appendChild(h('div.ph-empty', [icon(isMap ? 'rows' : 'list', 'ph-empty__ico'),
                     h('p.ph-empty__title', opts.emptyText || ('No ' + PH.pluralOf(itemLabel) + ' yet.')),
                     h('p.ph-empty__text', ro() ? 'Take the edit lock to add one.' : 'Add one here; it is written to ' + (node.file || 'the config file') + ' when you save.'),
                     ro() ? null : h('button.ph-btn.ph-btn--primary', { type: 'button', onclick: function () { addRow('template'); } }, [icon('plus'), 'Add the first ' + itemLabel])]));
+                return;
+            }
+            if (!rows.length && state.flag) {
+                body.appendChild(h('div.ph-empty', [icon('check', 'ph-empty__ico'), h('p', 'No ' + itemLabel + (state.q ? ' matching “' + state.q + '”' : '') + ' has this problem.'),
+                    h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', onclick: function () { setFlag(null); } }, 'Show all')]));
                 return;
             }
             if (!rows.length) {
@@ -446,7 +521,7 @@
             }
 
             var scalarMap = isMap && all.every(function (r) { return !PH.isPlainObj(r.value) && !(Array.isArray(r.value) && r.value.some(function (x) { return x && typeof x === 'object'; })); });
-            var canMove = !isMap && !state.sort && !state.q && !ro();
+            var canMove = !isMap && !state.sort && !state.q && !state.flag && !ro();
             var pages = Math.ceil(rows.length / PAGE);
             if (state.page >= pages) state.page = pages - 1;
             var pageRows = rows.slice(state.page * PAGE, state.page * PAGE + PAGE);
@@ -477,6 +552,9 @@
             var tbody = h('tbody');
             pageRows.forEach(function (r) {
                 var tr = h('tr.ph-row' + (state.selected !== null && String(state.selected) === String(r.key) ? '.is-selected' : '') + (S.isPending(r.path) ? '.is-pending' : ''), { dataset: { key: String(r.key) } });
+                var iss = issuesOf(r);
+                var flags = iss && iss.level ? IC.flagsEl(iss) : null;
+                if (flags) tr.classList.add(iss.level === 'bad' ? 'is-itembad' : 'is-itemwarn');
                 if (canMove || !isMap) {
                     var numCell = h('td.ph-table__num', [
                         canMove ? h('span.ph-grip', { title: 'Drag to reorder' }, icon('grip')) : null,
@@ -487,7 +565,8 @@
                 }
                 if (isMap) {
                     tr.appendChild(h('td.ph-table__key', [h('span.ph-cellmono', String(r.key)),
-                        ro() ? null : h('button.ph-iconbtn.ph-iconbtn--sm', { type: 'button', title: 'Rename this key', onclick: function (e) { e.stopPropagation(); renameKey(r); } }, icon('pencil'))]));
+                        ro() ? null : h('button.ph-iconbtn.ph-iconbtn--sm', { type: 'button', title: 'Rename this key', onclick: function (e) { e.stopPropagation(); renameKey(r); } }, icon('pencil')),
+                        flags && !cols.length ? flags : null]));
                 }
                 if (scalarMap) {
                     var fm = (meta.fields || {})['[]'] || {};
@@ -503,6 +582,7 @@
                         var sub = getField(r.value, meta.subtitleField);
                         if (sub !== undefined && sub !== '') td.appendChild(h('div.ph-table__sub', PH.fmtValue(sub, 80)));
                     }
+                    if (ci === 0 && flags) { td.classList.add('has-flags'); td.appendChild(flags); }
                     tr.appendChild(td);
                 });
                 if (isTarget) tr.appendChild(h('td.ph-table__used', R.usedByChip(node.path, refKeyOf(node, r), { showZero: true })));
@@ -524,8 +604,8 @@
             table.appendChild(tbody);
             body.appendChild(h('div.ph-tablewrap', table));
 
-            if (!canMove && !isMap && (state.sort || state.q) && !ro()) {
-                body.appendChild(h('div.ph-list__note', [icon('info'), 'Clear the search and sorting to reorder rows. The order shown here is not saved.']));
+            if (!canMove && !isMap && (state.sort || state.q || state.flag) && !ro()) {
+                body.appendChild(h('div.ph-list__note', [icon('info'), 'Clear the search, filter and sorting to reorder rows. The order shown here is not saved.']));
             }
             if (pages > 1) body.appendChild(pager(pages));
         }
@@ -709,6 +789,7 @@
                 node: node, meta: meta, isMap: isMap, key: key, itemLabel: itemLabel,
                 eyebrow: opts.eyebrow || label, sublists: opts.sublists || null,
                 usedBy: isTarget ? function (row) { return R.usedByChip(node.path, refKeyOf(node, row)); } : null,
+                issues: checking() ? function (row) { return issuesOf(row); } : null,
                 onChange: redrawSoon,
                 duplicate: duplicate, remove: remove, renameKey: renameKey,
                 navigate: function (dir) {
@@ -741,6 +822,10 @@
         el.openRow = openRow;
         el.findRow = function (key) { openRow(key); };
         el.search = function (q) { searchInput.value = q; state.q = q; state.page = 0; draw(); };
+        el.setFlag = setFlag;
+        // The item list or an icon answer arrived: redraw, unless someone is typing in the table.
+        IC.watch(el, function () { if (!body.contains(document.activeElement)) draw(); });
+        if (IC.enabled() && icPats.length) IC.loadList();
         draw();
         return el;
     };
@@ -807,11 +892,24 @@
 
         var titleEl = h('h2.ph-drawer__title', rowTitle(row, meta, tf, isMap));
         var used = opts.usedBy ? opts.usedBy(row) : null;
+        // §9.3: the row's problems in full, kept up to date as its fields change.
+        var flagsHost = h('div.ph-drawer__flags');
+        function drawRowFlags() {
+            PH.clear(flagsHost);
+            if (!opts.issues) return;
+            var fresh = rowsOf(node, meta).filter(function (r) { return String(r.key) === String(opts.key); })[0];
+            var iss = fresh ? opts.issues(fresh) : null;
+            var f = iss && iss.level ? IC.flagsEl(iss, { full: true }) : null;
+            if (f) flagsHost.appendChild(f);
+        }
+        drawRowFlags();
+        IC.watch(flagsHost, function () { drawRowFlags(); drawTabs(); });
         var head = h('div.ph-drawer__head', [
             h('div.ph-drawer__titles', [
                 h('div.ph-eyebrow', [opts.eyebrow || F.labelFor(node), h('span.ph-drawer__pos', isMap ? 'key ' + row.key : '#' + row.n + ' of ' + rows.length)]),
                 titleEl,
                 used ? h('div.ph-drawer__used', used) : null,
+                flagsHost,
             ]),
             h('div.ph-drawer__nav', [
                 h('button.ph-iconbtn', { type: 'button', title: 'Previous (Alt+↑)', onclick: function () { opts.navigate(-1); } }, icon('up')),
@@ -826,6 +924,7 @@
             // The title may have changed with the field it is taken from.
             var fresh = rowsOf(node, meta).filter(function (r) { return String(r.key) === String(opts.key); })[0];
             if (fresh) titleEl.textContent = rowTitle(fresh, meta, tf, isMap);
+            drawRowFlags();
             if (opts.onChange) opts.onChange();
         }
 
@@ -863,7 +962,7 @@
             var subPath = PH.IDENT.test(sub.field) ? row.path + '.' + sub.field : PH.joinPath(row.path, sub.field);
             renderCollection(pane, {
                 path: subPath, value: S.get(subPath), pattern: sub.field, listMeta: meta, file: node.file, depth: 1,
-                label: sub.label, onChange: function () { onFieldChange(); drawTabs(); },
+                label: sub.label, onChange: function () { onFieldChange(); drawTabs(); }, checks: !!opts.issues,
             }, false);
         }
         function drawTabs() {
@@ -874,8 +973,12 @@
                 var subPath = PH.IDENT.test(s.field) ? row.path + '.' + s.field : PH.joinPath(row.path, s.field);
                 var v = S.get(subPath);
                 var n = Array.isArray(v) ? v.length : PH.isPlainObj(v) ? mapKeys(v).length : 0;
-                tabBar.appendChild(h('button.ph-dtab' + (tab === s.field ? '.is-on' : ''), { type: 'button', dataset: { tab: s.field }, onclick: function () { tab = s.field; if (drawer) drawer.tab = tab; drawPane(); } },
-                    [s.label, h('span.ph-dtab__n', String(n))]));
+                var iss = opts.issues ? entriesIssues(v, subPath, IC.subPatterns(meta, s.field)) : null;
+                var lvl = iss && iss.level;
+                var tabBtn = h('button.ph-dtab' + (tab === s.field ? '.is-on' : '') + (lvl ? '.has-' + lvl : ''), { type: 'button', dataset: { tab: s.field }, onclick: function () { tab = s.field; if (drawer) drawer.tab = tab; drawPane(); } },
+                    [s.label, h('span.ph-dtab__n', String(n)), lvl ? icon('alert', 'ph-dtab__flag') : null]);
+                if (lvl) tabBtn.title = IC.labels(iss).map(function (l) { return l.text; }).join('\n');
+                tabBar.appendChild(tabBtn);
             });
         }
         if (subs.length) {
@@ -913,6 +1016,15 @@
             body.scrollTop = 0;
         }
     };
+
+    /** The problems summed over every entry of a list inside a row (an array or a map). */
+    function entriesIssues(v, path, pats) {
+        var agg = IC.empty();
+        if (Array.isArray(v)) v.forEach(function (x, i) { IC.merge(agg, IC.issues(x, path + '[' + (i + 1) + ']', pats)); });
+        else if (PH.isPlainObj(v)) mapKeys(v).forEach(function (k) { IC.merge(agg, IC.issues(v[k], PH.joinPath(path, keySeg(v, k)), pats)); });
+        return agg;
+    }
+    L.entriesIssues = entriesIssues;
 
     /** Switch the open drawer to one of its list tabs (used by "jump to" a nested value). */
     L.drawerTab = function (field) {
@@ -1015,6 +1127,11 @@
 
     function leaf(ctx) {
         var fm = fieldMeta(ctx.listMeta, ctx.pattern);
+        // A list of names whose entries have a picker (AltNames[] = item, Job[] = job): the chips use it.
+        if (Array.isArray(ctx.value) && !fm.picker) {
+            var em = fieldMeta(ctx.listMeta, ctx.pattern + '[]');
+            if (em.picker) fm = Object.assign({}, fm, { picker: em.picker });
+        }
         return F.field({
             path: ctx.path, value: ctx.value, meta: fm,
             label: fm.label || ctx.label, tooltip: fm.tooltip || '',
@@ -1089,6 +1206,9 @@
         var wrap = h('div.ph-coll');
         var ro = S.isReadOnly();
         var pattern = ctx.pattern;
+        // §9.3: each entry's item names are checked (Items[].name, Items[].AltNames[]).
+        var entryPats = IC.subPatterns(ctx.listMeta, pattern);
+        var checks = (ctx.checks !== false) && ((IC.enabled() && entryPats.length > 0) || IC.diagUnder(ctx.path));
 
         function draw() {
             PH.clear(wrap);
@@ -1106,12 +1226,29 @@
             }
             var tf = null;
             entries.forEach(function (en) {
-                if (!tf && PH.isPlainObj(en.value)) TITLE_KEYS.some(function (k) { if (typeof en.value[k] === 'string' && en.value[k]) { tf = k; return true; } return false; });
+                if (!tf && PH.isPlainObj(en.value)) TITLE_KEYS.some(function (k) {
+                    // Same case-insensitive match as titleField(): `Name` counts as `name`.
+                    return Object.keys(en.value).some(function (key) {
+                        if (key.toLowerCase() === k && typeof en.value[key] === 'string' && en.value[key]) { tf = key; return true; }
+                        return false;
+                    });
+                });
             });
             entries.forEach(function (en, i) {
                 var title = tf && PH.isPlainObj(en.value) && en.value[tf] ? String(en.value[tf]) : (PH.isPlainObj(en.value) ? '' : PH.fmtValue(en.value, 60));
                 var card = h('div.ph-coll__item');
                 var bodyEl = h('div.ph-coll__body');
+                var flagsEl = h('div.ph-coll__flags');
+                function drawCardFlags() {
+                    PH.clear(flagsEl);
+                    card.classList.remove('is-itembad', 'is-itemwarn');
+                    if (!checks) return;
+                    var iss = IC.issues(S.get(en.path), en.path, entryPats);
+                    var f = iss.level ? IC.flagsEl(iss) : null;
+                    if (!f) return;
+                    card.classList.add(iss.level === 'bad' ? 'is-itembad' : 'is-itemwarn');
+                    flagsEl.appendChild(f);
+                }
                 var head = h('div.ph-coll__head', [
                     h('span.ph-coll__idx', en.label),
                     h('span.ph-coll__title', title),
@@ -1124,11 +1261,15 @@
                     } }, icon('trash')),
                 ]);
                 card.appendChild(head);
+                card.appendChild(flagsEl);
+                drawCardFlags();
+                if (checks) IC.watch(flagsEl, drawCardFlags);
                 L.renderValue(bodyEl, {
                     path: en.path, value: en.value, pattern: pattern + '[]', listMeta: ctx.listMeta,
                     file: ctx.file, depth: ctx.depth + 1, label: 'Value', onChange: function () {
                         var fresh = S.get(en.path);
                         if (tf && PH.isPlainObj(fresh)) head.querySelector('.ph-coll__title').textContent = fresh[tf] || '';
+                        drawCardFlags();
                         if (ctx.onChange) ctx.onChange();
                     },
                 });
@@ -1341,8 +1482,42 @@
         var label = F.labelFor(node);
         var itemLabel = meta.itemLabel || PH.singular(label) || 'entry';
         var isTarget = R.isTarget(node.path);
-        var st = { q: '' };
+        var st = { q: '', flag: view.flag || null };
         var el = h('section.ph-collv', { dataset: { path: PH.canon(node.path) } });
+        var subFieldsAll = info.sublists.map(function (s) { return s.field; });
+        // §9.3: the row's own item fields (not those of its lists), then each list's.
+        var rowPats = IC.patterns(meta).filter(function (p) {
+            return !subFieldsAll.some(function (f) { return p === f || p.indexOf(f + '[') === 0 || p.indexOf(f + '.') === 0; });
+        });
+        var cissMemo = { stamp: null, map: {} };
+        function collChecking() {
+            if (IC.diagUnder(node.path)) return true;
+            if (!IC.enabled()) return false;
+            return rowPats.length > 0 || info.sublists.some(function (s) { return IC.patterns(s.meta).length > 0; });
+        }
+        function subIssues(k, s) {
+            var sn = subNodeOf(info, k, s);
+            var sm = F.metaFor(sn);
+            var pats = IC.patterns(sm);
+            var agg = IC.empty();
+            var stale = IC.diagStale(sn.path);
+            rowsOf(sn, sm).forEach(function (r) { IC.merge(agg, IC.issues(r.value, r.path, pats, { noDiag: stale })); });
+            return agg;
+        }
+        /** Everything wrong in one row of the collection, its lists included. */
+        function rowIssues(k) {
+            if (!collChecking()) return null;
+            var stamp = IC.stamp();
+            if (cissMemo.stamp !== stamp) cissMemo = { stamp: stamp, map: {} };
+            var ck = String(k);
+            if (cissMemo.map[ck]) return cissMemo.map[ck];
+            var rp = info.rowPath(k);
+            var agg = IC.issues(S.get(rp), rp, rowPats, { noDiag: IC.diagStale(node.path) });
+            info.sublists.forEach(function (s) { IC.merge(agg, subIssues(k, s)); });
+            cissMemo.map[ck] = agg;
+            return agg;
+        }
+        var indexFlags = h('div.ph-cindex__flags');
         var badges = h('span.ph-field__badges');
 
         var info2 = h('button.ph-info', { type: 'button', 'aria-label': 'About this collection' }, icon('info'));
@@ -1368,6 +1543,7 @@
         var index = h('div.ph-cindex', [
             h('div.ph-cindex__bar', [h('div.ph-list__searchwrap', [icon('search'), search])]),
             h('div.ph-cindex__meta', [indexCount, h('span.ph-grow'), info.editable() ? addBtn : null]),
+            indexFlags,
             indexList,
             info.editable() ? null : h('div.ph-cindex__note', [icon('file'), h('span', info.opsReason ? info.opsReason : ['Each ' + itemLabel + ' is a block of its own in ', h('b', node.file || 'the config file'), '. Add or remove ' + PH.pluralOf(itemLabel) + ' there; everything inside them can be edited here.'])]),
         ]);
@@ -1406,19 +1582,40 @@
                 info.sublists.forEach(function (s) { hay.push(JSON.stringify(S.get(info.subPath(k, s.field)) || '')); });
                 return PH.matches(st.q, hay);
             });
-            indexCount.textContent = st.q ? shown.length + ' of ' + PH.plural(ks.length, itemLabel) : PH.plural(ks.length, itemLabel);
+            PH.clear(indexFlags);
+            if (collChecking()) {
+                var fcounts = { missing: 0, noicon: 0, hidden: 0 };
+                shown.forEach(function (k) {
+                    var iss = rowIssues(k);
+                    if (iss.missing.length) fcounts.missing++;
+                    if (iss.noicon.length) fcounts.noicon++;
+                    if (iss.hidden) fcounts.hidden++;
+                });
+                var fb = IC.flagBar(fcounts, st.flag, function (f) { st.flag = f; if (view.onFlag) view.onFlag(f); drawIndex(); }, null);
+                if (fb) indexFlags.appendChild(fb);
+                if (st.flag) shown = shown.filter(function (k) { return IC.passes(rowIssues(k), st.flag); });
+            } else st.flag = null;
+            indexCount.textContent = st.q || st.flag ? shown.length + ' of ' + PH.plural(ks.length, itemLabel) : PH.plural(ks.length, itemLabel);
             if (!ks.length) {
                 indexList.appendChild(h('div.ph-empty.ph-empty--sm', [h('p.ph-empty__title', 'No ' + PH.pluralOf(itemLabel) + ' yet.'),
                     h('p.ph-empty__text', info.sublists.length ? 'Each ' + itemLabel + ' holds ' + info.sublists.map(function (s) { return s.label.toLowerCase(); }).join(' and ') + '.' : '')]));
                 return;
             }
-            if (!shown.length) { indexList.appendChild(h('div.ph-empty.ph-empty--sm', h('p', 'Nothing matches “' + st.q + '”.'))); return; }
+            if (!shown.length) {
+                indexList.appendChild(h('div.ph-empty.ph-empty--sm', st.flag ? [h('p', 'No ' + itemLabel + ' has this problem.'),
+                    h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', onclick: function () { st.flag = null; if (view.onFlag) view.onFlag(null); drawIndex(); } }, 'Show all')]
+                    : h('p', 'Nothing matches “' + st.q + '”.')));
+                return;
+            }
             shown.forEach(function (k) {
                 var title = info.rowTitle(k);
                 var cs = counts(k);
                 var changed = rowChanged(info, k);
+                var riss = rowIssues(k);
+                var rflags = riss && riss.level ? IC.flagsEl(riss) : null;
                 // A div, not a button: the "Used by" chip inside it is a button of its own.
-                var btn = h('div.ph-crow' + (String(k) === String(sel) ? '.is-on' : '') + (S.isPending(info.rowPath(k)) ? '.is-pending' : ''), {
+                var btn = h('div.ph-crow' + (String(k) === String(sel) ? '.is-on' : '') + (S.isPending(info.rowPath(k)) ? '.is-pending' : '') +
+                    (rflags ? (riss.level === 'bad' ? '.is-itembad' : '.is-itemwarn') : ''), {
                     role: 'option', tabindex: '0', dataset: { key: String(k) }, 'aria-selected': String(k) === String(sel) ? 'true' : 'false',
                 }, [
                     h('span.ph-crow__main', [
@@ -1427,6 +1624,7 @@
                         cs.length ? h('span.ph-crow__counts', cs.map(function (c, i) {
                             return [i ? h('span.ph-crow__sep', '·') : null, h('span' + (c.n ? '' : '.is-zero'), shortLabel(c.s.label) + ' ' + c.n)];
                         })) : null,
+                        rflags,
                     ]),
                     isTarget ? R.usedByChip(node.path, k) : null,
                 ]);
@@ -1508,9 +1706,10 @@
                 var sn = subNodeOf(info, k, s);
                 var dirty = S.isPending(info.subPath(k, s.field)) || S.differsFromDefault(sn);
                 return h('button.ph-subtab' + (s === sub ? '.is-on' : ''), { type: 'button', role: 'tab', onclick: function () { select(k, s.field); } },
-                    [h('span', s.label), h('span.ph-subtab__n', String(n)), dirty ? h('span.ph-rail__dot') : null]);
+                    [h('span', s.label), h('span.ph-subtab__n', String(n)), h('span.ph-subtab__flag'), dirty ? h('span.ph-rail__dot') : null]);
             }));
             detail.appendChild(tabs);
+            markSubtabs();
             var subNode = subNodeOf(info, k, sub);
             var subItem = (sub.meta && sub.meta.itemLabel) || 'item';
             detail.appendChild(L.section(subNode, {
@@ -1521,7 +1720,26 @@
             }));
         }
 
-        var drawIndexSoon = PH.debounce(function () { if (el.isConnected) { drawIndex(); drawBadges(); } }, 200);
+        /** A warning mark on each list tab of the selected row that has a problem in it. */
+        function markSubtabs() {
+            var k = selected();
+            PH.$$('.ph-subtab', detail).forEach(function (b, i) {
+                var s = info.sublists[i];
+                var slot = b.querySelector('.ph-subtab__flag');
+                if (!s || !slot) return;
+                var siss = collChecking() && k !== null ? subIssues(k, s) : null;
+                var lvl = siss && siss.level;
+                b.classList.remove('has-bad', 'has-warn');
+                PH.clear(slot);
+                b.removeAttribute('title');
+                if (!lvl) return;
+                b.classList.add('has-' + lvl);
+                slot.appendChild(icon('alert', 'ph-dtab__flag'));
+                b.title = IC.labels(siss).map(function (l) { return l.text; }).join('\n');
+            });
+        }
+
+        var drawIndexSoon = PH.debounce(function () { if (el.isConnected) { drawIndex(); drawBadges(); markSubtabs(); } }, 200);
         var redrawTabsSoon = PH.debounce(function () {
             if (!el.isConnected) return;
             var k = selected();
@@ -1624,6 +1842,11 @@
 
         el.refresh = function () { drawIndex(); drawDetail(); drawBadges(); };
         el.select = select;
+        el.setFlag = function (f) { st.flag = f || null; drawIndex(); };
+        if (collChecking()) {
+            if (IC.enabled()) IC.loadList();
+            IC.watch(el, function () { if (!indexList.contains(document.activeElement)) drawIndex(); markSubtabs(); });
+        }
         el.openEntry = function (k, field, entryKey) {
             select(k, field);
             if (entryKey === undefined || entryKey === null) return null;
@@ -1757,6 +1980,665 @@
 
         el.refresh = draw;
         draw();
+        return el;
+    };
+
+    // ---------------------------------------------------------- data panels --
+    // §10: live data a script owns (its database), not a config file. Read
+    // through the server (`panel`), edited a cell at a time (`panelWrite`):
+    // every change applies at once, so there is no queue, no save bar and no
+    // lock here. §10.5 adds actions (row buttons and toolbar buttons, with
+    // input fields and a confirmation for dangerous ones), drill-down (a row's
+    // `detail` opens another panel for that row, with a breadcrumb back) and
+    // Contents (a row's `container`, read and changed by poggy_core itself).
+    // The view keeps a stack of levels per panel in S.cur.panelState, so a
+    // re-render after a write keeps the owner where they were:
+    //     { kind: 'panel', panelId, parent?, title, data, ... }
+    //     { kind: 'contents', ownerId, ownerCtx, rowKey, title, data, ... }
+    // Arguments never carry a null in the middle (the client unpacks them by
+    // length), so a missing row key is sent as false and a missing input as {}.
+
+    /**
+     * A list from the server. CFX encodes an empty Lua table as {} or [], so
+     * anything that is not an array is an empty list (no buttons, no rows).
+     */
+    function arr(x) { return Array.isArray(x) ? x : []; }
+    L.arr = arr;
+
+    function panelLevel(kind, extra) {
+        return Object.assign({ kind: kind, data: null, loading: false, err: null, q: '', sort: null, dir: 1, page: 0, flag: null, flash: {} }, extra);
+    }
+
+    function panelRowTitle(data, row) {
+        var cols = arr(data && data.columns);
+        var cells = row.cells && typeof row.cells === 'object' ? row.cells : {};
+        var i, v;
+        for (i = 0; i < cols.length; i++) {
+            v = cells[cols[i].field];
+            if (typeof v === 'string' && v.trim() !== '' && !/^[#\d\s.:-]+$/.test(v) && v !== '—') return v;
+        }
+        for (i = 0; i < cols.length; i++) {
+            v = cells[cols[i].field];
+            if ((typeof v === 'string' && v !== '') || typeof v === 'number') return String(v);
+        }
+        return String(row.key);
+    }
+
+    function flashKey(key, field) { return String(key) + '' + String(field); }
+
+    /** The control an action's input field (or a Contents input) is asked with. Returns { el, get() }. */
+    function inputControl(f) {
+        var value = f['default'];
+        var err = h('div.ph-field__error');
+        var errFn = function (t) { err.textContent = t || ''; };
+        var ctl, get;
+        if (f.picker === 'coords') {
+            value = { __type: 'vec4', x: 0, y: 0, z: 0, w: 0 };
+            ctl = F.control({ value: value, meta: {} }, function (v) { value = v; }, errFn);
+            get = function () { return value && (value.x || value.y || value.z) ? { x: value.x, y: value.y, z: value.z, heading: value.w } : null; };
+        } else if (arr(f.options).length) {
+            value = value !== undefined && value !== null ? value : f.options[0].value;
+            ctl = F.control({ value: value, meta: { options: f.options } }, function (v) { value = v; }, errFn);
+            get = function () { return value; };
+        } else if (f.picker && F.fetchers[f.picker]) {
+            value = value == null ? '' : String(value);
+            ctl = F.control({ value: value, meta: { picker: f.picker } }, function (v) { value = v; }, errFn);
+            get = function () { return value === '' ? null : value; };
+        } else if (f.type === 'boolean') {
+            value = !!value;
+            ctl = F.control({ value: value, meta: {} }, function (v) { value = v; }, errFn);
+            get = function () { return value; };
+        } else {
+            var input = h('input.ph-input' + (f.type === 'number' ? '.ph-input--num' : ''), {
+                type: 'text', inputmode: f.type === 'number' ? 'decimal' : null, spellcheck: 'false',
+                placeholder: f.placeholder || (f.type === 'number' && (f.min !== undefined || f.max !== undefined)
+                    ? [f.min !== undefined ? 'at least ' + f.min : null, f.max !== undefined ? 'at most ' + f.max : null].filter(Boolean).join(', ') : ''),
+            });
+            input.value = value == null ? '' : String(value);
+            ctl = { el: input };
+            get = function () {
+                var t = input.value.trim();
+                if (t === '') return null;
+                if (f.type === 'number') { var n = Number(t); return isFinite(n) ? n : t; }
+                return input.value;
+            };
+        }
+        var el = h('label.ph-pinput', [
+            h('span.ph-pinput__label', [f.label || PH.readable(f.field), f.required ? h('span.ph-pinput__req', ' *') : null]),
+            f.tooltip ? h('span.ph-pinput__hint', f.tooltip) : null,
+            ctl.el, err,
+        ]);
+        function check() {
+            var v = get();
+            if (v === null || v === undefined) return f.required ? (f.label || f.field) + ' is needed.' : null;
+            if (f.type === 'number') {
+                if (typeof v !== 'number') return (f.label || f.field) + ' must be a number.';
+                if (typeof f.min === 'number' && v < f.min) return (f.label || f.field) + ' must be at least ' + f.min + '.';
+                if (typeof f.max === 'number' && v > f.max) return (f.label || f.field) + ' must be at most ' + f.max + '.';
+            }
+            return null;
+        }
+        return { el: el, get: get, check: check, setErr: errFn, field: f.field };
+    }
+
+    /**
+     * Ask for an action's inputs and confirmation, then run it. run(input,
+     * confirm) returns the api promise. Resolves true when it ran.
+     */
+    function askAction(action, rowLabel, key, run) {
+        var inputs = arr(action.input).map(inputControl);
+        var typed = action.confirm === 'typed';
+        var want = action.scope === 'panel' ? 'CONFIRM' : String(key);
+        var needsYes = action.confirm === 'simple' || (action.danger && !typed);
+        if (!inputs.length && !typed && !needsYes) return run({}, undefined);
+        var typedInput = typed ? h('input.ph-input.ph-pinput__typed', { type: 'text', spellcheck: 'false', placeholder: want, autocomplete: 'off' }) : null;
+        var failEl = h('div.ph-field__error.ph-paction__fail');
+        var body = h('div.ph-paction', [
+            h('p.ph-paction__what', [action.tooltip || null, rowLabel ? h('span.ph-paction__row', [action.scope === 'row' ? 'Row: ' : '', h('b', rowLabel)]) : null]),
+            inputs.length ? h('div.ph-paction__inputs', inputs.map(function (c) { return c.el; })) : null,
+            action.danger ? h('div.ph-banner.ph-banner--warn', [icon('alert', 'ph-banner__ico'), h('div.ph-banner__text', 'This cannot be undone from the hub. It applies at once.')]) : null,
+            typed ? h('label.ph-pinput', [h('span.ph-pinput__label', ['Type ', h('b.ph-cellmono', want), ' to confirm']), typedInput]) : null,
+            failEl,
+        ]);
+        var ran = false;
+        var m = PH.modal({
+            title: action.label, icon: action.icon || (action.danger ? 'alert' : 'bolt'), tone: action.danger ? 'danger' : null, body: body,
+            actions: [
+                { id: 'no', label: 'Cancel', kind: 'ghost' },
+                { id: 'yes', label: action.label, kind: action.danger ? 'danger' : 'primary', icon: action.icon, onClick: function () {
+                    failEl.textContent = '';
+                    var input = {}, bad = null;
+                    inputs.forEach(function (c) {
+                        var e = c.check();
+                        c.setErr(e || '');
+                        if (e && !bad) bad = e;
+                        var v = c.get();
+                        if (v !== null && v !== undefined) input[c.field] = v;
+                    });
+                    if (bad) return false;
+                    if (typed && typedInput.value.trim() !== want) { failEl.textContent = 'Type ' + want + ' exactly to confirm.'; typedInput.focus(); return false; }
+                    return run(input, typed ? typedInput.value.trim() : needsYes ? true : undefined).then(function (ok) {
+                        if (ok === true) { ran = true; return true; }
+                        failEl.textContent = typeof ok === 'string' ? ok : 'It did not run.';
+                        return false;
+                    });
+                } },
+            ],
+        });
+        if (typedInput) {
+            var okBtn = m.box.querySelector('.ph-modal__foot .ph-btn:last-child');
+            var sync = function () { if (okBtn) okBtn.disabled = typedInput.value.trim() !== want; };
+            typedInput.addEventListener('input', sync);
+            typedInput.addEventListener('keydown', function (e) { if (e.key === 'Enter' && okBtn && !okBtn.disabled) { e.preventDefault(); okBtn.click(); } });
+            sync();
+            setTimeout(function () { if (!inputs.length) typedInput.focus(); }, 60);
+        }
+        return m.then(function () { return ran; });
+    }
+
+    /** A plain text cell that saves on Enter or when it loses focus; Escape puts the value back. */
+    function panelText(value, commit, col) {
+        var isNum = typeof value === 'number' || !!(col && col.type === 'number');
+        var input = h('input.ph-input.ph-pcell__input' + (isNum ? '.ph-input--num' : ''), { type: 'text', spellcheck: 'false', inputmode: isNum ? 'decimal' : null });
+        var cur = value;
+        input.value = value == null ? '' : String(value);
+        function send() {
+            var t = input.value;
+            var v = t;
+            if (isNum) {
+                v = Number(t.trim());
+                if (t.trim() === '' || !isFinite(v)) { input.classList.add('is-bad'); input.title = 'This needs a number.'; return; }
+                if (col && typeof col.min === 'number' && v < col.min) { input.classList.add('is-bad'); input.title = 'At least ' + col.min + '.'; return; }
+                if (col && typeof col.max === 'number' && v > col.max) { input.classList.add('is-bad'); input.title = 'At most ' + col.max + '.'; return; }
+            }
+            input.classList.remove('is-bad'); input.title = '';
+            if (String(v) === String(cur)) return;
+            commit(v);
+        }
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            else if (e.key === 'Escape') { e.stopPropagation(); input.value = cur == null ? '' : String(cur); input.classList.remove('is-bad'); input.blur(); }
+        });
+        input.addEventListener('change', send);
+        return {
+            el: input,
+            set: function (v) { cur = v; input.value = v == null ? '' : String(v); },
+            disable: function (d) { input.readOnly = d; input.classList.toggle('is-disabled', d); },
+        };
+    }
+
+    L.panel = function (it) {
+        var cur = S.cur;
+        var sid = cur.id;
+        var info = it.info || {};
+        cur.panelState = cur.panelState || {};
+        var ps = cur.panelState[it.panel];
+        if (!ps) ps = cur.panelState[it.panel] = { stack: [panelLevel('panel', { panelId: it.panel, title: it.label })] };
+
+        var el = h('section.ph-list.ph-panelv', { dataset: { panel: it.panel } });
+        var searchInput = h('input.ph-input.ph-list__search', { type: 'text', spellcheck: 'false' });
+        var parts = { head: h('div.ph-list__head'), bar: h('div.ph-list__bar'), banners: h('div.ph-panelv__banners'), flags: h('div.ph-list__flags'), body: h('div.ph-list__body') };
+        el.appendChild(parts.head); el.appendChild(parts.bar); el.appendChild(parts.banners); el.appendChild(parts.flags); el.appendChild(parts.body);
+
+        function top() { return ps.stack[ps.stack.length - 1]; }
+        function isRoot() { return ps.stack.length === 1; }
+        /** ctx for the server: a drill-down level's row and root panel. */
+        function ctxOf(lv) { return lv.parent !== undefined ? { parent: lv.parent, root: it.panel } : null; }
+        function args(list, ctx) { if (ctx) list.push(ctx); return list; }
+        function itemWord(lv) {
+            if (lv.kind === 'contents') return 'item';
+            return (lv.data && lv.data.itemLabel) || (isRoot() && info.itemLabel) || 'row';
+        }
+
+        searchInput.addEventListener('input', PH.debounce(function () { var lv = top(); lv.q = searchInput.value.trim(); lv.page = 0; drawBody(); }, 120));
+        searchInput.addEventListener('keydown', function (e) { if (e.key === 'Escape' && searchInput.value) { e.stopPropagation(); searchInput.value = ''; top().q = ''; drawBody(); } });
+
+        // ------------------------------------------------------------- read --
+        function load(lv) {
+            lv = lv || top();
+            lv.loading = true;
+            if (lv === top()) drawBar();
+            var p = lv.kind === 'contents'
+                ? PH.api.apply(null, args(['container', sid, lv.ownerId, lv.rowKey], lv.ownerCtx))
+                : PH.api.apply(null, args(['panel', sid, lv.panelId], ctxOf(lv)));
+            return p.then(function (r) {
+                if (S.cur !== cur) return;
+                lv.loading = false;
+                if (!r.ok) { lv.err = PH.errMsg(r); }
+                else {
+                    lv.err = null;
+                    lv.data = r.value || {};
+                    lv.readAt = Date.now();
+                    if (lv.kind === 'panel' && lv.parent !== undefined && lv.data.label && lv.rowTitle) lv.title = lv.rowTitle + ' · ' + lv.data.label;
+                    if (lv === ps.stack[0]) {
+                        ps.data = lv.data;
+                        if (typeof lv.data.available === 'boolean') { info.available = lv.data.available; info.reason = lv.data.reason; }
+                        if (PH.renderRail) PH.renderRail();
+                    }
+                }
+                if (el.isConnected && lv === top()) draw();
+            });
+        }
+
+        // ------------------------------------------------------------ write --
+        function write(lv, row, col, value, ctl, status) {
+            var old = row.cells ? row.cells[col.field] : undefined;
+            if (PH.deepEqual(value, old)) return;
+            status.className = 'ph-pcell__status is-busy';
+            PH.clear(status); status.appendChild(h('span.ph-spinner.ph-spinner--sm'));
+            status.title = 'Saving…';
+            if (ctl.disable) ctl.disable(true);
+            var k = flashKey(row.key, col.field);
+            PH.api.apply(null, args(['panelWrite', sid, lv.panelId, row.key, col.field, value === null || value === undefined ? '' : value], ctxOf(lv))).then(function (r) {
+                if (S.cur !== cur) return;
+                var okay = r.ok && r.value && r.value.ok !== false;
+                var text = okay ? (r.value.message || 'Saved.') : PH.errMsg(r);
+                lv.flash[k] = { kind: okay ? 'ok' : 'bad', text: text, until: Date.now() + (okay ? 4000 : 8000) };
+                if (okay) {
+                    row.cells[col.field] = value;
+                    PH.toast({ kind: 'success', title: 'Saved', text: text });
+                    if (PH.refreshHistory) PH.refreshHistory();
+                } else {
+                    if (ctl.set) ctl.set(old);
+                    PH.toast({ kind: 'error', title: 'Not saved', text: panelRowTitle(lv.data, row) + ' · ' + col.label + ': ' + text });
+                }
+                if (ctl.disable) ctl.disable(false);
+                showStatus(status, lv.flash[k]);
+                load(lv);   // the script's own view of it, whatever happened
+            });
+        }
+
+        function showStatus(status, fl) {
+            PH.clear(status);
+            if (!fl || fl.until < Date.now()) { status.className = 'ph-pcell__status'; status.title = ''; return; }
+            status.className = 'ph-pcell__status is-' + fl.kind;
+            status.title = fl.text;
+            status.appendChild(icon(fl.kind === 'ok' ? 'check' : 'alert'));
+            var left = fl.until - Date.now();
+            setTimeout(function () { if (status.classList.contains('is-' + fl.kind)) { status.className = 'ph-pcell__status is-fading'; } }, Math.max(0, left));
+        }
+
+        function cellEditor(lv, row, col, disabled) {
+            var v = row.cells ? row.cells[col.field] : undefined;
+            var status = h('span.ph-pcell__status');
+            var ctl;
+            var commit = function (nv) { write(lv, row, col, nv, ctl, status); };
+            var noop = function () {};
+            if (arr(col.options).length) {
+                ctl = F.control({ value: v === undefined ? null : v, meta: { options: col.options } }, commit, noop);
+            } else if (col.picker === 'coords') {
+                var face = h('span.ph-cellmono', v && typeof v === 'object' ? [v.x, v.y, v.z].map(function (n) { return PH.num(Math.round(Number(n) * 100) / 100); }).join(', ') : '—');
+                var use = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Set it to where your character stands' }, [icon('target'), 'My position']);
+                use.addEventListener('click', function () {
+                    F.myPosition().then(function (p) { if (p) commit({ x: p.x, y: p.y, z: p.z, heading: p.heading }); });
+                });
+                ctl = { el: h('span.ph-pcell__coords', [face, use]), disable: function (d) { use.disabled = d; } };
+            } else if (col.picker && F.fetchers[col.picker]) {
+                ctl = F.control({ value: v == null || v === false ? '' : String(v), meta: { picker: col.picker } }, commit, noop);
+            } else if (typeof v === 'boolean') {
+                ctl = F.control({ value: v, meta: {} }, commit, noop);
+            } else {
+                ctl = panelText(v, commit, col);
+            }
+            var clear = null;
+            if (col.picker && F.fetchers[col.picker] && v !== '' && v != null && v !== false) {
+                clear = h('button.ph-iconbtn.ph-iconbtn--sm', { type: 'button', title: 'Clear it (none)' }, icon('x'));
+                clear.addEventListener('click', function (e) { e.stopPropagation(); commit(''); });
+            }
+            if (disabled && ctl.disable) ctl.disable(true);
+            if (clear && disabled) clear.disabled = true;
+            showStatus(status, lv.flash[flashKey(row.key, col.field)]);
+            return h('div.ph-pcell', [ctl.el, clear, status]);
+        }
+
+        // ---------------------------------------------------------- actions --
+        function runAction(lv, action, row, btn) {
+            var key = row ? row.key : false;
+            var rowLabel = row ? panelRowTitle(lv.data, row) : null;
+            return askAction(action, rowLabel, key, function (input, confirm) {
+                if (btn) btn.classList.add('is-busy');
+                var ctx = lv.kind === 'contents' ? Object.assign({}, lv.ownerCtx || {}) : Object.assign({}, ctxOf(lv) || {});
+                if (confirm !== undefined) ctx.confirm = confirm;
+                var call = lv.kind === 'contents'
+                    ? ['containerAction', sid, lv.ownerId, lv.rowKey, action.id, row ? row.key : false, input || {}, ctx]
+                    : ['panelAction', sid, lv.panelId, action.id, action.scope === 'row' ? key : false, input || {}, ctx];
+                return PH.api.apply(null, call).then(function (r) {
+                    if (btn) btn.classList.remove('is-busy');
+                    if (S.cur !== cur) return false;
+                    var okay = r.ok && r.value && r.value.ok !== false;
+                    if (okay) {
+                        PH.toast({ kind: 'success', title: action.label, text: r.value.message || 'Done.' });
+                        if (PH.refreshHistory) PH.refreshHistory();
+                        load(lv);
+                        return true;
+                    }
+                    var why = PH.errMsg(r);
+                    PH.toast({ kind: 'error', title: action.label + ' did not run', text: why });
+                    load(lv);
+                    return why;
+                });
+            });
+        }
+
+        function rowActions(lv, row) {
+            var acts = arr(lv.data && lv.data.actions).filter(function (a) { return a && a.scope !== 'panel'; });
+            // A row's own list, when it has one (present but empty, [] or {}, means none).
+            if (row.actions !== undefined && row.actions !== null) {
+                var own = arr(row.actions);
+                acts = acts.filter(function (a) { return own.indexOf(a.id) !== -1; });
+            }
+            return acts;
+        }
+
+        // ------------------------------------------------------- navigating --
+        /**
+         * A drill-down's name, from its id: the part that repeats the parent
+         * panel or its item word is dropped ("shopstaff" under shops reads
+         * "Staff", "pricehistory" under prices reads "History").
+         */
+        function subLabel(lv, id) {
+            var s0 = String(id || '');
+            var low = s0.toLowerCase();
+            var stems = [lv.panelId, lv.data && lv.data.itemLabel, isRoot() ? info.itemLabel : null]
+                .filter(Boolean).map(function (x) { return String(x).toLowerCase(); });
+            stems = stems.concat(stems.map(function (x) { return x.replace(/s$/, ''); }));
+            for (var i = 0; i < stems.length; i++) {
+                var st = stems[i];
+                if (st.length >= 3 && low.indexOf(st) === 0 && low.length > st.length + 1) { s0 = s0.slice(st.length).replace(/^[_\-]+/, ''); break; }
+            }
+            return PH.readable(s0);
+        }
+        function detailsOf(row) {
+            var list = arr(row.details).slice();
+            if (row.detail && list.indexOf(row.detail) === -1) list.unshift(row.detail);
+            return list;
+        }
+        function openDetail(lv, row, detailId) {
+            detailId = detailId || row.detail;
+            var sub = panelLevel('panel', { panelId: detailId, parent: row.key, rowTitle: panelRowTitle(lv.data, row),
+                title: panelRowTitle(lv.data, row) + ' · ' + subLabel(lv, detailId) });
+            ps.stack.push(sub);
+            searchInput.value = '';
+            draw();
+            load(sub);
+        }
+        function openContents(lv, row) {
+            var sub = panelLevel('contents', { ownerId: lv.panelId, ownerCtx: ctxOf(lv), rowKey: row.key, title: 'Contents of ' + panelRowTitle(lv.data, row) });
+            ps.stack.push(sub);
+            searchInput.value = '';
+            draw();
+            load(sub);
+        }
+        function backTo(i) {
+            ps.stack.length = i + 1;
+            searchInput.value = top().q || '';
+            draw();
+            load(top());
+        }
+
+        // ------------------------------------------------------------- draw --
+        function drawHead() {
+            var lv = top();
+            PH.clear(parts.head);
+            var about = h('button.ph-info', { type: 'button', 'aria-label': 'About this panel' }, icon('info'));
+            PH.tip(about, function () {
+                return h('div', [info.tooltip ? h('div.ph-tip__text', info.tooltip) : null,
+                    h('div.ph-tip__row', [h('span', 'Applies'), h('b', 'Straight away')]),
+                    h('div.ph-tip__code', 'Data from ' + (info.resource || sid) + '  ·  panel ' + it.panel)]);
+            });
+            var crumbs = null;
+            if (!isRoot()) {
+                crumbs = h('nav.ph-pcrumbs', { 'aria-label': 'Back up' }, ps.stack.map(function (l, i) {
+                    var last = i === ps.stack.length - 1;
+                    var label = i === 0 ? it.label : l.title;
+                    return [i ? h('span.ph-crumbs__sep', '›') : null,
+                        last ? h('span.ph-pcrumbs__item.is-current', label) : h('button.ph-pcrumbs__item', { type: 'button', onclick: function () { backTo(i); } }, label)];
+                }));
+            }
+            parts.head.appendChild(h('div.ph-list__titles', [
+                crumbs,
+                h('h3.ph-list__title', [
+                    !isRoot() ? h('button.ph-iconbtn.ph-iconbtn--sm', { type: 'button', title: 'Back', onclick: function () { backTo(ps.stack.length - 2); } }, icon('back')) : null,
+                    lv.kind === 'contents' ? icon('box') : null,
+                    isRoot() ? it.label : lv.title, about, h('span.ph-livetag', 'Live'),
+                ]),
+                isRoot() && info.tooltip ? h('p.ph-list__desc', info.tooltip) : null,
+                h('p.ph-panelv__live', [icon('bolt'), h('b', 'Changes here apply immediately. No restart needed.'),
+                    h('span.ph-panelv__src', ' Data from ' + (info.resource || sid) + '.')]),
+            ]));
+        }
+
+        function drawBar() {
+            var lv = top();
+            PH.clear(parts.bar);
+            searchInput.placeholder = 'Search ' + PH.pluralOf(itemWord(lv)) + '…';
+            var off = lv.data && lv.data.available === false;
+            var tools = arr(lv.data && lv.data.actions).filter(function (a) { return a && a.scope === 'panel'; }).map(function (a) {
+                var b = h('button.ph-btn.ph-btn--sm' + (a.danger ? '.ph-btn--danger-text.ph-btn--ghost' : '.ph-btn--primary'), { type: 'button', title: a.tooltip || a.label, disabled: off || lv.loading }, [icon(a.icon || (a.danger ? 'alert' : 'bolt')), a.label]);
+                b.addEventListener('click', function () { runAction(lv, a, null, b); });
+                return b;
+            });
+            var when = lv.readAt ? PH.when(Math.floor(lv.readAt / 1000)) : null;
+            var refresh = h('button.ph-btn.ph-btn--ghost.ph-btn--sm' + (lv.loading ? '.is-busy' : ''), { type: 'button', title: 'Read it again from the script', disabled: lv.loading },
+                [lv.loading ? h('span.ph-spinner.ph-spinner--sm') : icon('restart'), 'Refresh']);
+            refresh.addEventListener('click', function () { load(lv); });
+            parts.bar.appendChild(h('div.ph-list__searchwrap', [icon('search'), searchInput]));
+            parts.bar.appendChild(h('span.ph-list__count', countText(lv)));
+            parts.bar.appendChild(h('span.ph-grow'));
+            if (when) parts.bar.appendChild(h('span.ph-panelv__when', { title: when.abs || '' }, 'Read ' + when.rel));
+            tools.forEach(function (b) { parts.bar.appendChild(b); });
+            parts.bar.appendChild(refresh);
+        }
+
+        function countText(lv) {
+            if (!lv.data) return '';
+            var all = lv.data.total || arr(lv.data.rows).length;
+            var shown = filtered(lv).length;
+            return lv.q || lv.flag ? shown + ' of ' + PH.plural(all, itemWord(lv)) : PH.plural(all, itemWord(lv));
+        }
+
+        function drawBanners() {
+            var lv = top();
+            PH.clear(parts.banners);
+            var d = lv.data;
+            function banner(kind, ic, text) { parts.banners.appendChild(h('div.ph-banner.ph-banner--' + kind, [icon(ic, 'ph-banner__ico'), h('div.ph-banner__text', text)])); }
+            if (lv.kind !== 'contents' && isRoot() && (info.available === false || (d && d.available === false))) {
+                banner('warn', 'stop', [h('b', 'Read only. '), (d && d.reason) || info.reason || 'The script that owns this data is not available.']);
+            }
+            if (lv.err) banner('warn', 'alert', [h('b', 'Could not read this. '), lv.err]);
+            if (d && d.note) banner('info', 'info', d.note);
+            if (d && d.truncated) banner('info', 'info', 'Showing the first ' + arr(d.rows).length + ' of ' + PH.plural(d.total, itemWord(lv)) + '. Search narrows it down.');
+        }
+
+        function filtered(lv) {
+            var d = lv.data;
+            var rows = arr(d && d.rows);
+            if (lv.q) {
+                rows = rows.filter(function (r) {
+                    var hay = [String(r.key), r.note || ''];
+                    var cells0 = r.cells && typeof r.cells === 'object' ? r.cells : {};
+                    Object.keys(cells0).forEach(function (k) { hay.push(PH.fmtValue(cells0[k], 200)); });
+                    return PH.matches(lv.q, hay);
+                });
+            }
+            if (lv.flag) rows = rows.filter(function (r) { return r.level === 'warning' || r.level === 'error'; });
+            if (lv.sort) {
+                var f = lv.sort, dir = lv.dir;
+                rows = rows.map(function (r, i) { return { r: r, i: i }; }).sort(function (a, b) {
+                    var va = sortValue(f === '__key' ? a.r.key : (a.r.cells || {})[f]);
+                    var vb = sortValue(f === '__key' ? b.r.key : (b.r.cells || {})[f]);
+                    if (va < vb) return -dir;
+                    if (va > vb) return dir;
+                    return a.i - b.i;
+                }).map(function (x) { return x.r; });
+            }
+            return rows;
+        }
+
+        function drawFlags() {
+            var lv = top();
+            PH.clear(parts.flags);
+            var rows = arr(lv.data && lv.data.rows);
+            var n = rows.filter(function (r) { return r.level === 'warning' || r.level === 'error'; }).length;
+            if (!n && !lv.flag) return;
+            var bar = h('div.ph-flagbar', { role: 'group', 'aria-label': 'Show only rows that need attention' });
+            function chip(flag, label, count, tone) {
+                var on = (lv.flag || null) === flag;
+                bar.appendChild(h('button.ph-flagchip' + (tone ? '.is-' + tone : '') + (on ? '.is-on' : ''), { type: 'button', 'aria-pressed': on ? 'true' : 'false',
+                    onclick: function () { lv.flag = on && flag ? null : flag; lv.page = 0; drawBody(); drawFlags(); drawBar(); } },
+                    [tone ? h('span.ph-flagchip__dot') : null, label, flag ? h('span.ph-flagchip__n', String(count)) : null]));
+            }
+            chip(null, 'All', 0, null);
+            chip('attention', 'Needs attention', n, 'warn');
+            parts.flags.appendChild(bar);
+        }
+
+        function drawBody() {
+            var lv = top();
+            var body = parts.body;
+            PH.clear(body);
+            var d = lv.data;
+            var cnt = parts.bar.querySelector('.ph-list__count');
+            if (cnt) cnt.textContent = countText(lv);
+            if (!d) {
+                if (lv.loading) body.appendChild(h('div.ph-empty', [h('span.ph-spinner'), h('p.ph-empty__title', 'Reading from ' + (info.resource || 'the script') + '…')]));
+                else if (!lv.err) body.appendChild(h('div.ph-empty', [icon('database', 'ph-empty__ico'), h('p.ph-empty__title', 'Nothing read yet.')]));
+                return;
+            }
+            var off = d.available === false;
+            var cols = arr(d.columns);
+            var all = arr(d.rows);
+            if (off && !all.length) {
+                body.appendChild(h('div.ph-empty', [icon('stop', 'ph-empty__ico'), h('p.ph-empty__title', 'Nothing to show while the script is not available.'),
+                    h('p.ph-empty__text', d.reason || info.reason || '')]));
+                return;
+            }
+            if (!all.length) {
+                body.appendChild(h('div.ph-empty', [icon(lv.kind === 'contents' ? 'box' : 'database', 'ph-empty__ico'),
+                    h('p.ph-empty__title', lv.kind === 'contents' ? 'This container is empty.' : 'No ' + PH.pluralOf(itemWord(lv)) + ' yet.'),
+                    h('p.ph-empty__text', lv.kind === 'contents' ? 'Add item puts something in it.' : 'The script has nothing to list here right now.')]));
+                return;
+            }
+            var rows = filtered(lv);
+            if (!rows.length) {
+                body.appendChild(h('div.ph-empty', [icon('search', 'ph-empty__ico'), h('p', lv.q ? 'No ' + itemWord(lv) + ' matches “' + lv.q + '”.' : 'No ' + itemWord(lv) + ' needs attention.'),
+                    h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', onclick: function () { lv.q = ''; lv.flag = null; searchInput.value = ''; draw(); } }, 'Show all')]));
+                return;
+            }
+            var pages = Math.ceil(rows.length / PAGE);
+            if (lv.page >= pages) lv.page = pages - 1;
+            var pageRows = rows.slice(lv.page * PAGE, lv.page * PAGE + PAGE);
+            var anyActs = all.some(function (r) { return r.detail || arr(r.details).length || r.container || rowActions(lv, r).length; });
+
+            var table = h('table.ph-table.ph-table--panel');
+            var headRow = h('tr');
+            cols.forEach(function (c) {
+                var active = lv.sort === c.field;
+                var th = h('th.ph-table__sortable' + (active ? '.is-sorted' : '') + (c.editable ? '.is-editable' : ''), {
+                    title: (c.tooltip ? c.tooltip + '\n' : '') + 'Sort by ' + c.label, style: c.width ? { width: typeof c.width === 'number' ? c.width + 'px' : c.width } : null,
+                }, [h('span', c.label), c.editable ? h('span.ph-table__edithint', { title: 'You can change this; it applies at once' }, icon('pencil')) : null,
+                    active ? icon(lv.dir > 0 ? 'up' : 'down', 'ph-table__sortico') : null]);
+                th.addEventListener('click', function () {
+                    if (lv.sort !== c.field) { lv.sort = c.field; lv.dir = 1; }
+                    else if (lv.dir === 1) lv.dir = -1;
+                    else lv.sort = null;
+                    drawBody();
+                });
+                headRow.appendChild(th);
+            });
+            if (anyActs) headRow.appendChild(h('th.ph-table__acts', ''));
+            table.appendChild(h('thead', headRow));
+            var tbody = h('tbody');
+            pageRows.forEach(function (row) {
+                var tone = row.level === 'error' ? '.is-itembad' : row.level === 'warning' ? '.is-itemwarn' : '';
+                var tr = h('tr.ph-row.ph-prow' + tone + (row.detail && !off ? '.is-clickable' : ''), { dataset: { key: String(row.key) } });
+                if (row.detail && !off) {
+                    // A click on the row (not on a field or a button) opens its drill-down.
+                    tr.title = 'Open ' + subLabel(lv, row.detail).toLowerCase() + ' for this ' + itemWord(lv);
+                    tr.addEventListener('click', function (e) {
+                        var t = e.target;
+                        while (t && t !== tr) {
+                            if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A|LABEL)$/.test(t.tagName) || (t.classList && t.classList.contains('ph-pcell'))) return;
+                            t = t.parentNode;
+                        }
+                        openDetail(lv, row, row.detail);
+                    });
+                }
+                cols.forEach(function (c, ci) {
+                    var cv = row.cells ? row.cells[c.field] : undefined;
+                    var content = c.editable && lv.kind !== 'contents' ? cellEditor(lv, row, c, off)
+                        : (cv === '' || cv === null || cv === undefined) ? h('span.ph-cellnone', '—') : cellContent(cv, c);
+                    var td = h('td' + (ci === 0 ? '.ph-table__title' : '') + (c.editable ? '.ph-table__edit' : '')
+                        + (c.editable && (c.type === 'number' || typeof cv === 'number') ? '.is-num' : ''), content);
+                    tr.appendChild(td);
+                });
+                if (anyActs) {
+                    var btns = [];
+                    var racts = rowActions(lv, row);
+                    if (racts.length === 1) {
+                        var a1 = racts[0];
+                        var b1 = h('button.ph-btn.ph-btn--ghost.ph-btn--sm' + (a1.danger ? '.ph-btn--danger-text' : ''), { type: 'button', title: a1.tooltip || a1.label, disabled: off }, [icon(a1.icon || (a1.danger ? 'alert' : 'bolt')), a1.label]);
+                        b1.addEventListener('click', function (e) { e.stopPropagation(); runAction(lv, a1, row, b1); });
+                        btns.push(b1);
+                    } else if (racts.length > 1) {
+                        // Several actions: one button, a menu (danger ones last, in red).
+                        var mb = h('button.ph-btn.ph-btn--ghost.ph-btn--sm.ph-prow__menu', { type: 'button', title: 'Actions: ' + racts.map(function (a) { return a.label; }).join(', '), 'aria-label': 'Actions', disabled: off }, [icon('dots'), icon('chevdown')]);
+                        mb.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            var safe = racts.filter(function (a) { return !a.danger; }), bad = racts.filter(function (a) { return a.danger; });
+                            var items = safe.map(function (a) { return { label: a.label, icon: a.icon || 'bolt', title: a.tooltip || null, onClick: function () { runAction(lv, a, row, mb); } }; });
+                            if (safe.length && bad.length) items.push('-');
+                            bad.forEach(function (a) { items.push({ label: a.label, icon: a.icon || 'alert', danger: true, title: a.tooltip || null, onClick: function () { runAction(lv, a, row, mb); } }); });
+                            PH.menu(mb, items, { alignRight: true, minWidth: 240 });
+                        });
+                        btns.push(mb);
+                    }
+                    if (row.container) btns.push(h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'What is inside ' + row.container, disabled: off, onclick: function (e) { e.stopPropagation(); openContents(lv, row); } }, [icon('box'), 'Contents']));
+                    detailsOf(row).forEach(function (d) {
+                        var main = d === row.detail;
+                        btns.push(h('button.ph-btn.ph-btn--sm.ph-prow__open' + (main ? '.ph-btn--ghost.is-main' : '.ph-btn--ghost'), {
+                            type: 'button', title: 'Open ' + subLabel(lv, d).toLowerCase() + ' for this ' + itemWord(lv), disabled: off,
+                            onclick: function (e) { e.stopPropagation(); openDetail(lv, row, d); },
+                        }, [subLabel(lv, d), icon('right')]));
+                    });
+                    tr.appendChild(h('td.ph-table__acts', h('div.ph-rowacts.ph-prow__acts', btns)));
+                }
+                tbody.appendChild(tr);
+                if (row.note) {
+                    // The note goes on its own line under the row, across the whole
+                    // table, so it never widens the first column for every row.
+                    tr.classList.add('has-note');
+                    var span = cols.length + (anyActs ? 1 : 0);
+                    tbody.appendChild(h('tr.ph-prow__noterow' + tone, h('td', { colSpan: span },
+                        h('div.ph-rowflag.is-' + (row.level === 'error' ? 'bad' : row.level === 'info' ? 'info' : 'warn'),
+                            [icon(row.level === 'info' ? 'info' : 'alert'), h('span.ph-rowflag__text', row.note)]))));
+                }
+            });
+            table.appendChild(tbody);
+            body.appendChild(h('div.ph-tablewrap', table));
+            if (pages > 1) {
+                var pager = h('div.ph-pager');
+                pager.appendChild(h('button.ph-iconbtn', { type: 'button', title: 'Previous page', disabled: lv.page === 0, onclick: function () { lv.page--; drawBody(); } }, icon('left')));
+                pager.appendChild(h('span.ph-pager__gap', (lv.page + 1) + ' / ' + pages));
+                pager.appendChild(h('button.ph-iconbtn', { type: 'button', title: 'Next page', disabled: lv.page >= pages - 1, onclick: function () { lv.page++; drawBody(); } }, icon('right')));
+                body.appendChild(pager);
+            }
+        }
+
+        function draw() {
+            drawHead();
+            drawBar();
+            drawBanners();
+            drawFlags();
+            drawBody();
+        }
+
+        el.refresh = function () { load(top()); };
+        searchInput.value = top().q || '';
+        draw();
+        // Read on open when never read, or when it was read more than a few seconds ago.
+        var lv0 = top();
+        if (!lv0.loading && (!lv0.data || !lv0.readAt || Date.now() - lv0.readAt > 3000)) load(lv0);
         return el;
     };
 })();

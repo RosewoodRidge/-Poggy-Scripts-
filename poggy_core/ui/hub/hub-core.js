@@ -160,6 +160,8 @@
         grid:     '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
         open:     '<path d="M13.5 4.5h6v6M19.5 4.5L11 13"/><path d="M17.5 14v5.5h-13v-13H10"/>',
         folder:   '<path d="M3.5 6.5a1.5 1.5 0 0 1 1.5-1.5h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v9.3A1.5 1.5 0 0 1 19 19.5H5a1.5 1.5 0 0 1-1.5-1.5z"/>',
+        // A data panel (§10): live data a script keeps in its database.
+        database: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.5"/><path d="M4.5 5.5v13c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5v-13"/><path d="M4.5 12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5"/>',
     };
     // hub.json tab icons use their own names; map them onto the set above.
     var ICON_ALIAS = {
@@ -179,6 +181,10 @@
         notification: 'bell', alerts: 'bell', alert: 'bell', sound: 'volume', audio: 'volume', stats: 'chart',
         tools: 'wrench', tool: 'wrench', law: 'gavel', court: 'gavel', transport: 'truck', delivery: 'truck',
         animals: 'paw', animal: 'paw', combat: 'swords', weapons: 'swords', updates: 'download', performance: 'cpu',
+        data: 'database', db: 'database', panel: 'database', refresh: 'restart', reload: 'restart',
+        crosshair: 'target', position: 'target', add: 'plus', create: 'plus', 'delete': 'trash', remove: 'minus',
+        edit: 'pencil', rename: 'pencil', storage: 'box', container: 'box', contents: 'box', empty: 'trash',
+        undo: 'reset', revert: 'reset', transfer: 'user', owner: 'user', close: 'x', cancel: 'x', extend: 'clock',
     };
 
     function icon(name, cls) {

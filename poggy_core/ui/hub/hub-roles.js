@@ -326,8 +326,8 @@
 
     var P = PH.palette = { el: null };
 
-    var KIND_ICON = { script: 'box', command: 'terminal', list: 'list', map: 'rows', collection: 'grid', keytable: 'keyboard', strings: 'tag', group: 'sliders', value: 'sliders', readonly: 'file', action: 'bolt', role: 'users' };
-    var KIND_LABEL = { script: 'Script', command: 'Command', list: 'List', map: 'List', collection: 'Collection', keytable: 'Key table', strings: 'Setting', group: 'Group', value: 'Setting', readonly: 'Setting', action: 'Action', role: 'Role' };
+    var KIND_ICON = { panel: 'database', script: 'box', command: 'terminal', list: 'list', map: 'rows', collection: 'grid', keytable: 'keyboard', strings: 'tag', group: 'sliders', value: 'sliders', readonly: 'file', action: 'bolt', role: 'users' };
+    var KIND_LABEL = { panel: 'Data panel', script: 'Script', command: 'Command', list: 'List', map: 'List', collection: 'Collection', keytable: 'Key table', strings: 'Setting', group: 'Group', value: 'Setting', readonly: 'Setting', action: 'Action', role: 'Role' };
 
     /** Where an index entry lives: "Markets › Stores". The index names tabs by id only. */
     function trailOf(e, card) {
@@ -367,6 +367,7 @@
         (PH.boot && PH.boot.index || []).forEach(function (e) {
             if (!e) return;
             if (e.kind === 'command') list.push({ kind: 'command', id: e.id, label: e.command, sub: e.description || '', command: e.command });
+            else if (e.kind === 'panel') list.push({ kind: 'panel', id: e.id, path: e.path || ('panel:' + e.panel), panel: e.panel, label: e.label || PH.readable(String(e.panel)), sub: e.tooltip || 'Live data: changes apply at once', tab: e.tab });
             else list.push({ kind: e.kind || 'value', id: e.id, path: e.path, label: e.label || PH.readable(String(e.path).split('.').pop()), sub: e.tooltip || '', tab: e.tab, tabLabel: e.tabLabel });
         });
         if (!opts || !opts.noActions) actions().forEach(function (a) { list.push(a); });
@@ -427,6 +428,7 @@
         if (e.kind === 'action') { e.run(); return; }
         if (e.kind === 'script') { PH.go.script(e.id); return; }
         if (e.kind === 'command') { PH.go.script(e.id, { tab: 'commands' }); return; }
+        if (e.kind === 'panel') { PH.go.script(e.id, { item: e.path }); return; }
         PH.go.script(e.id, { reveal: e.path });
     };
 

@@ -427,6 +427,7 @@
     /** History → Undo: the server applies the old value as a new, saved change. */
     PH.undoLog = function (row, label) {
         var old = row.old;
+        if (row.panel || /^(panel|container):/.test(String(row.file || ''))) { undoPanelLog(row, label); return; }
         PH.confirm({ title: 'Undo this change?', icon: 'reset', ok: 'Undo and save', okIcon: 'reset',
             body: label + ' goes back to ' + PH.fmtValue(typeof old === 'string' ? safeJson(old) : old, 80) + '. This is saved straight away.' })
             .then(function (yes) {
@@ -445,6 +446,27 @@
     };
 
     function safeJson(s) { try { return JSON.parse(s); } catch (e) { return s; } }
+
+    /** §10: a data panel write is undone through the panel: applies at once, no lock, no reload. */
+    function undoPanelLog(row, label) {
+        var old = typeof row.old === 'string' ? safeJson(row.old) : row.old;
+        PH.confirm({ title: 'Undo this change?', icon: 'reset', ok: 'Undo', okIcon: 'reset',
+            body: label + ' goes back to ' + PH.fmtValue(old, 80) + '. The script applies it at once.' })
+            .then(function (yes) {
+                if (!yes) return;
+                var id = S.cur && S.cur.id;
+                PH.api('undo', row.id).then(function (r) {
+                    if (!S.cur || S.cur.id !== id) return;
+                    var okay = r.ok && r.value && r.value.ok !== false;
+                    PH.toast(okay ? { kind: 'success', title: 'Undone', text: (r.value && r.value.message) || label + ' is back to its old value.' }
+                        : { kind: 'error', title: 'Not undone', text: PH.errMsg(r) });
+                    if (!okay) return;
+                    if (S.cur.panelState && row.panel && S.cur.panelState[row.panel]) S.cur.panelState[row.panel].stack.forEach(function (lv) { lv.readAt = 0; });
+                    if (PH.refreshHistory) PH.refreshHistory();
+                    PH.renderScriptBody();
+                });
+            });
+    }
 
     // ------------------------------------------------------ restart / start --
 

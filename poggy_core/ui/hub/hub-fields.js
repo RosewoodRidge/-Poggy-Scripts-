@@ -241,6 +241,573 @@
 
     F.fetchers = { job: jobFetch, group: groupFetch, role: roleFetch, item: itemFetch, key: keyFetch };
 
+    // ---------------------------------------------------------- item checks --
+    // §9: a script whose hub.json turns on `itemCheck` gets every item-picker
+    // value checked against the server's item registry. The `script` answer
+    // carries `itemCheck = { iconResource, iconPattern, values: { name: {
+    // exists, icon, label, suggest } } }` for the values in the file; the
+    // whole registry comes once per hub session from `itemList`, so a name
+    // typed since is checked here, exactly and case-sensitively; whether it
+    // has an icon is asked of the server with `itemCheck(names)` (batched,
+    // cached per script). `diagnostics` (§9.2) explains rows the script hides.
+
+    var IC = PH.IC = { list: null, byName: null, byLower: null, subs: [], version: 0, editSeq: 0 };
+    var STRUCT_OPS = { insert: 1, remove: 1, move: 1, renameKey: 1, duplicate: 1 };
+    S.on(function () { IC.editSeq++; });
+
+    /** A stamp that changes whenever a check could give a different answer (for memos). */
+    IC.stamp = function () { return (S.cur ? S.cur.id : '') + ':' + IC.editSeq + ':' + IC.version; };
+
+    /** Is the open script checking its item names? */
+    IC.enabled = function () {
+        var cur = S.cur;
+        return !!(cur && ((cur.data && cur.data.itemCheck) || (cur.meta && cur.meta.itemCheck)));
+    };
+
+    function icData() { return (S.cur && S.cur.data && PH.isPlainObj(S.cur.data.itemCheck)) ? S.cur.data.itemCheck : {}; }
+
+    /** The whole registry, once per session. Resolves the array, or null when the server has none. */
+    IC.loadList = function () {
+        if (IC._listP) return IC._listP;
+        IC._listP = PH.api('itemList').then(function (r) {
+            var v = r.ok ? r.value : null;
+            var items = v && Array.isArray(v.items) ? v.items : Array.isArray(v) ? v : null;
+            if (v && v.available === false) items = null;
+            if (v && typeof v.imageBase === 'string') IC.imageBase = v.imageBase;
+            if (!items) {
+                // An older server, or the call failed: try again in a while, and
+                // meanwhile check with the answers the script came with.
+                setTimeout(function () { IC._listP = null; }, 30000);
+                return null;
+            }
+            var byName = Object.create(null), byLower = Object.create(null), list = [];
+            items.forEach(function (it) {
+                if (!it || typeof it.name !== 'string' || !it.name || byName[it.name]) return;
+                var e = { name: it.name, label: typeof it.label === 'string' && it.label ? it.label : it.name, image: it.image || null };
+                e.lname = e.name.toLowerCase();
+                e.llabel = e.label.toLowerCase();
+                byName[e.name] = e;
+                (byLower[e.lname] = byLower[e.lname] || []).push(e.name);
+                list.push(e);
+            });
+            list.sort(function (a, b) { return a.lname < b.lname ? -1 : a.lname > b.lname ? 1 : 0; });
+            IC.list = list; IC.byName = byName; IC.byLower = byLower;
+            IC.bump();
+            return list;
+        });
+        return IC._listP;
+    };
+
+    /** Something the checks depend on arrived: tell whoever is showing them. */
+    IC.bump = function () {
+        IC.version++;
+        var now = Date.now();
+        IC.subs = IC.subs.filter(function (s) {
+            if (s.el.isConnected) { s.seen = true; return true; }
+            return !s.seen && now - s.at < 4000;   // not attached yet: keep it a moment
+        });
+        IC.subs.slice().forEach(function (s) { if (s.el.isConnected) { try { s.fn(); } catch (e) { console.error(e); } } });
+    };
+
+    /** Re-run fn when the item list or an icon answer arrives, for as long as el is on the page. */
+    IC.watch = function (el, fn) { IC.subs.push({ el: el, fn: fn, at: Date.now(), seen: false }); };
+
+    function extraOf(cur) { cur._icExtra = cur._icExtra || {}; return cur._icExtra; }
+
+    function answerFor(name) {
+        var cur = S.cur;
+        if (!cur) return null;
+        var ex = extraOf(cur)[name];
+        if (ex) return ex;
+        var vals = icData().values;
+        return vals && Object.prototype.hasOwnProperty.call(vals, name) ? vals[name] : null;
+    }
+
+    // Names typed since the script loaded: asked of the server in one batch.
+    var askQueue = {};
+    var askFlush = PH.debounce(function () {
+        var cur = S.cur;
+        if (!cur) { askQueue = {}; return; }
+        var names = Object.keys(askQueue);
+        askQueue = {};
+        if (!names.length) return;
+        cur._icAsked = cur._icAsked || {};
+        names.forEach(function (n) { cur._icAsked[n] = true; });
+        // The server answers up to 500 names a call; it checks icons the way this script does (its id).
+        for (var i = 0; i < names.length; i += 500) {
+            PH.api('itemCheck', names.slice(i, i + 500), cur.id).then(function (r) {
+                if (S.cur !== cur) return;
+                var vals = r.ok && r.value && PH.isPlainObj(r.value.values) ? r.value.values : null;
+                if (!vals) return;
+                var ex = extraOf(cur);
+                Object.keys(vals).forEach(function (k) { if (PH.isPlainObj(vals[k])) ex[k] = vals[k]; });
+                IC.bump();
+            });
+        }
+    }, 350);
+
+    function ask(name) {
+        var cur = S.cur;
+        if (!cur || (cur._icAsked && cur._icAsked[name])) return;
+        askQueue[name] = true;
+        askFlush();
+    }
+
+    /**
+     * What is known about one item name:
+     *   null for an empty value (never flagged), else
+     *   { name, state: 'ok' | 'missing' | 'noicon' | 'unknown', suggest, label }
+     */
+    IC.status = function (name) {
+        if (typeof name !== 'string' || name === '') return null;
+        var a = answerFor(name);
+        var exists, suggest = null, label = null;
+        // The server could not read its item registry: nothing can be said (never red).
+        if (icData().available === false && !IC.byName) return { name: name, state: 'unknown' };
+        if (IC.byName) {
+            var it = IC.byName[name];
+            // Weapons are not in the item list; the server says they exist (weapon: true).
+            exists = !!it || !!(a && a.exists === true);
+            if (it) label = it.label;
+            else if (!exists && !a && /^weapon_/i.test(name)) { ask(name); return { name: name, state: 'unknown' }; }
+            else if (!exists) {
+                var alts = IC.byLower[name.toLowerCase()];
+                if (alts && alts.length) suggest = alts[0];
+            }
+        } else if (a) {
+            if (typeof a.exists !== 'boolean') return { name: name, state: 'unknown' };
+            exists = a.exists;
+        } else {
+            ask(name);
+            return { name: name, state: 'unknown' };
+        }
+        if (!exists) {
+            if (!suggest && a && typeof a.suggest === 'string' && a.suggest && a.suggest !== name) suggest = a.suggest;
+            return { name: name, state: 'missing', suggest: suggest };
+        }
+        if (a && typeof a.label === 'string' && a.label) label = a.label;
+        var iconKnown = !!a && typeof a.icon === 'boolean';
+        if (!iconKnown) ask(name);
+        return { name: name, state: iconKnown && a.icon === false ? 'noicon' : 'ok', label: label, iconKnown: iconKnown };
+    };
+
+    /** The file an item's icon should be, as the game looks for it: vorp_inventory/html/img/items/steel.png. */
+    IC.iconFile = function (name) {
+        var a = answerFor(name);
+        if (a && typeof a.file === 'string' && a.file) return a.file;
+        var d = icData();
+        var pat = typeof d.iconPattern === 'string' && d.iconPattern ? d.iconPattern : '%s.png';
+        var file = pat.indexOf('%s') !== -1 ? pat.replace(/%s/g, name) : pat.replace(/\/?$/, '/') + name + '.png';
+        return (d.iconResource ? d.iconResource + '/' : '') + file;
+    };
+
+    /** An image URL for the item, or null. */
+    IC.imageUrl = function (name) {
+        var it = IC.byName && IC.byName[name];
+        if (it && it.image) return it.image;
+        var d = icData();
+        if (!d.iconResource) {
+            if (IC.imageBase) return IC.imageBase + name + '.png';
+            var c = F.cache.itemInfo[name];
+            return c && c.image ? c.image : null;
+        }
+        return 'nui://' + IC.iconFile(name);
+    };
+
+    /**
+     * Suggestions for what was typed: names or labels that start with it
+     * (case-insensitive) first, then ones that contain it. [{ name, label, image, rank }]
+     */
+    IC.suggest = function (q, max) {
+        var list = IC.list || [];
+        q = String(q || '').trim().toLowerCase();
+        if (!q) return [];
+        var out = [];
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i], rank;
+            if (it.lname === q) rank = 0;
+            else if (it.lname.indexOf(q) === 0) rank = 1;
+            else if (it.llabel.indexOf(q) === 0) rank = 2;
+            else if (it.lname.indexOf(q) !== -1 || it.llabel.indexOf(q) !== -1) rank = 3;
+            else continue;
+            out.push({ it: it, rank: rank });
+        }
+        out.sort(function (a, b) {
+            return a.rank - b.rank || a.it.name.length - b.it.name.length || (a.it.lname < b.it.lname ? -1 : a.it.lname > b.it.lname ? 1 : 0);
+        });
+        return out.slice(0, max || 40).map(function (x) { return { name: x.it.name, label: x.it.label, image: x.it.image, rank: x.rank }; });
+    };
+
+    // ------------------------------------------------ item checks: rows --
+
+    /** Row-relative patterns of a list's item-picker fields ("Items[].name", "Items[].AltNames[]"). '' = the row itself. */
+    IC.patterns = function (meta) {
+        var f = (meta && meta.fields) || {};
+        return Object.keys(f).filter(function (k) { return f[k] && f[k].picker === 'item'; }).map(function (k) { return k === '[]' ? '' : k; });
+    };
+
+    /** The patterns under one list inside a row (sub "Items" of "Items[].name" -> "name"), relative to each entry. */
+    IC.subPatterns = function (meta, prefix) {
+        var out = [];
+        var p = prefix + '[]';
+        IC.patterns(meta).forEach(function (k) {
+            if (k === p) out.push('');
+            else if (k.indexOf(p + '.') === 0) out.push(k.slice(p.length + 1));
+            else if (k.indexOf(p + '[') === 0) out.push(k.slice(p.length));
+        });
+        return out;
+    };
+
+    /** Every item name (string) the patterns reach inside a value: [{ path, name }]. */
+    IC.valuesIn = function (value, basePath, patterns) {
+        var out = [];
+        (patterns || []).forEach(function (pat) {
+            var hits = pat === '' ? [{ path: basePath, value: value }] : R.expand(value, basePath, pat);
+            hits.forEach(function (hit) {
+                if (typeof hit.value === 'string') out.push({ path: hit.path, name: hit.value });
+                else if (Array.isArray(hit.value)) hit.value.forEach(function (x, i) { if (typeof x === 'string') out.push({ path: hit.path + '[' + (i + 1) + ']', name: x }); });
+            });
+        });
+        return out;
+    };
+
+    function diagIndex(cur) {
+        if (cur._diagIdx) return cur._diagIdx;
+        var idx = {};
+        var d = cur.data && cur.data.diagnostics;
+        var rows = d && PH.isPlainObj(d.rows) ? d.rows : {};
+        Object.keys(rows).forEach(function (k) {
+            var list = Array.isArray(rows[k]) ? rows[k].filter(PH.isPlainObj) : [];
+            if (list.length) idx[PH.canon(k)] = (idx[PH.canon(k)] || []).concat(list);
+        });
+        cur._diagIdx = idx;
+        return idx;
+    }
+    IC.hasDiagnostics = function () { return !!(S.cur && Object.keys(diagIndex(S.cur)).length); };
+
+    /**
+     * Diagnostics describe the config the script is running. After a row is
+     * added, removed or moved under `listPath`, row numbers no longer line up
+     * with them, so they are held back until the next save and restart.
+     */
+    IC.diagStale = function (listPath) {
+        var cur = S.cur;
+        if (!cur || !listPath) return false;
+        return cur.pending.some(function (c) { return STRUCT_OPS[c.op] && (S.under(c.path, listPath) || S.under(listPath, c.path)); });
+    };
+
+    /** Does the script say anything about rows under this list? */
+    IC.diagUnder = function (listPath) {
+        var cur = S.cur;
+        if (!cur) return false;
+        return Object.keys(diagIndex(cur)).some(function (k) { return S.under(k, listPath); });
+    };
+
+    IC.diagFor = function (rowPath) {
+        var cur = S.cur;
+        if (!cur) return [];
+        return diagIndex(cur)[PH.canon(rowPath)] || [];
+    };
+
+    function isHiddenDiag(d) { return d.code === 'missing_icon' || d.code === 'chain' || d.code === 'hidden' || /hidden/i.test(String(d.message || '')); }
+
+    /** The problems of one row: item names that do not exist or have no icon, and what the script says about it. */
+    IC.issues = function (value, rowPath, patterns, opts) {
+        opts = opts || {};
+        var out = { missing: [], noicon: [], diag: [], hidden: false, level: null };
+        var seenM = {}, seenN = {};
+        if (IC.enabled()) {
+            IC.valuesIn(value, rowPath, patterns).forEach(function (v) {
+                var st = IC.status(v.name);
+                if (!st) return;
+                if (st.state === 'missing' && !seenM[v.name]) { seenM[v.name] = true; out.missing.push({ name: v.name, path: v.path, suggest: st.suggest }); }
+                if (st.state === 'noicon' && !seenN[v.name]) { seenN[v.name] = true; out.noicon.push({ name: v.name, path: v.path }); }
+            });
+        }
+        if (!opts.noDiag) {
+            (opts.diagPaths || [rowPath]).forEach(function (p) {
+                IC.diagFor(p).forEach(function (d) { if (d.level !== 'info') out.diag.push(d); });
+            });
+        }
+        out.hidden = out.diag.some(isHiddenDiag);
+        out.level = out.missing.length ? 'bad' : (out.noicon.length || out.diag.length) ? 'warn' : null;
+        return out;
+    };
+
+    /** Add one set of issues into another (a collection row sums its lists). */
+    IC.merge = function (into, add) {
+        add.missing.forEach(function (m) { if (!into.missing.some(function (x) { return x.name === m.name; })) into.missing.push(m); });
+        add.noicon.forEach(function (m) { if (!into.noicon.some(function (x) { return x.name === m.name; })) into.noicon.push(m); });
+        add.diag.forEach(function (d) { if (into.diag.indexOf(d) === -1) into.diag.push(d); });
+        into.hidden = into.hidden || add.hidden;
+        into.level = into.missing.length ? 'bad' : (into.noicon.length || into.diag.length) ? 'warn' : null;
+        return into;
+    };
+    IC.empty = function () { return { missing: [], noicon: [], diag: [], hidden: false, level: null }; };
+
+    /** Does a row pass a filter chip? flag: 'missing' | 'noicon' | 'hidden'. */
+    IC.passes = function (iss, flag) {
+        if (!flag) return true;
+        if (flag === 'missing') return iss.missing.length > 0;
+        if (flag === 'noicon') return iss.noicon.length > 0;
+        if (flag === 'hidden') return iss.hidden;
+        return true;
+    };
+
+    /** The labels for a row: [{ level: 'bad'|'warn', text }]. */
+    IC.labels = function (iss) {
+        var out = [];
+        if (iss.missing.length) out.push({ level: 'bad', text: 'Item does not exist: ' + iss.missing.map(function (m) { return m.name; }).join(', ') });
+        var covered = {};
+        iss.diag.forEach(function (d) {
+            var t = String(d.message || d.code || 'Warning');
+            var files = Array.isArray(d.files) ? d.files.filter(function (f) { return typeof f === 'string' && f; }) : [];
+            if (files.length) t += ' (add ' + files.join(', ') + ')';
+            (Array.isArray(d.items) ? d.items : []).forEach(function (n) { covered[n] = true; });
+            out.push({ level: d.level === 'error' ? 'bad' : 'warn', text: t, diag: true });
+        });
+        var loose = iss.noicon.filter(function (m) { return !covered[m.name]; });
+        if (loose.length) {
+            out.push({ level: 'warn', text: 'No icon: ' + loose.map(function (m) { return m.name; }).join(', ') +
+                ' (add ' + loose.map(function (m) { return IC.iconFile(m.name); }).join(', ') + ')' });
+        }
+        return out;
+    };
+
+    /** The labels as elements; full text on hover. */
+    IC.flagsEl = function (iss, opts) {
+        opts = opts || {};
+        var labels = IC.labels(iss);
+        if (!labels.length) return null;
+        var wrap = h('div.ph-rowflags' + (opts.full ? '.is-full' : ''));
+        labels.forEach(function (l) {
+            var el = h('div.ph-rowflag.is-' + l.level, [icon('alert'), h('span.ph-rowflag__text', l.text)]);
+            PH.tip(el, function () {
+                return h('div', [h('div.ph-tip__text', l.text), l.diag ? h('div.ph-tip__code', 'As the script is running now: save and restart to check again.') : null]);
+            });
+            wrap.appendChild(el);
+        });
+        return wrap;
+    };
+
+    /**
+     * The filter chips for a list toolbar: All · Item does not exist (n) ·
+     * Missing icon (n) · Hidden in game (n). counts: { missing, noicon, hidden }.
+     * Chips with nothing to show are left out (the active one stays).
+     */
+    IC.flagBar = function (counts, active, onPick, note) {
+        var any = counts.missing || counts.noicon || counts.hidden || active;
+        if (!any && !note) return null;
+        var bar = h('div.ph-flagbar', { role: 'group', 'aria-label': 'Show only rows with a problem' });
+        function chip(flag, label, n, tone) {
+            if (flag && !n && active !== flag) return;
+            var on = (active || null) === flag;
+            bar.appendChild(h('button.ph-flagchip' + (tone ? '.is-' + tone : '') + (on ? '.is-on' : ''), {
+                type: 'button', 'aria-pressed': on ? 'true' : 'false',
+                onclick: function () { onPick(on && flag ? null : flag); },
+            }, [tone ? h('span.ph-flagchip__dot') : null, label, flag ? h('span.ph-flagchip__n', String(n)) : null]));
+        }
+        if (any) {
+            chip(null, 'All', 0, null);
+            chip('missing', 'Item does not exist', counts.missing, 'bad');
+            chip('noicon', 'Missing icon', counts.noicon, 'warn');
+            chip('hidden', 'Hidden in game', counts.hidden, 'warn');
+        }
+        if (note) bar.appendChild(h('span.ph-flagbar__note', [icon('info'), note]));
+        return bar;
+    };
+
+    // --------------------------------------------- item checks: type-ahead --
+
+    function hl(text, q) {
+        var s = String(text), i = q ? s.toLowerCase().indexOf(q.toLowerCase()) : -1;
+        if (i === -1) return s;
+        return [s.slice(0, i), h('b.ph-ta__hl', s.slice(i, i + q.length)), s.slice(i + q.length)];
+    }
+
+    function itemImg(name, cls) {
+        var url = IC.imageUrl(name);
+        var img = h('img' + (cls || '.ph-pick__img'), { alt: '' });
+        img.style.visibility = 'hidden';
+        if (url) {
+            img.addEventListener('load', function () { img.style.visibility = ''; });
+            img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
+            img.src = url;
+        }
+        return img;
+    }
+
+    /**
+     * Type-ahead on a text box: typing lists registry items (starts-with
+     * first, then contains); ↑/↓ move, Enter / Tab / click take the exact
+     * name, Esc cancels.
+     * opts: { anchor, onPick(name), onEnter(text), onCancel(), exclude(name) }
+     */
+    IC.typeahead = function (input, opts) {
+        var pop = null, listEl = null, statusEl = null, results = [], sel = -1;
+        function close() { if (pop) { var p = pop; pop = null; p.close(); } }
+        function open() {
+            if (pop) return;
+            listEl = h('div.ph-pick__list.ph-ta__list', { role: 'listbox' });
+            // Scrolling the list with the mouse must not take the focus out of the box.
+            listEl.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            statusEl = h('div.ph-pick__status');
+            pop = PH.popover(opts.anchor || input, h('div.ph-pick.ph-ta', [listEl, statusEl]),
+                { minWidth: 360, maxHeight: 380, cls: 'ph-pop--pick.ph-pop--ta', onClose: function () { pop = null; } });
+        }
+        function choose(i) {
+            var r = results[i];
+            if (!r) return;
+            close();
+            input.value = r.name;
+            opts.onPick(r.name);
+        }
+        function select(i) {
+            sel = i;
+            if (!listEl) return;
+            PH.$$('.ph-pick__row', listEl).forEach(function (el, k) { el.classList.toggle('is-sel', k === i); });
+            var el = listEl.children[i];
+            if (el) el.scrollIntoView({ block: 'nearest' });
+        }
+        function draw() {
+            var q = input.value.trim();
+            if (!q || input.readOnly || input.disabled) { close(); return; }
+            open();
+            PH.clear(listEl);
+            if (!IC.list) {
+                statusEl.textContent = 'Loading the server’s item list…';
+                IC.loadList().then(function (l) {
+                    if (document.activeElement !== input) return;
+                    if (l) draw();
+                    else if (statusEl) statusEl.textContent = 'This server did not send its item list, so there is nothing to suggest.';
+                });
+                return;
+            }
+            results = IC.suggest(q, 60).filter(function (r) { return !opts.exclude || !opts.exclude(r.name); });
+            sel = -1;
+            // Preselect only a real match: Enter on a name that is not in the list keeps what was typed.
+            for (var i = 0; i < results.length; i++) {
+                if (results[i].name === q) { sel = i; break; }
+            }
+            if (sel === -1 && results.length && results[0].rank <= 2) sel = 0;
+            results.forEach(function (r, i) {
+                var st = IC.status(r.name);
+                var row = h('button.ph-pick__row' + (i === sel ? '.is-sel' : ''), { type: 'button', role: 'option', tabindex: '-1' }, [
+                    h('span.ph-pick__imgwrap', itemImg(r.name)),
+                    h('span.ph-pick__main', [h('span.ph-pick__label', hl(r.label, q)), h('span.ph-pick__sub', hl(r.name, q))]),
+                    st && st.state === 'noicon' ? h('span.ph-tag.ph-tag--warn', { title: 'No icon: add ' + IC.iconFile(r.name) }, 'No icon') : null,
+                ]);
+                // Keep the focus in the box: the click picks, the box never blurs.
+                row.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                row.addEventListener('mouseenter', function () { select(i); });
+                row.addEventListener('click', function () { choose(i); });
+                listEl.appendChild(row);
+            });
+            statusEl.textContent = results.length ? (IC.list.length > 60 && results.length === 60 ? 'Keep typing to narrow it down.' : '')
+                : 'No item is called “' + q + '”. Names must match exactly, capitals included.';
+            if (pop && pop.place) pop.place();
+        }
+        input.addEventListener('input', draw);
+        input.addEventListener('focus', function () { if (!IC.list) IC.loadList(); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!pop) { draw(); return; }
+                if (!results.length) return;
+                select(e.key === 'ArrowDown' ? Math.min(results.length - 1, sel + 1) : Math.max(0, sel - 1));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (pop && sel >= 0) choose(sel);
+                else { close(); opts.onEnter(input.value); }
+            } else if (e.key === 'Tab') {
+                if (pop && sel >= 0) choose(sel);
+                else close();
+            } else if (e.key === 'Escape') {
+                var had = !!pop;
+                close();
+                var changed = opts.onCancel ? opts.onCancel() : false;
+                if (had || changed) { e.preventDefault(); e.stopPropagation(); }
+            }
+        });
+        input.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== input) close(); }, 0); });
+        return { close: close };
+    };
+
+    /** The red / yellow note under an item box: "Item does not exist · Did you mean …?" / "No icon: add …". */
+    function itemNote(note, st, onFix) {
+        PH.clear(note);
+        if (!st) return null;
+        if (st.state === 'missing') {
+            note.appendChild(h('span.ph-icchip.is-bad', [icon('alert'), 'Item does not exist']));
+            if (st.suggest) {
+                note.appendChild(h('span.ph-itemnote__text', ['Did you mean ',
+                    h('button.ph-itemfix', { type: 'button', title: 'Use ' + st.suggest + ' (the exact name)', onclick: function () { onFix(st.suggest); } }, st.suggest), '?']));
+            } else {
+                note.appendChild(h('span.ph-itemnote__text', '“' + st.name + '” is not in this server’s item list. Names must match exactly, capitals included.'));
+            }
+            return 'bad';
+        }
+        if (st.state === 'noicon') {
+            var file = IC.iconFile(st.name);
+            note.appendChild(h('span.ph-icchip.is-warn', { title: 'Without an icon the item is hidden in some menus' }, [icon('alert'), 'No icon: add ' + file]));
+            note.appendChild(h('button.ph-iconbtn.ph-iconbtn--sm', { type: 'button', title: 'Copy the file path', onclick: function () {
+                PH.copyText(file); PH.toast({ kind: 'info', title: 'Copied', text: file });
+            } }, icon('copy')));
+            return 'warn';
+        }
+        return null;
+    }
+
+    /** §9.3: an item name typed with type-ahead, checked exactly against the registry. */
+    function ctlItemText(spec, commit) {
+        var val = spec.value == null ? '' : String(spec.value);
+        var input = h('input.ph-input.ph-itemta__input', { type: 'text', spellcheck: 'false', autocomplete: 'off', placeholder: 'Type an item name…', value: val });
+        var imgWrap = h('span.ph-pick__imgwrap.ph-itemta__img');
+        var labelEl = h('span.ph-itemta__label');
+        var note = h('div.ph-itemnote');
+        var wrap = h('div.ph-itemta', [h('div.ph-itemta__box', [imgWrap, input, labelEl]), note]);
+        var shownFor = null;
+
+        function show() {
+            var st = IC.status(val);
+            var level = itemNote(note, st, function (fix) { take(fix); });
+            wrap.classList.toggle('is-bad', level === 'bad');
+            wrap.classList.toggle('is-warn', level === 'warn');
+            input.classList.toggle('is-bad', level === 'bad');
+            labelEl.style.visibility = '';
+            labelEl.textContent = st && st.label && st.label !== val ? st.label : '';
+            if (shownFor !== val + '|' + (st ? st.state : '')) {
+                shownFor = val + '|' + (st ? st.state : '');
+                PH.clear(imgWrap);
+                if (st && st.state === 'ok') imgWrap.appendChild(itemImg(val));
+                else imgWrap.appendChild(icon(st && st.state === 'missing' ? 'alert' : 'bag'));
+            }
+        }
+        function take(text) {
+            text = String(text == null ? '' : text).trim();
+            input.value = text;
+            if (text !== val) { val = text; commit(text); }
+            show();
+        }
+        // What was typed is not the value yet: its label and picture wait for the commit.
+        input.addEventListener('input', function () { labelEl.style.visibility = input.value === val ? '' : 'hidden'; });
+        IC.typeahead(input, {
+            anchor: wrap.firstChild,
+            onPick: take,
+            onEnter: take,
+            onCancel: function () { if (input.value === val) return false; input.value = val; return true; },
+        });
+        input.addEventListener('change', function () { take(input.value); });
+        IC.watch(wrap, show);
+        IC.loadList();
+        show();
+        return {
+            el: wrap,
+            set: function (v) { val = v == null ? '' : String(v); input.value = val; show(); },
+            disable: function (d) { input.readOnly = d; input.classList.toggle('is-disabled', d); },
+        };
+    }
+
     // ---------------------------------------------------------- references --
     // §8.5: a setting or list field can hold the key of a row elsewhere in the
     // script (a store's type is a key of Store types). The declarations come
@@ -955,8 +1522,13 @@
         var chipsEl = h('div.ph-chips__list');
         var roleBar = h('div.ph-chips__role');
         var disabled = false;
+        // §9.3: item names are checked one by one, and added with the type-ahead.
+        var itemMode = picker === 'item' && IC.enabled();
+        var notes = itemMode ? h('div.ph-chips__notes') : null;
+        var deferred = false;
         wrap.appendChild(roleBar);
         wrap.appendChild(chipsEl);
+        if (notes) wrap.appendChild(notes);
 
         function role() { return spec.roleable ? S.roleOf(spec.path) : null; }
         // A list of keys of another list (§8.5): each chip is checked, and Add picks from the keys.
@@ -973,10 +1545,27 @@
             PH.clear(roleBar);
             var linked = role();
             wrap.classList.toggle('is-linked', !!linked);
+            if (notes) PH.clear(notes);
             arr.forEach(function (x, i) {
                 var bad = refT && !R.known(refT, x, refF);
-                var chip = h('span.ph-chip' + (bad ? '.is-bad' : ''), { title: bad ? 'No such ' + R.itemLabel(refT) + ' in ' + R.label(refT) : null },
-                    [bad ? icon('alert') : null, h('span.ph-chip__text', String(x))]);
+                var st = itemMode ? IC.status(typeof x === 'string' ? x : String(x)) : null;
+                var warn = false;
+                var title = bad ? 'No such ' + R.itemLabel(refT) + ' in ' + R.label(refT) : null;
+                if (st && st.state === 'missing') { bad = true; title = 'Item does not exist' + (st.suggest ? ': did you mean ' + st.suggest + '?' : ''); }
+                else if (st && st.state === 'noicon') { warn = true; title = 'No icon: add ' + IC.iconFile(st.name); }
+                var chip = h('span.ph-chip' + (bad ? '.is-bad' : warn ? '.is-warn' : ''), { title: title },
+                    [bad || warn ? icon('alert') : null, h('span.ph-chip__text', String(x))]);
+                if (notes && st && (st.state === 'missing' || st.state === 'noicon')) {
+                    var line = h('div.ph-itemnote.ph-itemnote--chip', [h('code.ph-itemnote__name', String(x))]);
+                    var body = h('span.ph-itemnote__body');
+                    line.appendChild(body);
+                    itemNote(body, st, function (fix) {
+                        if (disabled || role()) return;
+                        if (arr.indexOf(fix) !== -1) arr.splice(i, 1); else arr[i] = fix;
+                        draw(); commit(PH.clone(arr));
+                    });
+                    notes.appendChild(line);
+                }
                 if (!linked && !disabled) {
                     chip.appendChild(h('button.ph-chip__x', { type: 'button', title: 'Remove ' + x, onclick: function () {
                         arr.splice(i, 1); draw(); commit(PH.clone(arr));
@@ -987,7 +1576,32 @@
             if (!arr.length && (linked || disabled)) chipsEl.appendChild(h('span.ph-chips__empty', linked ? 'The role is empty.' : 'Empty'));
 
             if (!linked && !disabled) {
-                if (refT || (picker && F.fetchers[picker])) {
+                if (itemMode) {
+                    var tin = h('input.ph-chips__input.ph-chips__input--item', { type: 'text', placeholder: arr.length ? 'Add an item…' : 'Type an item name…', spellcheck: 'false', autocomplete: 'off' });
+                    var addName = function (v) {
+                        v = String(v == null ? '' : v).trim();
+                        if (!v) return;
+                        if (arr.indexOf(v) === -1) { arr.push(v); commit(PH.clone(arr)); }
+                        draw();
+                        var again = chipsEl.querySelector('.ph-chips__input');
+                        if (again) again.focus();
+                    };
+                    IC.typeahead(tin, {
+                        anchor: chipsEl, onPick: addName, onEnter: addName,
+                        onCancel: function () { if (!tin.value) return false; tin.value = ''; return true; },
+                        exclude: function (n) { return arr.indexOf(n) !== -1; },
+                    });
+                    tin.addEventListener('keydown', function (e) {
+                        if (e.key === 'Backspace' && !tin.value && arr.length) {
+                            arr.pop(); draw(); commit(PH.clone(arr));
+                            var again = chipsEl.querySelector('.ph-chips__input');
+                            if (again) again.focus();
+                        }
+                    });
+                    // A redraw that waited for the box to lose focus.
+                    tin.addEventListener('blur', function () { setTimeout(function () { if (deferred && !chipsEl.contains(document.activeElement)) { deferred = false; draw(); } }, 150); });
+                    chipsEl.appendChild(tin);
+                } else if (refT || (picker && F.fetchers[picker])) {
                     var addBtn = h('button.ph-chip.ph-chip--add', { type: 'button' }, [icon('plus'), 'Add']);
                     addBtn.addEventListener('click', function () {
                         F.pick({ anchor: addBtn, fetch: refT ? refFetch : F.fetchers[picker], allowFree: true, freeLabel: 'Add',
@@ -1060,6 +1674,11 @@
             }
         }
         draw();
+        if (itemMode) {
+            IC.loadList();
+            // An answer about an item arrived: redraw, but never under the cursor of someone typing.
+            IC.watch(wrap, function () { if (chipsEl.contains(document.activeElement)) deferred = true; else draw(); });
+        }
         return {
             el: wrap,
             set: function (v) { arr = PH.clone(v) || []; draw(); },
@@ -1126,6 +1745,7 @@
             if (picker === 'webhook') return ctlWebhook(spec, commit, err);
             if (picker === 'color') return ctlColor(spec, commit, err);
             if (picker === 'multiline') return ctlText(spec, commit, err, true);
+            if (picker === 'item' && IC.enabled()) return ctlItemText(spec, commit);
             if (picker && F.fetchers[picker]) return ctlPicked(spec, commit, picker);
             if (String(v).length > 90 || String(v).indexOf('\n') !== -1) return ctlText(spec, commit, err, true);
             return ctlText(spec, commit, err, false);
