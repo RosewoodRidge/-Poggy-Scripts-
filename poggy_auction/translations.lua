@@ -32,6 +32,15 @@ Translations.en = {
     REQUEST_FAILED      = "Could not post your request. $%.2f escrow refunded.",
     ORDER_FAILED        = "Could not place your order. $%.2f refunded.",
 
+    -- Sent to players when server staff change their auctions, orders or
+    -- requests from /poggy
+    STAFF_LISTING_CANCELLED = "Staff cancelled your listing for %s. The item is in your mailbox.",
+    STAFF_LISTING_EXTENDED  = "Staff extended your listing for %s by %d hour(s).",
+    STAFF_BID_REMOVED       = "Staff removed your bid on %s. Your $%.2f is in your mailbox.",
+    STAFF_ORDER_CANCELLED   = "Staff cancelled your order for %s. $%.2f is in your mailbox.",
+    STAFF_REQUEST_CANCELLED = "Staff cancelled your request for %s. $%.2f escrow is in your mailbox.",
+    STAFF_REQUEST_CLOSED    = "Staff cancelled your request for %s.",
+
     -- NUI translations table (sent to the UI)
     NUI = {
         TITLE               = "AUCTION HOUSE",
@@ -60,7 +69,6 @@ Translations.en = {
         BTN_LIST_ITEM       = "List Item",
         LBL_START_PRICE     = "Starting Price ($)",
         LBL_BUYOUT_PRICE    = "Buyout Price ($)",
-        LBL_DURATION        = "Duration",
         LBL_DEPOSIT         = "Deposit",
         LBL_TAX_RATE        = "Sales Tax",
         LBL_CATEGORY        = "Category",

@@ -1,3 +1,9 @@
+<1.5.1>
+- The Storages panel in /poggy (poggy_core's settings hub, data panels): every player and job storage in one table with owner, location, slots, upgrades, access and jobs
+- Rename and resize player storages from the table; Move to my position, Change owner and Delete on each row; each storage's access list (give, change level, remove); the hub's Contents viewer on every storage (container character_storage_<id>)
+- /movestorage and /deletestorage share one code path with the panel (CS.Admin.Move / CS.Admin.Delete); a refused move now says so. Deleting still unregisters the container and leaves the items in the inventory database
+- New export HubPanel; new DB.UpdateStorageOwner
+
 <1.4.0>
 - Requires poggy_core 0.14.0 or newer
 - Framework-agnostic: nothing in the resource talks to VORP any more

@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_animtool'
 author 'Poggy'
 description 'Poggy AnimTool - Timeline editor for RedM animation scenes (clips and keyframed props) with Lua export.'
-version '2.1.1'
+version '2.1.2'
 
 dependencies {
     'poggy_core',
@@ -42,6 +42,7 @@ files {
     'ui/data/anim_chunk_*.json',
     'ui/data/obj_chunk_*.json',
     'client/scene_player.lua', -- served to the UI for the export dialog
+    'docs/icon.png',
 }
 
 -- The playback runtime is handed to the user from the export dialog and shipped

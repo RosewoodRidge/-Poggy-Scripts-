@@ -65,6 +65,66 @@ PM.Locale = {
     staff_not_found  = "No such character is nearby.",
     staff_already    = "That person already works here.",
 
+    -- ── Shop jobs (Config.ShopJobs) ────────────────────────────────────────
+    shopjob_given    = "You have been given the job: %s.",
+    shopjob_taken    = "You no longer have the job: %s.",
+    shopjob_unknown  = "There is no job called %s on this server.",
+    shopjob_bad_name = "A job name may only use letters, digits, _ - and . (at most 64).",
+    shopjob_saved_off = "Saved, but shop jobs are off (Config.ShopJobs.enabled), so nobody is given it yet.",
+    shopjob_admin_show = "Shop #%s (%s): job %s (%s).",
+    shopjob_from_config = "From stores.lua",
+    shopjob_from_none   = "None",
+
+    -- Poggy hub (/poggy), the "Shop jobs" panel.  Seen by server staff.
+    hub_kind_storefront = "Buyable storefront",
+    hub_kind_config     = "Storefront",
+    hub_kind_player     = "Player shop",
+    hub_note_nojob      = "Has staff but no shop job: they are given no job.",
+    hub_note_repo       = "Repossessed: its owner and staff hold no shop job until it is restored.",
+    hub_note_norow      = "No playershops row yet (no shopId, or never sold), so its job cannot be changed here; it uses the job in stores.lua.",
+    hub_only_job        = "Only the shop job can be changed here.",
+    hub_shopjobs_loading = "poggy_markets is still loading its shops. Try again in a moment.",
+    hub_shopjobs_off    = "Shop jobs are off (Config.ShopJobs.enabled): jobs set here are saved, but nobody is given them until it is on.",
+    hub_shopjobs_no_multijob = "poggy_multijob is not running: shop jobs are set directly (replacing the current job), online players only.",
+
+    -- Poggy hub (/poggy): player shops, prices and exchange panels.
+    hub_bad_charid      = "Enter a character id (VORP: the number; RSG/QBR: the citizenid).",
+    hub_same_owner      = "That character already owns this shop.",
+    hub_no_character    = "There is no character with the id %s.",
+    hub_transferred     = "%s now belongs to %s.",
+    hub_already_repo    = "That shop is already repossessed.",
+    hub_not_repo        = "That shop is not repossessed.",
+    hub_repossessed     = "%s has been repossessed.",
+    hub_restored        = "%s has been restored.",
+    hub_bad_amount      = "Enter an amount that is not zero.",
+    hub_need_reason     = "Give a reason; it goes in the log.",
+    hub_ledger_negative = "The ledger holds only %s; it cannot go below zero.",
+    hub_ledger_done     = "Done. The ledger now holds %s.",
+    hub_not_staff       = "That character is not on this shop's staff any more.",
+    hub_only_price      = "Only the price can be changed here.",
+    hub_bad_price       = "Enter a price of zero or more.",
+    hub_no_item         = "That item is not there any more. Refresh the panel.",
+    hub_price_done      = "%s now costs %s.",
+    hub_price_clamped   = "%s is kept within the floor and ceiling in config/pricing.lua: it now costs %s.",
+    hub_no_base         = "This item has no base price, so its price cannot be set.",
+    hub_pricing_off     = "Dynamic pricing is off (Config.Modules.dynamicPricing), so there are no live prices.",
+    hub_pricing_empty   = "No items are tracked. Check the markets in config/pricing.lua.",
+    hub_history_note    = "Price points for %s over the last 7 days, newest first.",
+    hub_exchange_off    = "The commodities exchange is off (Config.Modules.exchange, which also needs dynamic pricing).",
+    hub_exchange_negative = "Negative balance: a short position lost more than its collateral.",
+    hub_balance_done    = "Done. %s's exchange balance is now %s.",
+    hub_positions_note  = "Open positions of %s. Closing one settles it at the live price, as the player would.",
+    hub_no_position     = "That position is not open any more. Refresh the panel.",
+    hub_no_mark         = "That item has no live price right now, so the position cannot be settled.",
+    hub_position_closed = "Closed %sx %s, profit/loss %s.",
+
+    -- Staff tab: the shop's job, locked (only server staff change it)
+    ui_shopjob_locked  = "Shop job: %s",
+    ui_shopjob_set_by  = "Set by staff",
+    ui_shopjob_tooltip = "Only server staff can change this, in /poggy (Shop jobs) or with %s.",
+    ui_shopjob_none    = "No shop job — ask server staff to set one.",
+    ui_shopjob_grade   = "grade %s",
+
     -- ── Tax ────────────────────────────────────────────────────────────────
     tax_paid         = "%s paid %s in tax.",
     tax_repossessed  = "%s could not pay its tax and has been repossessed.",
@@ -79,22 +139,3 @@ PM.Locale = {
     admin_done       = "Done.",
 }
 
---- Look up a locale string and fill in its markers.
---- Returns the key itself when a string is missing, so a typo shows up in game
---- as the key rather than as an empty message.
----@param key string
----@param ... any
----@return string
-function PM.L(key, ...)
-    local str = PM.Locale[key]
-    if not str then return tostring(key) end
-    if select("#", ...) == 0 then return str end
-
-    -- tostring every argument so numbers and nils cannot break string.format.
-    local args = {}
-    for i = 1, select("#", ...) do
-        args[i] = tostring((select(i, ...)))
-    end
-    local ok, formatted = pcall(string.format, str, table.unpack(args))
-    return ok and formatted or str
-end

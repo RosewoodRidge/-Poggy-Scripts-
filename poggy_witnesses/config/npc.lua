@@ -6,7 +6,7 @@ Config.LawResponseDebugging = false -- Enable or disable debugging for law respo
 Config.LawResponse = {
     Enabled = false,                  -- Master toggle for the law response system
     ResponseTime = 8000,             -- Time in ms between witness report and law arrival (8 seconds). A fixed number: math.random() here would be rolled once at load, not per report
-    Duration = 5 * 60 * 1000,               -- Maximum duration of response before auto-despawn (5 minutes)
+    Duration = 300000,               -- Maximum duration of response before auto-despawn (ms; 300000 = 5 minutes)
     MinOfficers = 3,                 -- Minimum number of officers in a response
     MaxOfficers = 8,                 -- Maximum number of officers in a response
     SpawnDistance = 80.0,            -- Distance from player where officers spawn

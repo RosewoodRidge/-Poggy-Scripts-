@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_util'
 author 'Poggy'
 description 'Optional server utilities: AOP, armor, clock, duty count, music zones, object removal, unstuck, weapon jam, help menu, stipend.'
-version '2.0.5'
+version '2.0.6'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -43,11 +43,6 @@ server_scripts {
     'server/stipend.lua',
 }
 
-escrow_ignore {
-    'config.lua',
-    'config/help.lua',
-}
-
 ui_page 'ui/index.html'
 
 files {
@@ -73,6 +68,12 @@ files {
     'ui/sfx/weaponjam/gun_empty1.wav',
     'ui/sfx/weaponjam/gun_empty2.wav',
     'ui/sfx/weaponjam/gun_empty3.wav',
+    'docs/icon.png',
+}
+
+escrow_ignore {
+    'config.lua',
+    'config/help.lua',
 }
 
 dependency '/assetpacks'

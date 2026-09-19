@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_character_storage'
 author 'Poggy'
 description 'Poggy Storage - Player-owned storage for RedM.'
-version '1.4.0'
+version '1.5.1'
 poggy_core_min '0.14.0'
 
 -- poggy_core provides character data, money, containers, notifications, the
@@ -35,6 +35,12 @@ server_scripts {
     'server/storage.lua',
     'server/shop.lua',
     'server/discord.lua',
+    'server/hub.lua',
+}
+
+-- The card icon the /poggy settings hub shows.
+files {
+    'docs/icon.png',
 }
 
 -- Readable by owners and by the updater's config merge. The translations live
@@ -43,12 +49,13 @@ escrow_ignore {
     'config.lua',
 }
 
--- Metadata only: the exports server/storage.lua registers.
+-- Metadata only: the exports server/storage.lua and server/hub.lua register.
 server_exports {
     'GetDatabaseAPI',
     'GetAuthorizedUsers',
     'RegisterAllStorageInventories',
     'RefreshAllPlayerStorages',
+    'HubPanel',
 }
 
 dependency '/assetpacks'

@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_trashbins'
 author 'Poggy'
 description 'Poggy Trash Bins'
-version '1.5.1'
+version '1.5.2'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -31,6 +31,7 @@ ui_page 'ui/progressbar.html'
 
 files {
     'ui/progressbar.html',
+    'docs/icon.png',
 }
 
 escrow_ignore {

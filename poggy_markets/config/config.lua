@@ -144,6 +144,7 @@ Config.Tax = {
 --
 --  This is self-contained: poggy_markets does not need a jobs script, and it
 --  will not change anyone's job unless you turn on Config.ShopJobs below.
+--  With Config.ShopJobs on, a shop's job grade per role is set there too.
 -- ===========================================================================
 
 Config.Roles = {
@@ -171,29 +172,54 @@ Config.Roles = {
 }
 
 -- ---------------------------------------------------------------------------
---  Optional: tie shop ownership to a job
+--  Optional: shop jobs
 --  ---------------------------------------------------------------------------
---  OFF by default, and deliberately so.  When enabled, buying a storefront
---  that declares a `job` in config/stores.lua also sets the buyer's job.
+--  OFF by default, and deliberately so.  When enabled, a shop that has a job
+--  gives that job to its owner and to everyone the owner hires, at the grade
+--  for their role (below), and takes it away again when they are let go or
+--  the shop is sold, repossessed or deleted.  Job-locked content elsewhere
+--  (crafting recipes, doors, boss menus) then works for shop staff.
 --
---  Leave this OFF if another resource already manages jobs -- otherwise both
---  will fight over the same character and the last writer wins.  With it off,
---  poggy_markets never touches a player's job, and shop access is decided
---  purely by ownership and the staff list above.
+--  A shop's job is set by server staff only: in /poggy -> Poggy Markets (or
+--  Poggy Multijob) -> Shop jobs, with the admin command
+--  /pmshopjob <shopId> <job|none|reset>, or else the store's `job` field in
+--  config/stores.lua.  No player (owner or staff) can change it; the staff
+--  tab shows it locked.
+--
+--  With poggy_multijob running, the job is ADDED to the character's job list
+--  and their current job is left alone; they switch to it with /multijob.
+--  Without it, the job is set directly (it replaces their current job).
+--
+--  Every start, and whenever a character loads in, the shop jobs are checked
+--  against the staff lists and put right.  poggy_markets only ever takes away
+--  a job it gave.
+--
+--  With this off, poggy_markets never touches a player's job, and shop access
+--  is decided purely by ownership and the staff list above.
 -- ---------------------------------------------------------------------------
 Config.ShopJobs = {
     enabled = false,
 
-    -- Grade given to the owner when their job is set.
-    ownerGrade = 4,
+    -- Job grade for each role at a shop that has a job: the owner gets
+    -- `owner`, a hired manager `manager`, a hired employee `employee`.
+    -- The same numbers decide access by job (grantAccessByJob below).
+    grades = { employee = 1, manager = 2, owner = 3 },
 
-    -- Job a character is moved to when they sell or lose their shop.
-    -- Set to false to leave their job alone on sale.
+    -- Older setting, still honoured: a number here is the grade given to the
+    -- owner instead of grades.owner.  false = use grades.owner.
+    ownerGrade = false,
+
+    -- Without poggy_multijob: the job a character is moved to when a shop
+    -- job is taken away from them (let go, or the shop sold, repossessed or
+    -- deleted) and they are wearing it.  false = leave their job alone.
+    -- With poggy_multijob, its own Config.DefaultJob is used instead.
     fallbackJob = "unemployed",
 
     -- Additionally grant job-based access: a character whose job matches a
-    -- store's `job` field gets in without being on the staff list.
-    -- Grade 3+ = owner, 2 = manager, 1 = employee, 0 = no access.
+    -- shop's job gets in without being on the staff list, by grade: at least
+    -- grades.owner = owner, grades.manager = manager, grades.employee =
+    -- employee, lower = no access.  Give two shops the same job and its
+    -- holders get into both.
     grantAccessByJob = true,
 }
 
@@ -216,6 +242,10 @@ Config.Admin = {
                                      --   store block for wherever you are standing.
                                      --   This is how you add stores; you never have to
                                      --   hand-write coordinates.
+        shopJob    = "pmshopjob",    -- /pmshopjob <shopId> [job|none|reset]  show or set a
+                                     --   shop's job (Config.ShopJobs); /poggy's Shop jobs
+                                     --   panel does the same.  none = no job,
+                                     --   reset = back to config/stores.lua.
     },
 
     -- Discord webhook for admin-level shop events. Paste your webhook URL here;

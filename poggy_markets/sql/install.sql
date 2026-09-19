@@ -63,6 +63,12 @@ ALTER TABLE `playershops` ADD COLUMN `taxledger`  DOUBLE      NOT NULL DEFAULT 0
 ALTER TABLE `playershops` ADD COLUMN `price`      DOUBLE      NOT NULL DEFAULT 0;
 ALTER TABLE `playershops` ADD COLUMN `repo`       TINYINT(1)  NOT NULL DEFAULT 0;
 
+-- 1.4.0, shop jobs (Config.ShopJobs).  `job` is a job an admin set for this
+-- shop with /pmshopjob; `jobsource` is 'admin' (use `job`), 'none' (an admin
+-- removed the job) or '' (use the store's `job` from config/stores.lua).
+ALTER TABLE `playershops` ADD COLUMN `job`        VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE `playershops` ADD COLUMN `jobsource`  VARCHAR(16) NOT NULL DEFAULT '';
+
 -- Empty JSON columns break decoding, so give any NULL or blank ones a value.
 UPDATE `playershops` SET `items`     = '[]' WHERE `items`     IS NULL OR `items`     = '';
 UPDATE `playershops` SET `weapons`   = '[]' WHERE `weapons`   IS NULL OR `weapons`   = '';
@@ -182,7 +188,30 @@ CREATE TABLE IF NOT EXISTS `poggy_markets_trades` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------------------------------------------------------
---  6. Shop deed
+--  6. Shop jobs
+--  ---------------------------------------------------------------------------
+--  Used when Config.ShopJobs.enabled is true: every job poggy_markets gave a
+--  character because of a shop, so it only ever takes away jobs it gave.  One
+--  row per character, job and shop; a character staff at two shops with the
+--  same job keeps it while either row remains.  `grade` is the grade that shop
+--  gives; -1 means the job is being taken away and that has not happened yet
+--  (the character was offline), and it is retried on start and when they load
+--  in.  `added` is 0 when the character already had the job before
+--  poggy_markets gave it, so it is left with them afterwards.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `poggy_markets_job_grants` (
+    `cid`        VARCHAR(64)  NOT NULL,
+    `job`        VARCHAR(64)  NOT NULL,
+    `shop_id`    INT(11)      NOT NULL,
+    `grade`      INT(11)      NOT NULL DEFAULT 0,
+    `added`      TINYINT(1)   NOT NULL DEFAULT 1,
+    `granted_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`cid`, `job`, `shop_id`),
+    KEY `idx_shop` (`shop_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ----------------------------------------------------------------------------
+--  7. Shop deed
 --  ---------------------------------------------------------------------------
 --  Only needed when Config.PlayerShops.creationItem is set. `items` is VORP's
 --  table: on a framework that keeps its items elsewhere (RSG:

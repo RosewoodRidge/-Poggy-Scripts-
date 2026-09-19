@@ -1,159 +1,179 @@
 # Poggy Skillcheck
 
-A standalone Dead-by-Daylight style circular skillcheck system for RedM. Rendered entirely in HTML/CSS/JS via NUI with full sound effects, shake animations, multi-repetition support, and a "great zone" mechanic.
+A Dead by Daylight style circular skillcheck for RedM.
 
-![RedM](https://img.shields.io/badge/Platform-RedM-red) ![Lua](https://img.shields.io/badge/Language-Lua%20%2F%20JS-blue) ![Version](https://img.shields.io/badge/Version-1.0.1-green)
+A needle sweeps round a ring. The player presses **Space** while it is inside the zone. Other scripts call it with one export and get the result back: pass, fail, and "great" hits.
 
----
-
-## Table of Contents
-
-- [For Users (Server Players)](#for-users-server-players)
-  - [How It Works](#how-it-works)
-  - [Controls](#controls)
-  - [Visual & Audio Feedback](#visual--audio-feedback)
-  - [Tips](#tips)
-- [For Developers](#for-developers)
-  - [Installation](#installation)
-  - [Resource Structure](#resource-structure)
-  - [Calling the Skillcheck (Export)](#calling-the-skillcheck-export)
-  - [Parameters](#parameters)
-  - [Return Value](#return-value)
-  - [Usage Examples](#usage-examples)
-  - [Test Command](#test-command)
-  - [Configuration](#configuration)
-  - [Architecture & Control Flow](#architecture--control-flow)
+Drawn in the game's own browser layer (NUI), with sounds, shake, repetitions and a gold "great" zone.
 
 ---
 
-## For Users (Server Players)
+## Contents
 
-### How It Works
-
-When triggered by a game action (lockpicking, crafting, fishing, etc.), a circular ring appears on your screen with a rotating needle. A highlighted zone on the ring marks the **success area**, and a smaller inner portion marks the **great area**. Your goal is to press the input key while the needle is inside the success zone.
-
-- **Success Zone** — Hitting anywhere inside the highlighted arc counts as a pass.
-- **Great Zone** — A smaller, brighter portion within the success zone. Landing here gives a bonus "great" hit.
-- **Fail** — Missing the zone entirely (or not pressing in time) fails the skillcheck.
-
-Some skillchecks require **multiple consecutive hits** (repetitions). You must pass every repetition to succeed overall. A streak counter in the UI shows your progress (e.g., `2 / 3`).
-
-### Controls
-
-| Action | Key |
-|--------|-----|
-| Hit the skillcheck | **Spacebar** |
-
-Press **Space** when the rotating needle overlaps the success zone.
-
-### Visual & Audio Feedback
-
-| Event | Visual | Sound |
-|-------|--------|-------|
-| Skillcheck incoming | Ring fades in | Warning tone (`incoming.mp3`) |
-| Successful hit | White flash | `good.mp3` |
-| Great hit | Gold flash | `great.mp3` |
-| Failed hit | Red tint overlay | — |
-| Completion | Ring fades out | — |
-
-### Tips
-
-- **Watch the needle speed.** Harder skillchecks have faster needles and smaller success zones.
-- **Listen for the incoming sound.** It plays ~1 second before the skillcheck appears, giving you time to prepare.
-- **The ring may shake.** Some skillchecks add screen shake to increase difficulty — stay focused on the needle position, not the ring movement.
-- **Needle direction can change.** The needle may rotate clockwise, counter-clockwise, or randomly between reps.
+- [For players](#for-players)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Commands](#commands)
+- [Configuration](#configuration)
+- [For developers: the export](#for-developers-the-export)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## For Developers
+## For players
 
-### Installation
+A ring appears on your screen with a turning needle.
 
-1. Copy the `poggy_skillcheck` folder into your server's `resources/` directory.
-2. Add `ensure poggy_skillcheck` to your `server.cfg` (ensure it starts before any resources that use it).
-3. No dependencies required — this is a fully standalone client-side resource.
+| Part of the ring | What happens |
+|---|---|
+| White **success zone** | Press Space here to pass. |
+| Gold **great zone** (inside the success zone) | Press Space here for a bonus "great" hit. |
+| Anywhere else | The skillcheck fails. |
 
-### Resource Structure
+- Some skillchecks need **several hits in a row**. A counter shows your progress, for example `2 / 3`. One miss fails the whole check.
+- A **warning tone** plays about one second before the ring appears.
+- The ring may **shake** or appear **away from the centre** of the screen.
+- The needle may turn **either way**, and may change direction between hits.
+
+| Event | You see | You hear |
+|---|---|---|
+| Skillcheck coming | Ring fades in | Warning tone |
+| Hit | White flash | Hit sound |
+| Great hit | Gold flash | Great sound |
+| Miss | Red tint | — |
+
+The game keeps running while the ring is up. You are not locked into a menu.
+
+---
+
+## Requirements
+
+| Resource | Why |
+|---|---|
+| `poggy_core` | Required by every Poggy script. Must start first. |
+
+No database tables. No server-side setup.
+
+---
+
+## Installation
+
+1. Put the `poggy_skillcheck` folder in your server's `resources` folder.
+2. Add this line to `server.cfg`, **after** `ensure poggy_core` and **before** any script that uses the skillcheck:
+   ```
+   ensure poggy_skillcheck
+   ```
+3. Restart the server.
+
+---
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/skillcheck [options]` | Everyone | Test command. Starts a skillcheck with the values you type. Only exists when `TestCommand = true`. |
+| `/skillcheck on` / `off` | Everyone | Turns your own skillcheck sounds on or off until you reconnect. Only when `TestCommand = true`. |
+
+The test command has **no permission check**. Leave `TestCommand = false` on a live server.
+
+The options are positional. Give as many as you like; the rest use the defaults:
 
 ```
-poggy_skillcheck/
-├── config.lua                  -- Shared configuration (defaults, sounds)
-├── fxmanifest.lua              -- Resource manifest
-├── README.md                   -- This file
-├── client/
-│   └── cl_skillcheck.lua       -- Client export, input handling, NUI bridge
-└── ui/
-    ├── index.html              -- NUI page (canvas + overlays)
-    ├── skillcheck.css           -- Styling, flash states, animations
-    ├── skillcheck.js            -- Ring rendering, collision, callback
-    └── sfx/skillcheck/
-        ├── incoming.mp3         -- Pre-skillcheck warning tone
-        ├── good.mp3             -- Normal success sound
-        └── great.mp3            -- Great zone success sound
+/skillcheck [speed] [difficulty] [repetition] [randomizer] [shake] [shakeSpeed] [shakeDist] [timeBetween] [direction] [great]
 ```
 
-### Calling the Skillcheck (Export)
+| Example | Meaning |
+|---|---|
+| `/skillcheck` | All defaults |
+| `/skillcheck 5 5` | Fast needle, small zone |
+| `/skillcheck 4 4 3 0 true 3 3 300 cw 50` | Everything set |
 
-The skillcheck is triggered from **client-side Lua** via a single blocking export:
+---
+
+## Configuration
+
+Every setting can be changed in game with **`/poggy`** (the Poggy settings hub). You can also edit `config.lua` by hand. Restart the script after a change.
+
+### General
+
+| Setting | Default | What it does |
+|---|---|---|
+| `Enabled` | `true` | Master switch. When `false`, no ring is shown and **every call passes at once**. |
+| `TestCommand` | `false` | Adds the `/skillcheck` test command for everyone. |
+
+### Default difficulty (`Config.SkillCheck.Defaults`)
+
+Used for any option a calling script leaves out.
+
+| Setting | Default | Range | What it does |
+|---|---|---|---|
+| `speed` | `3` | 1 – 5 | Needle speed. 1 is about 3.5 seconds a lap; 5 is under one second. |
+| `difficulty` | `3` | 1 – 5 | Zone size. 1 is about a quarter of the ring; 5 is about a fourteenth. |
+| `repetition` | `1` | 1 – 10 | Hits in a row needed to pass. |
+| `randomizer` | `0` | 0 – 5 | Screen position scatter. 0 = centre; each step up to 10% of the screen further. |
+| `shake` | `false` | — | Shake the ring. |
+| `shakeSpeed` | `2` | 1 – 5 | How fast it shakes. |
+| `shakeDist` | `2` | 1 – 5 | How far it shakes (about 1 to 8 pixels). |
+| `timeBetween` | `250` | 100 – 500 | Milliseconds between repetitions. |
+| `direction` | `"cw"` | `cw`, `ccw`, `rand` | Clockwise, anticlockwise, or random each repetition. |
+| `great` | `30` | 0 – 100 | Percent of the zone that is "great". 0 turns great hits off. |
+| `startOffset` | `20` | 0 – 50 | Random needle start position, in percent of the ring. 0 = always the same place. |
+
+`speed`, `difficulty`, `shakeSpeed` and `shakeDist` must be whole numbers. Values outside a range are clamped.
+
+### Sounds (`Config.SkillCheck.Sounds`)
+
+| Setting | Default | What it does |
+|---|---|---|
+| `Volume` | `0.1` | Volume of the sounds, 0 (silent) to 1 (full). |
+| `IncomingBoost` | `1` | Multiplies the warning tone's volume. Never goes above full volume. |
+| `Incoming`, `Good`, `Great` | file names | Not used by this version. |
+
+**Your own sounds:** replace the files in `ui/sfx/skillcheck/` and keep the same names: `incoming.mp3`, `good.mp3`, `great.mp3`.
+
+---
+
+## For developers: the export
+
+Call it from **client-side** Lua. The call waits until the player finishes, so always run it inside a thread or callback.
 
 ```lua
-local result = exports.poggy_skillcheck:StartSkillCheck(options)
-```
-
-- **`options`** — A table of parameters (all optional). Omit the table entirely or pass `{}` to use all defaults.
-- **Returns** immediately once the player completes or fails the skillcheck.
-- **Blocking** — The calling thread yields until the skillcheck resolves. Always call from inside a `Citizen.CreateThread` or a callback, never from the main thread.
-
-### Parameters
-
-All parameters are optional. Any omitted parameter falls back to the default defined in `config.lua`.
-
-| Parameter | Type | Range | Default | Description |
-|-----------|------|-------|---------|-------------|
-| `speed` | number | 1 – 5 | `3` | Needle rotation speed. 1 = slow, 5 = very fast. |
-| `difficulty` | number | 1 – 5 | `3` | Size of the success zone. 1 = large/easy, 5 = small/hard. |
-| `repetition` | number | 1 – 10 | `1` | Number of consecutive skillchecks the player must pass. |
-| `randomizer` | number | 0 – 5 | `0` | Random screen position offset. 0 = always centered, 5 = up to ~50% scatter. |
-| `shake` | boolean | — | `false` | Whether the skillcheck ring shakes during play. |
-| `shakeSpeed` | number | 1 – 5 | `2` | How fast the ring oscillates when `shake` is enabled. |
-| `shakeDist` | number | 1 – 5 | `2` | How far the ring moves from its origin when shaking (in pixels). |
-| `timeBetween` | number | 100 – 500 | `250` | Milliseconds of delay between repetitions (only applies when `repetition > 1`). |
-| `direction` | string | `"cw"` / `"ccw"` / `"rand"` | `"cw"` | Needle rotation direction. `"cw"` = clockwise, `"ccw"` = counter-clockwise, `"rand"` = random per rep. |
-| `great` | number | 0 – 100 | `30` | Percentage of the success zone that counts as the "great" zone. Set to `0` to disable great hits. |
-
-Values outside their valid range are clamped automatically.
-
-### Return Value
-
-The export returns a table with three fields:
-
-```lua
-{
-    success    = bool,    -- true if the player hit inside the success zone on all reps
-    great      = bool,    -- true if EVERY rep was a "great" hit
-    greatCount = number,  -- total number of great hits across all reps
-}
-```
-
-**Important:** If `success` is `false`, the player failed at least one repetition. `greatCount` still reflects any great hits achieved before the failure.
-
-### Usage Examples
-
-#### Basic — All Defaults
-
-```lua
-Citizen.CreateThread(function()
-    local result = exports.poggy_skillcheck:StartSkillCheck()
-
-    if result.success then
-        print("Passed!")
-    else
-        print("Failed!")
-    end
+CreateThread(function()
+    local result = exports.poggy_skillcheck:StartSkillCheck(options)
 end)
 ```
 
-#### Easy Lockpick — Slow, Large Zone
+`options` is optional. Leave it out, or pass `{}`, to use the defaults. Every option in the **Default difficulty** table can be passed, with the same name and range.
+
+### Return value
+
+```lua
+{
+    success    = bool,    -- true if every repetition was hit
+    great      = bool,    -- true if EVERY repetition was a great hit
+    greatCount = number,  -- great hits across all repetitions
+}
+```
+
+If `success` is `false`, the player missed at least one repetition. `greatCount` still counts the great hits before the miss.
+
+### Other exports
+
+| Export | Returns | What it does |
+|---|---|---|
+| `IsSkillCheckBusy()` | bool | `true` while a skillcheck is running. |
+| `CancelSkillCheck()` | bool | Stops the running skillcheck. `false` if nothing was running. The waiting call returns `success = false`. |
+
+### Good to know
+
+- **One at a time.** A call made while another skillcheck is running returns `success = false` at once. It does not wait.
+- **Switched off.** With `Enabled = false`, every call returns `success = true` at once.
+- **Timing.** A call plays the warning tone, waits one second, then shows the ring.
+- **Client only.** No server events. Reward the player from your own server code.
+
+### Examples
+
+Easy lockpick:
 
 ```lua
 local result = exports.poggy_skillcheck:StartSkillCheck({
@@ -162,19 +182,18 @@ local result = exports.poggy_skillcheck:StartSkillCheck({
 })
 ```
 
-#### Hard Crafting — Fast Needle, Tiny Zone, 3 Reps
+Hard crafting, three hits, bonus for all great:
 
 ```lua
 local result = exports.poggy_skillcheck:StartSkillCheck({
-    speed      = 5,
-    difficulty = 5,
-    repetition = 3,
+    speed       = 5,
+    difficulty  = 5,
+    repetition  = 3,
     timeBetween = 300,
 })
 
 if result.success then
     if result.great then
-        -- Player nailed every single rep in the great zone
         TriggerServerEvent('crafting:bonusItem')
     else
         TriggerServerEvent('crafting:normalItem')
@@ -182,12 +201,10 @@ if result.success then
 end
 ```
 
-#### Fishing — Medium Difficulty with Shake and Random Direction
+Fishing, with shake and random direction:
 
 ```lua
 local result = exports.poggy_skillcheck:StartSkillCheck({
-    speed      = 3,
-    difficulty = 3,
     repetition = 5,
     shake      = true,
     shakeSpeed = 3,
@@ -197,151 +214,61 @@ local result = exports.poggy_skillcheck:StartSkillCheck({
 })
 ```
 
-#### Dynamic Difficulty — Scale with Player Skill
+Reward each great hit:
 
 ```lua
--- Scale difficulty based on player level or context
-local playerLevel = GetPlayerLevel() -- your own function
-
-local result = exports.poggy_skillcheck:StartSkillCheck({
-    speed      = math.min(playerLevel, 5),
-    difficulty = math.min(playerLevel, 5),
-    repetition = math.min(math.floor(playerLevel / 2), 10),
-})
-```
-
-#### Reward Great Hits
-
-```lua
-local result = exports.poggy_skillcheck:StartSkillCheck({
-    repetition = 4,
-    great      = 25,
-})
-
+local result = exports.poggy_skillcheck:StartSkillCheck({ repetition = 4, great = 25 })
 if result.success then
-    local bonus = result.greatCount * 10  -- $10 bonus per great hit
-    GivePlayerMoney(bonus)
-    print("Bonus: $" .. bonus .. " (" .. result.greatCount .. " great hits)")
+    local bonus = result.greatCount * 10
+    -- pay the bonus from your server code
 end
 ```
 
-#### No Great Zone
+No great zone:
 
 ```lua
--- Set great to 0 to disable the great zone entirely
-local result = exports.poggy_skillcheck:StartSkillCheck({
-    great = 0,
-})
--- result.great will always be false, result.greatCount will always be 0
+local result = exports.poggy_skillcheck:StartSkillCheck({ great = 0 })
+-- result.great is always false, result.greatCount is always 0
 ```
 
-### Test Command
+### How it works
 
-A built-in chat command is available for testing without writing any code:
+1. Your script calls the export.
+2. The warning tone plays. One second later the ring appears.
+3. The script watches for Space and passes each press to the ring.
+4. The ring checks the needle against the zone: hit, great hit, or miss.
+5. After the last repetition (or the first miss) the result comes back to your script.
 
-```
-/skillcheck [speed] [difficulty] [repetition] [randomizer] [shake] [shakeSpeed] [shakeDist] [timeBetween] [direction] [great]
-```
-
-**Examples:**
-
-```
-/skillcheck                              -- All defaults
-/skillcheck 5 5                          -- Fast + hard
-/skillcheck 4 4 3 0 true 3 3 300 cw 50  -- Full custom
-/skillcheck on                           -- Unmute sounds
-/skillcheck off                          -- Mute sounds
-```
-
-Arguments are positional. You can supply as many or as few as you want — the rest default. The result is printed to the F8 console.
-
-### Configuration
-
-Edit `config.lua` to change global defaults and sound settings. These values apply when parameters are omitted from the export call.
-
-```lua
-Config.SkillCheck = {
-    Enabled = true,        -- Master toggle (false disables all skillchecks)
-
-    Defaults = {
-        speed       = 3,
-        difficulty  = 3,
-        repetition  = 1,
-        randomizer  = 0,
-        shake       = false,
-        shakeSpeed  = 2,
-        shakeDist   = 2,
-        timeBetween = 250,
-        direction   = "cw",
-        great       = 30,
-    },
-
-    Sounds = {
-        Volume        = 0.1,   -- Base volume (0.0 – 1.0)
-        IncomingBoost = 1,     -- Multiplier for the incoming warning tone
-        Incoming      = "incoming.mp3",
-        Good          = "good.mp3",
-        Great         = "great.mp3",
-    },
-}
-```
-
-**Adding custom sounds:** Replace the `.mp3` files in `ui/sfx/skillcheck/` and update the filenames in `Config.SkillCheck.Sounds`.
-
-### Architecture & Control Flow
+### Files
 
 ```
-1. Client script calls export
-       │
-       ▼
-2. Lua validates & clamps parameters
-       │
-       ▼
-3. NUI message "skillcheckStart" sent to JS
-       │
-       ▼
-4. JS renders ring on canvas, starts needle rotation
-       │
-       ▼
-5. Lua spawns input thread polling for Spacebar
-       │
-       ├──── Player presses Space ────▶ NUI "skillcheckKeyPress"
-       │                                      │
-       │                                      ▼
-       │                               JS checks needle vs. zone
-       │                                      │
-       │                          ┌───────────┴───────────┐
-       │                          ▼                       ▼
-       │                    Hit (good/great)            Miss
-       │                    Flash + sound           Red tint + fail
-       │                          │                       │
-       │                          ▼                       │
-       │                   More reps left?                │
-       │                    Yes → loop                    │
-       │                    No  → done                    │
-       │                          │                       │
-       └──────────────────────────┴───────────────────────┘
-                                  │
-                                  ▼
-6. JS sends NUI callback "skillcheckResult"
-       │
-       ▼
-7. Lua receives { success, great, greatCount }
-       │
-       ▼
-8. Export returns result to calling script
+poggy_skillcheck/
+├── fxmanifest.lua
+├── config.lua                 settings
+├── README.md
+├── client/cl_skillcheck.lua   exports, Space key, test command
+├── ui/                        ring, styles, sounds (ui/sfx/skillcheck/*.mp3)
+└── docs/                      settings hub page and help
 ```
-
-**Key implementation details:**
-
-- **Client-only** — No server-side scripts or events. All logic runs on the client.
-- **Blocking export** — Uses `Citizen.Await` internally, so the calling thread yields until resolution.
-- **NUI focus is NOT taken** — The skillcheck uses a Spacebar poll thread, not NUI focus/cursor. Players remain in full game control.
-- **Thread-safe** — A `skillcheckBusy` flag prevents overlapping skillchecks. If called while one is active, it waits.
-- **Sound preloading** — Audio files are preloaded on resource start to avoid first-play latency.
 
 ---
 
-## License
+## Troubleshooting
+
+**Every skillcheck passes straight away.**
+`Enabled` is `false`. Set it to `true` and restart.
+
+**A skillcheck fails at once without showing.**
+Another skillcheck was still running. Check `IsSkillCheckBusy()` before calling.
+
+**No sound.**
+Check `Volume` is above 0. A player who typed `/skillcheck off` has muted their own sounds until they reconnect or type `/skillcheck on`.
+
+**`/skillcheck` does nothing.**
+`TestCommand` is `false`, or `Enabled` is `false`.
+
+---
+
+## Licence
 
 Free Poggy script. Use it and change it on your own server; please do not resell or re-upload it as your own.

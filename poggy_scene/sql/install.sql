@@ -14,8 +14,12 @@ CREATE TABLE IF NOT EXISTS `playerscenes` (
     `charid` INT(11)  DEFAULT NULL,
     `coords` LONGTEXT DEFAULT ('{}'),
     `text`   LONGTEXT DEFAULT (''),
+    `placed_at` TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- When each scene was placed (1.3.2+). Scenes placed before have none (NULL).
+ALTER TABLE `playerscenes` ADD COLUMN `placed_at` TIMESTAMP NULL DEFAULT NULL;
 
 -- Saved status presets, per character.
 CREATE TABLE IF NOT EXISTS `playerstatuses` (

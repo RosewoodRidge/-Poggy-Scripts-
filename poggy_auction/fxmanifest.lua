@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_auction'
 author 'Poggy'
 description 'Auction house where players list, bid on, buy out and collect items, with a supply catalogue and want requests.'
-version '1.3.0'
+version '1.3.2'
 poggy_core_min '0.17.0'
 
 dependencies {
@@ -34,6 +34,7 @@ server_scripts {
     'server/database.lua',
     'server/auction.lua',
     'server/main.lua',
+    'server/hub.lua',
     'server/discord.lua',
 }
 
@@ -43,6 +44,7 @@ files {
     'ui/index.html',
     'ui/style.css',
     'ui/script.js',
+    'docs/icon.png',
 }
 
 escrow_ignore {

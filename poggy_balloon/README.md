@@ -1,205 +1,260 @@
-# Poggy's Balloon - Enhanced Hot Air Balloon System for RedM
+# Poggy Balloon
 
-A comprehensive hot air balloon system for RedM featuring NPC-piloted taxi services, player-controlled rentals, enhanced flight animations, and multi-language support. No more passengers ragdolling in the basket and captains awkwardly standing still!
+Hot air balloons for RedM: NPC taxi rides to any waypoint, self-flown rentals, and passengers who sit properly in the basket.
+
+No more passengers ragdolling in the basket, and no more captains standing still.
+
+---
 
 ## Features
 
-### 🎈 Balloon Taxi Service
-- **NPC-Piloted Rides**: Talk to balloon operators at designated locations across the map
-- **Waypoint Navigation**: Set a waypoint and the AI pilot flies you there automatically
-- **Terrain Avoidance**: Smart altitude adjustments to avoid mountains and obstacles
-- **Manual Take-Off**: Board the balloon and press **B** when you're ready to depart
-- **In-Flight Controls**:
-  - **Q** - Request early stop (land at current position)
-  - **R** - Change destination (reroute to new waypoint)
-  - **A** - "Step on it!" (toggle speed boost - 22 m/s → 30 m/s)
-  - **C** - Change seat (cycle through seats 0-3)
-  - **F** - Disembark (teleport safely out of balloon)
-- **Multiple Locations**: Strawberry, Rhodes, Valentine, Annesburg, Saint Denis, Blackwater, Armadillo, Tumbleweed
+### Balloon taxi
 
-### 🎫 Balloon Rental System
-- **Self-Piloted Rentals**: Rent a balloon for 1 hour and fly it yourself
-- **Rental Timer**: Visual warnings before rental expires
-- **Available at All Taxi Locations**: Where rentals are enabled in config
+- **Operators across the map.** Strawberry, Rhodes, Valentine, Annesburg, Saint Denis, Blackwater, Armadillo and Tumbleweed. Each has a map blip.
+- **Fly to your waypoint.** Set a waypoint, pay the fare, board, and take off when you are ready.
+- **Smart pilot.** Climbs over hills and mountains, slows on approach and lands gently.
+- **In-flight options:** stop here, change destination, "Step On It!" (faster), change seat, disembark.
 
-### 🌍 Multi-Language Support
-- **4 Languages Included**: English, French, Spanish, German
-- **Easy to Extend**: Add new languages in `translations.lua`
-- **Change Language**: Set `Config.Language` in translations.lua
+### Balloon rental
 
-### 🔔 Notifications
-- **Context-Aware Icons**:
-  - `blip_location_higher` - Ascending
-  - `blip_location_lower` - Descending/landing
-  - `blip_cash_arthur` - Purchase made
-  - `blip_poi` - General notifications
-  - `blip_region_hunting` - Rerouting
-  - `blip_destroy` - Errors/cancellations
+- **Fly it yourself.** Rent a balloon for a set time (1 hour by default).
+- **Timer.** The player is warned before the rental runs out, then the balloon is taken back.
+- **Per station.** Turn rentals on or off for each station.
 
-### ✨ Core Balloon Features
-- **Enhanced Balloon Controls**: Camera-relative movement options make flying more intuitive
-- **Multiple Passenger Support**: Up to 4 passengers can ride in the balloon basket safely
-- **Captain Animation System**: Realistic burner pull animation with rope visual
-- **Passenger Animations**: Proper sitting animations for passengers
-- **Altitude Lock**: Lock balloon height for stable horizontal navigation
-- **Invisible Safety Floor**: Prevents passengers from ragdolling inside the basket
-- **Server Synchronization**: All players see consistent passenger positions and animations
-- **Prompt System**: Clear UI prompts for entering/exiting and controlling the balloon
-- **Boost & Brake Controls**: Fine-tune your balloon's speed with dedicated controls
+### Flying and riding
+
+- **Captain controls.** Move, climb (Shift), descend (Ctrl), boost, brake and altitude lock.
+- **Camera-relative steering.** Forward means where you look. Switch to north/south/east/west at any time.
+- **Up to 4 passengers** with sitting animations and an invisible floor, so nobody ragdolls.
+- **Captain animations.** The captain pulls the burner rope while flying.
+- **Synced.** Everyone sees the same seats and animations.
+
+### Languages
+
+English, French, Spanish and German included. Add more in `translations.lua`.
+
+---
 
 ## Requirements
 
-- **poggy_core** 0.14.0 or newer. It provides money, character checks, prompts, notifications and the station menu, so the script runs on any framework poggy_core supports. No `vorp_menu` or other menu resource is needed.
+| Resource | Why |
+|---|---|
+| **poggy_core** 0.14.0 or newer | Money, character checks, prompts, notifications and the station menu, on VORP, RSG or QBR |
+
+No menu resource (such as vorp_menu) is needed.
+
+---
 
 ## Installation
 
-1. Extract the `poggy_balloon` folder into your server's `resources` directory
-2. Add `ensure poggy_balloon` to your server.cfg (after poggy_core)
-3. Configure settings in `config.lua`
-4. Set your preferred language in `translations.lua`
-5. Restart your server
+1. Put the `poggy_balloon` folder in your `resources` folder.
+2. Add it to `server.cfg`, after poggy_core:
+   ```
+   ensure poggy_core
+   ensure poggy_balloon
+   ```
+3. Restart the server.
 
-### Upgrading from poggy-balloon
+### Upgrading from `poggy-balloon`
 
-The folder was renamed from `poggy-balloon` to `poggy_balloon`. Delete the old `poggy-balloon` folder, drop in `poggy_balloon`, and change `ensure poggy-balloon` to `ensure poggy_balloon` in your server.cfg. Keep your old `config.lua` and `translations.lua` if you changed them; the settings are the same.
+The folder was renamed from `poggy-balloon` to `poggy_balloon`.
+
+1. Delete the old `poggy-balloon` folder and add `poggy_balloon`.
+2. In `server.cfg`, change `ensure poggy-balloon` to `ensure poggy_balloon`.
+3. If you changed `config.lua` or `translations.lua`, copy your values across. The settings are the same.
+
+---
+
+## How players use it
+
+### Taking a taxi ride
+
+1. Set a waypoint on the map.
+2. Walk up to a balloon operator and press **Talk** (G by default).
+3. Pick **Take a Ride**. The fare is taken from your cash.
+4. Board the balloon within 60 seconds.
+5. Press **Take Off** (B by default) when ready.
+6. During the flight, use the prompts on screen: **Stop Here**, **Change Destination**, **Step On It!**, **Change Seat**, **Disembark**.
+7. After landing, get out. The pilot waits (30 seconds by default), then the balloon flies away.
+
+### Renting a balloon
+
+1. Talk to an operator where rentals are on.
+2. Pick **Rent a Balloon**. The price is taken from your cash.
+3. Get in as the pilot and fly anywhere until the rental ends.
+
+### Flying as captain
+
+| Control | Action |
+|---|---|
+| W / S | Forward / back |
+| A / D | Left / right |
+| Shift (hold) | Burn and climb |
+| Ctrl (hold) | Descend |
+| Boost prompt (hold) | Move faster |
+| Brake prompt (hold) | Slow down |
+| Lock Altitude prompt | Hold your current height |
+| Toggle Control Mode prompt | Switch between camera-relative and north/south/east/west steering |
+
+The key for each prompt is shown on screen.
+
+### Riding as a passenger
+
+Walk up to a balloon and hold **F** (Enter as Passenger). Up to four passengers fit in the basket.
+
+---
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/spawnballoon` | Admins (see Permissions) | Spawns a balloon next to you. |
+| `/spawnballoon_local` | Everyone, only when Admin only is off | Spawns a balloon next to you. |
+| `/balloon_server_status` | ACE `command.balloon_server_status` | Prints every balloon and its seats to the server console. |
+| `/balloon_taxi_debug toggle \| level <0-4> \| status` | Everyone (own F8 console) | Taxi debugging. |
+| `/balloon_debug_main level <0-4> \| toggle \| status` | Everyone (own F8 console) | Seat and boarding debugging. |
+| `/balloon_debug_anim level <0-4> \| toggle` | Everyone (own F8 console) | Animation debugging. |
+| `/balloon_debug_ctrl level <0-4> \| toggle` | Everyone (own F8 console) | Captain controls debugging. |
+| `balloon_taxi_server_debug toggle \| status \| clear <id>` | Server console | Taxi logging, active rides, clear a stuck ride. |
+| `balloon_rental_debug status \| end <id>` | Server console | Active rentals, end one early. |
+
+The debug commands only print to the console of the player who types them. Debug levels: 0 off, 1 errors, 2 warnings, 3 info, 4 everything.
+
+---
 
 ## Configuration
 
-### config.lua
-```lua
-Config.BalloonTaxi = {
-    Enabled = true,
-    Price = 3,                    -- Cost for taxi ride
-    CruisingAltitude = 80.0,      -- Flight altitude in meters
-    TravelSpeed = 22.0,           -- Normal speed (m/s)
-    TravelSpeedFast = 30.0,       -- "Step on it" speed (m/s)
-    -- ... more settings
-}
+Every setting can be changed in game with **/poggy** (Poggy Hub). You can also edit `config.lua` and `translations.lua` by hand. Restart the script after a change.
 
-Config.BalloonRental = {
-    Enabled = true,
-    Price = 50,                   -- Rental cost
-    RentalDurationMinutes = 60,   -- 1 hour
-    WarningTimeMinutes = 5,       -- 5 minute warning
-}
+### Main settings
+
+| Setting | Default | What it does |
+|---|---|---|
+| `Config.BalloonTaxi.Enabled` | `true` | Taxi rides on or off. |
+| `Config.BalloonTaxi.Price` | `3` | Fare for one ride ($). |
+| `Config.BalloonTaxi.CruisingAltitude` | `80.0` | Flying height above ground (metres). |
+| `Config.BalloonTaxi.TravelSpeed` | `22.0` | Normal speed (m/s). |
+| `Config.BalloonTaxi.TravelSpeedFast` | `30.0` | "Step On It!" speed (m/s). |
+| `Config.BalloonTaxi.ExitWaitTime` | `30000` | How long the pilot waits after landing (ms). |
+| `Config.BalloonRental.Enabled` | `true` | Rentals on or off. |
+| `Config.BalloonRental.Price` | `50` | Price of one rental ($). |
+| `Config.BalloonRental.RentalDurationMinutes` | `60` | Rental length (minutes). |
+| `Config.BalloonRental.WarningTimeMinutes` | `5` | Warning before the rental ends (minutes). |
+| `Config.Flight` | — | Captain climb and descend speeds. |
+| `Config.Controls` | — | Keys for the taxi prompts (control hashes). |
+| `Config.BalloonTaxi.Locations` | 8 stations | Operator position, balloon spawn point, blip, rentals on/off. |
+| `Config.Commands.SpawnBalloon` | — | Who may use `/spawnballoon`. |
+| `Config.Language` | `"en"` | `en`, `fr`, `es` or `de` (set in `translations.lua`). |
+
+Help pages in `/poggy` walk through **adding a station** and **tuning flights and rentals**.
+
+### Stations
+
+| Station | Operator position | Rentals |
+|---|---|---|
+| Strawberry | -1812.9, -677.43, 149.6 | Yes |
+| Rhodes | 1425.01, -1273.0, 77.27 | Yes |
+| Valentine | -145.7, 611.94, 114.39 | Yes |
+| Annesburg | 2865.34, 1427.64, 67.41 | Yes |
+| Saint Denis | 2717.29, -1511.52, 43.19 | Yes |
+| Blackwater | -697.71, -1285.4, 42.22 | Yes |
+| Armadillo | -3738.5, -2589.45, -14.3 | Yes |
+| Tumbleweed | -5468.53, -2962.53, -1.4 | Yes |
+
+---
+
+## Permissions
+
+`/spawnballoon` checks, in order:
+
+1. `Config.Commands.SpawnBalloon.Enabled = false` → nobody can use it.
+2. `AdminOnly = false` → everyone can use it.
+3. Otherwise the player needs the ACE in `AcePermission` (if set), **or** must be an admin in the framework.
+
+Example ACE setup:
+
+```
+# with AcePermission = "command.spawnballoon" in config.lua
+add_ace group.admin command.spawnballoon allow
 ```
 
-### translations.lua
-```lua
-Config.Language = "en"  -- Options: "en", "fr", "es", "de"
+`/balloon_server_status` needs its own ACE:
+
+```
+add_ace group.admin command.balloon_server_status allow
 ```
 
-## How It Works
+---
 
-### 🚖 Using the Taxi Service
-1. Find a balloon tour NPC (marked with blips on map)
-2. Press **G** to talk to the operator
-3. Set a waypoint on your map before requesting a ride
-4. Select "Take a Ride" from the menu
-5. Enter the balloon as a passenger when prompted
-6. Enjoy the ride! Use Q/R/G for in-flight controls
+## Troubleshooting
 
-### 🎈 Renting a Balloon
-1. Talk to any balloon operator with rentals enabled
-2. Select "Rent a Balloon" from the menu
-3. Enter the balloon as the pilot
-4. Fly anywhere you want for 1 hour!
+**"Please set a waypoint on your map first."**
+Taxi rides fly to your waypoint. Set one before talking to the operator.
 
-### 🎮 Manual Flying (Captain)
-1. Enter the balloon as normal using the game's vehicle entry system
-2. Controls while piloting:
-   - **W/S**: Move forward/backward 
-   - **A/D**: Move left/right 
-   - **Shift** (hold): Burn and climb
-   - **Ctrl** (hold): Descend
-   - **F**: Boost (increase speed)
-   - **R**: Brake (slow down)
-   - **Space**: Toggle altitude lock
+**"You are already on a balloon ride." but I am not.**
+A ride did not close properly. In the server console run `balloon_taxi_server_debug clear <playerId>`.
 
-### 👥 Riding as Passenger
-1. Approach a balloon and press **F** when prompted
-2. Press **F** again to exit
-3. Up to 4 passengers in designated basket positions
+**No operators or blips.**
+Check that the taxi or rentals are turned on. An operator only appears when a player is within 100 metres.
 
-## Taxi Locations
+**The captain cannot climb.**
+Keep **Scripted climb** on (`Config.Flight.ScriptedAscent = true`). The game's own burner key does not register on current game builds.
 
-| Location | Coordinates | Rental Available |
-|----------|-------------|------------------|
-| Strawberry | (-1812.9, -677.43, 149.6) | ✅ |
-| Rhodes | (1425.01, -1273.0, 77.27) | ✅ |
-| Valentine | (-145.7, 611.94, 114.39) | ✅ |
-| Annesburg | (2865.34, 1427.64, 67.41) | ✅ |
-| Saint Denis | (2717.29, -1511.52, 43.19) | ✅ |
-| Blackwater | (-697.71, -1285.4, 42.22) | ✅ |
-| Armadillo | (-3738.5, -2589.45, -14.3) | ✅ |
-| Tumbleweed | (-5468.53, -2962.53, -1.4) | ✅ |
+**Rental balloon has no controls.**
+The captain controls only work on the `hotairballoon01` model. Keep `Config.BalloonRental.BalloonModel` set to it.
 
-## Debugging
+**The ready message says "1 hour" but my rentals are shorter.**
+That line is plain text in `translations.lua` (`rental_ready`). Edit it to match. The menu already shows the real length.
 
-Debug commands for troubleshooting:
+---
 
-- `/balloon_debug_main [level|toggle|status]` - Main module debug
-- `/balloon_debug_anim [level|toggle]` - Animation module debug
-- `/balloon_debug_ctrl [level|toggle]` - Controls module debug
-- `/balloon_server_status` - View balloon occupancy (admin)
-- `/balloon_debug_ride` - Show current taxi ride state
+## Technical notes
 
-Debug levels: 0 (OFF) → 4 (DEBUG), default 3 (INFO)
+- **Taxi flight.** Uses the game's balloon transport natives, with look-ahead terrain avoidance and smoothed speed changes. States: waiting for entry → waiting for take-off → ascending → cruising → approaching → landing → waiting for exit.
+- **Passenger detection.** `_IS_PED_ON_TRANSPORT_ENTITY` (0x159EF5B6EDCE00E8), with attachment and distance checks as fallbacks.
+- **Animations.** Captains get burner controls with a rope; passengers sit; AI pilots idle on the burner.
 
-## File Structure
+---
+
+## Files
 
 ```
 poggy_balloon/
 ├── fxmanifest.lua
-├── config.lua              # All configuration settings
-├── translations.lua        # Multi-language text
+├── config.lua              settings
+├── translations.lua        language and all player text
 ├── README.md
 ├── CHANGELOG.md
 ├── client/
-│   ├── balloon_controls.lua
-│   ├── balloon.lua         # Core balloon mechanics
+│   ├── balloon_controls.lua   captain controls
+│   ├── balloon.lua            seats and boarding
 │   ├── balloonanimations.lua
-│   ├── balloon_taxi.lua    # Taxi service
+│   ├── balloon_taxi.lua       taxi service
 │   ├── balloon_spawn.lua
-│   └── balloon_rental.lua  # Rental system
-└── server/
-    ├── balloon_server.lua
-    ├── balloon_taxi_server.lua   # Taxi server logic
-    └── balloon_rental_server.lua # Rental server logic
+│   └── balloon_rental.lua     rentals
+├── server/
+│   ├── balloon_server.lua        seat tracking
+│   ├── balloon_taxi_server.lua   fares, /spawnballoon
+│   └── balloon_rental_server.lua rentals and expiry
+└── docs/                       Poggy Hub card and help pages
 ```
 
-## Technical Details
-
-### Taxi Flight System
-- Uses RDR2 AITRANSPORT natives for balloon-specific vehicle handling
-- Intelligent terrain look-ahead for mountain avoidance
-- Smooth velocity interpolation for realistic flight feel
-- State machine: WAITING_FOR_ENTRY → ASCENDING → CRUISING → APPROACHING → LOCKING_POSITION → WAITING_EXIT
-
-### Passenger Detection
-Uses multiple methods for reliable balloon occupancy detection:
-- `_IS_PED_ON_TRANSPORT_ENTITY` (0x159EF5B6EDCE00E8)
-- Attachment and distance checks as fallbacks
-
-### Animation System
-- **Captains**: Animated burner controls with rope visuals
-- **Passengers**: Proper sitting animations to prevent T-poses
-- **AI Pilots**: Idle burner animations during taxi flights
+---
 
 ## Credits
 
-This resource combines and enhances code from:
+This resource combines and extends code from:
+
 - [kibook's side saddle](https://github.com/kibook/redm-sidesaddle)
-- [kibook's balloon control scripts](https://github.com/kibook/redm-ballooncontrols)
+- [kibook's balloon controls](https://github.com/kibook/redm-ballooncontrols)
 - [PersePixel's balloon crap](https://github.com/PersePixels/balloon-crap)
 
-Enhanced with taxi service, rental system, and translations by Poggy.
+Taxi service, rentals and translations by Poggy.
 
-## License & Legal
+## Licence
 
-This is a free resource, modified from other open source projects.
-Feel free to use and modify for your server, but please credit the original authors.
+Built on open-source projects. Use and modify it for your server, and please credit the original authors.
 
-## Video Example
+## Video
 
 https://medal.tv/games/red-dead-2/clips/kizULvk7B3R3miNy1

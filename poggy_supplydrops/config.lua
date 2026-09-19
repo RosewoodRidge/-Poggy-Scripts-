@@ -14,26 +14,26 @@ Config.RandomEvent = {
     -- Settings for how often RANDOM events are triggered.
     -- These timers start AFTER the specific cooldown for that event type has passed.
     SupplyDropTimer = {
-        MinTimeBetweenEvents = 10 * 60 * 1000, -- Minimum time (ms) before a NEW random supply drop MIGHT occur (e.g., 10 minutes)
-        MaxTimeBetweenEvents = 45 * 60 * 1000  -- Maximum time (ms) before a NEW random supply drop MIGHT occur (e.g., 45 minutes)
-                                               -- A random time between Min and Max will be chosen.
+        MinTimeBetweenEvents = 600000,  -- Minimum wait (ms) before a NEW random supply drop may occur: 600000 = 10 minutes
+        MaxTimeBetweenEvents = 2700000  -- Maximum wait (ms) before a NEW random supply drop may occur: 2700000 = 45 minutes
+                                        -- A random time between Min and Max is chosen.
     },
     ScavengerHuntTimer = {
-        MinTimeBetweenEvents = 20 * 60 * 1000, -- Minimum time (ms) for new random scavenger hunt (e.g., 20 minutes)
-        MaxTimeBetweenEvents = 60 * 60 * 1000  -- Maximum time (ms) for new random scavenger hunt (e.g., 60 minutes)
+        MinTimeBetweenEvents = 1200000, -- Minimum wait (ms) for a new random scavenger hunt: 1200000 = 20 minutes
+        MaxTimeBetweenEvents = 3600000  -- Maximum wait (ms) for a new random scavenger hunt: 3600000 = 60 minutes
     },
 
     -- Cooldown settings after an event is triggered (randomly or manually)
     -- This is the period during which NO new random event of THIS TYPE can occur.
     SupplyDropCooldown = {
-        Min = 60 * 60 * 1000,       -- Minimum cooldown time in milliseconds (e.g., 90 minutes)
-        RandomAdd = 30 * 60 * 1000  -- Additional random time in milliseconds (e.g., 30 minutes)
-                                    -- Results in a 90-120 minute cooldown for supply drops.
+        Min = 3600000,       -- Minimum cooldown in milliseconds: 3600000 = 60 minutes
+        RandomAdd = 1800000  -- Up to this much extra, chosen at random (ms): 1800000 = 30 minutes
+                             -- Results in a 60-90 minute cooldown for supply drops.
     },
     ScavengerHuntCooldown = {
-        Min = 90 * 60 * 1000,      -- Minimum cooldown time in milliseconds (e.g., 120 minutes / 2 hours)
-        RandomAdd = 60 * 60 * 1000  -- Additional random time in milliseconds (e.g., 60 minutes / 1 hour)
-                                    -- Results in a 2-3 hour cooldown for scavenger hunts.
+        Min = 5400000,       -- Minimum cooldown in milliseconds: 5400000 = 90 minutes
+        RandomAdd = 3600000  -- Up to this much extra, chosen at random (ms): 3600000 = 60 minutes
+                             -- Results in a 90-150 minute cooldown for scavenger hunts.
     }
 }
 
@@ -89,7 +89,7 @@ Config.Supply = {
     RenderDistance = 200.0,
     
     -- Time after which uncollected drops disappear (in milliseconds)
-    DropTimeout = 15 * (60 * 1000), -- 15 minutes, first number is minutes
+    DropTimeout = 900000, -- milliseconds: 900000 = 15 minutes
     
     -- Item drops configuration. Every item name must exist in your items table.
     ItemDrops = {
@@ -171,7 +171,7 @@ Config.Scavenger = {
     RenderDistance = 200.0,
     
     -- Time after which unclaimed hunts disappear (in milliseconds)
-    HuntTimeout = 45 * (60 * 1000), -- first number is minutes
+    HuntTimeout = 2700000, -- milliseconds: 2700000 = 45 minutes
     
     -- Hunt items configuration (can be money or items)
     RewardTypes = {

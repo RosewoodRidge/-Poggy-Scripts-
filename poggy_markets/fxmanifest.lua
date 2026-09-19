@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_markets'
 author 'Poggy'
 description 'Player-owned stores, dynamic pricing and a commodities exchange for RedM.'
-version '1.3.0'
-poggy_core_min '0.16.0'
+version '1.4.0'
+poggy_core_min '0.17.0'
 
 dependencies {
     'poggy_core',
@@ -24,6 +24,7 @@ shared_scripts {
     'config/exchange.lua',
     'config/ghostbuyer.lua',
     'translations.lua',
+    'shared/locale.lua',
     'shared/math.lua',
 }
 
@@ -40,11 +41,13 @@ server_scripts {
     'server/core.lua',
     'server/trade.lua',
     'server/shops.lua',
+    'server/jobs.lua',
     'server/ui.lua',
     'server/admin.lua',
     'server/pricing.lua',
     'server/exchange.lua',
     'server/ghostbuyer.lua',
+    'server/hub.lua',
 }
 
 ui_page 'ui/index.html'
@@ -61,12 +64,14 @@ files {
     'ui/css/skin-*.png',
     'ui/lib/chart.min.js',
     'ui/lib/chart-annotation.min.js',
+    'docs/icon.png',
 }
 
 escrow_ignore {
     'config/*.lua',
     'translations.lua',
     'sql/*.sql',
+    'shared/locale.lua',
 }
 
 dependency '/assetpacks'

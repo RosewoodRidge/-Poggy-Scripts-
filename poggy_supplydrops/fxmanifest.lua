@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_supplydrops'
 author 'Poggy'
 description 'Random supply drops and scavenger hunts across the map, with clues, rewards and Discord logging.'
-version '1.5.0'
+version '1.5.1'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -41,6 +41,7 @@ files {
     'ui/style.css',
     'ui/script.js',
     'ui/images/*.jpg',
+    'docs/icon.png',
 }
 
 escrow_ignore {

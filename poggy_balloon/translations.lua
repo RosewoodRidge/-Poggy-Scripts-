@@ -3,6 +3,8 @@
     Supports: English (en), French (fr), Spanish (es), German (de)
 ]]
 
+Config = Config or {}
+
 -- Current language setting (change this to switch languages)
 Config.Language = "en" -- Options: "en", "fr", "es", "de"
 

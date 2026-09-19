@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_witnesses'
 author 'Poggy'
 description 'Witness system for RedM (runs on poggy_core)'
-version '1.3.0'
+version '1.3.1'
 poggy_core_min '0.14.0'
 
 dependencies {
@@ -43,6 +43,10 @@ client_scripts {
 server_scripts {
     'server/server_core.lua',
     'server/server_npc.lua',
+}
+
+files {
+    'docs/icon.png',
 }
 
 escrow_ignore {

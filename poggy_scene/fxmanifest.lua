@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_scene'
 author 'Poggy'
 description 'Poggy Scene - A collection of scene-related utilities and features for RedM.'
-version "1.3.0"
+version '1.3.2'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -28,6 +28,7 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
+    'server/hub.lua',
 }
 
 ui_page 'ui/index.html'
@@ -36,11 +37,17 @@ files {
     'ui/index.html',
     'ui/style.css',
     'ui/script.js',
+    'docs/icon.png',
 }
 
 escrow_ignore {
     'config.lua',
     'client/main.lua',
+}
+
+-- Metadata only: the export server/hub.lua registers (the /poggy Scenes panel).
+server_exports {
+    'HubPanel',
 }
 
 dependency '/assetpacks'

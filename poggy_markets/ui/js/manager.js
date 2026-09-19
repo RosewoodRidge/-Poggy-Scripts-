@@ -1283,15 +1283,22 @@
                     '</tr>';
             });
             // Direct employees (editable)
+            var sj = (data && data.shopJob) ? data.shopJob : null;
             directEmployees.forEach(function (emp) {
-                var cid = emp.charidentifier;
+                var cid = escapeHtml(String(emp.charidentifier));
+                // With a shop job, the job grade this role is given.
+                var gradeNote = '';
+                if (sj && sj.job && emp.grade !== undefined && emp.grade !== null && sj.text && sj.text.grade) {
+                    gradeNote = ' <span style="color:var(--text-secondary);font-size:11px">' +
+                        escapeHtml(sj.text.grade.replace('%s', emp.grade)) + '</span>';
+                }
                 html += '<tr>' +
                     '<td>' + escapeHtml(emp.name || ('ID: ' + cid)) + '</td>' +
                     '<td>' +
                         '<select class="input-field emp-role-change" data-char="' + cid + '" style="padding:4px 6px;font-size:12px">' +
                             '<option value="employee"' + (emp.role === 'employee' ? ' selected' : '') + '>Employee</option>' +
                             '<option value="manager"' + (emp.role === 'manager'  ? ' selected' : '') + '>Manager</option>' +
-                        '</select>' +
+                        '</select>' + gradeNote +
                     '</td>' +
                     '<td><span class="emp-source-badge emp-source-direct">Direct</span></td>' +
                     '<td style="display:flex;gap:6px">' +
@@ -1303,11 +1310,15 @@
         }
         tbody.innerHTML = html;
 
-        // Bind save-role buttons
+        // Bind save-role buttons.  The character id stays text: RSG and QBR
+        // ids are citizenids such as 'ABC12345', which parseInt turned into NaN.
         $$('.emp-save-role-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var charId = parseInt(this.getAttribute('data-char'));
-                var sel   = $('.emp-role-change[data-char="' + charId + '"]');
+                var charId = this.getAttribute('data-char');
+                var sel   = null;
+                $$('.emp-role-change').forEach(function (s) {
+                    if (s.getAttribute('data-char') === charId) sel = s;
+                });
                 var role  = sel ? sel.value : 'employee';
                 sendNUI('setEmployeeRole', { shopId: State.shopId, charId: charId, role: role });
             });
@@ -1316,10 +1327,12 @@
         // Bind remove buttons
         $$('.emp-remove-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                var charId = parseInt(this.getAttribute('data-char'));
+                var charId = this.getAttribute('data-char');
                 sendNUI('removeEmployee', { shopId: State.shopId, charId: charId });
             });
         });
+
+        renderShopJob(data && data.shopJob);
 
         // ── Online player list ──
         var playerList = $('#emp-add-player-list');
@@ -1335,9 +1348,9 @@
         } else {
             var phtml = '';
             filtered.forEach(function (p) {
-                phtml += '<div class="emp-player-row" data-char="' + p.charId + '" data-name="' + escapeHtml(p.name) + '">' +
+                phtml += '<div class="emp-player-row" data-char="' + escapeHtml(String(p.charId)) + '" data-name="' + escapeHtml(p.name) + '">' +
                     '<span class="emp-player-name">' + escapeHtml(p.name) + '</span>' +
-                    '<span class="emp-player-id">#' + p.charId + '</span>' +
+                    '<span class="emp-player-id">#' + escapeHtml(String(p.charId)) + '</span>' +
                     '</div>';
             });
             playerList.innerHTML = phtml;
@@ -1349,13 +1362,39 @@
                 $$('.emp-player-row').forEach(function (r) { r.classList.remove('selected'); });
                 this.classList.add('selected');
                 State.empSelectedPlayer = {
-                    charId: parseInt(this.getAttribute('data-char')),
+                    // Text, not parseInt: RSG/QBR ids are citizenids.
+                    charId: this.getAttribute('data-char'),
                     name:   this.getAttribute('data-name'),
                 };
                 $('#emp-selected-name').textContent = escapeHtml(State.empSelectedPlayer.name);
                 $('#emp-add-form').classList.remove('hidden');
             });
         });
+    }
+
+    /* ========================================================================
+       EMPLOYEE MANAGEMENT — SHOP JOB (Config.ShopJobs)
+       A locked, read-only title for everyone who sees this tab, admins too.
+       Only server staff change a shop's job, with /pmshopjob.
+       ======================================================================== */
+
+    function renderShopJob(sj) {
+        var box = $('#emp-shopjob');
+        if (!box) return;
+        if (!sj || !sj.enabled) {
+            box.classList.add('hidden');
+            return;
+        }
+        var t = sj.text || {};
+        var title = $('#emp-shopjob-title');
+        if (sj.job) {
+            var name = (sj.label && sj.label !== sj.job) ? (sj.label + ' (' + sj.job + ')') : sj.job;
+            title.textContent = (t.locked || 'Shop job: %s').replace('%s', name) + ' \uD83D\uDD12 ' + (t.setBy || '');
+        } else {
+            title.textContent = t.none || '';
+        }
+        box.title = t.tooltip || '';
+        box.classList.remove('hidden');
     }
 
     function capitalize(str) {

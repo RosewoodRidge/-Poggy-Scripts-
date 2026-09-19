@@ -1,61 +1,112 @@
 # Poggy Trash Bins
 
-A fully-featured trash bin interaction system for RedM. Players can search bins for randomised loot and use them as shared world storage — all managed through a single, easy-to-edit config file. Works on every framework poggy_core supports.
+Searchable trash bins for RedM.
+
+Players search bins in town for random loot. Each bin also has a small shared storage that anyone can open, good for dead drops and stash spots. Works on every framework poggy_core supports.
 
 ## Features
 
-- **Search & Loot** — Players search trash bins with a timed animation and progress bar. Loot is rolled from a shared, configurable loot table with per-item drop chances.
-- **Persistent Storage** — Each bin has its own shared container (a custom inventory on VORP, a stash on RSG) that any player can access, enabling emergent gameplay like dead-drops and stash spots.
-- **Auto-Detection** — Optionally scans the world for existing trash bin props and registers them as interactable bins automatically — no manual coordinate entry needed.
-- **33 Pre-configured Locations** — Ships with bins placed across Valentine, Annesburg, Strawberry, Blackwater, Saint Denis, Tumbleweed, Armadillo, and more.
-- **Anti-Exploit** — Proximity check prevents interaction while another player is too close. Server-side distance and cooldown validation.
-- **Cooldown System** — Each bin has a randomised cooldown between searches to prevent farming.
-- **Staff Wipe Command** — Authorised staff groups can wipe all bin inventories live with a single command.
-- **Discord Logging** — Optional webhook logging of player search results.
-- **Built-in Progress Bar** — Styled NUI progress bar with no external dependency required, or bring your own.
-- **Map Blips** — Optional blip markers for all bin locations.
-- **Fully Configurable** — Loot tables, cooldowns, interaction keys, search duration, staff groups, and more — all in one config file.
+- **Search and loot.** A timed search with an animation and a progress bar. Loot comes from one shared table with a chance per item.
+- **Shared storage.** Every bin has its own container (a custom inventory on VORP, a stash on RSG) that any player can open.
+- **Auto-detection.** Bins already standing in the world can become searchable on their own. No coordinates needed.
+- **33 ready-made bins** across Valentine, Annesburg, Strawberry, Blackwater, Saint Denis, Tumbleweed, Armadillo and more.
+- **Anti-exploit.** No searching while another player stands too close. The server checks distance and cooldown too.
+- **Cooldowns.** Each bin has a random cooldown between searches, so nobody can farm one.
+- **Staff wipe command.** Staff groups can empty every bin at once.
+- **Discord logging.** Optional log of what each player found.
+- **Built-in progress bar.** No other resource needed.
+- **Map blips.** Optional blips for your listed bins.
 
-## Dependencies
+## Requirements
 
-| Dependency | Required |
+| Resource | Needed |
 |---|---|
-| **poggy_core** | Yes |
-| A framework poggy_core supports ([vorp_core](https://github.com/VORPCORE/vorp-core-lua) + [vorp_inventory](https://github.com/VORPCORE/vorp_inventory-lua) verified; rsg-core + rsg-inventory supported) | Yes |
+| `poggy_core` | Yes |
+| A framework poggy_core supports | Yes. VORP (vorp_core + vorp_inventory) is verified; RSG (rsg-core + rsg-inventory) is supported. |
 
-The script has no database tables of its own and never queries the framework's inventory tables; every container operation goes through poggy_core.
+The script has no database tables of its own. Every storage action goes through poggy_core.
 
 ## Installation
 
-1. Place the `poggy_trashbins` folder into your server's `resources` directory.
-2. Add `ensure poggy_core` and then `ensure poggy_trashbins` to your `server.cfg`.
-3. Edit `config.lua` to customise loot tables, bin locations, keys, cooldowns, and other settings.
-4. Restart your server.
+1. Put the `poggy_trashbins` folder in your resources folder.
+2. Add `ensure poggy_core`, then `ensure poggy_trashbins`, to `server.cfg`.
+3. Check that the items in the loot list exist on your server.
+4. Restart the server.
+
+## How it plays
+
+1. Walk up to a bin. Two prompts appear: **Search the Trash Bin** and **Take a look inside the Trash Bin**.
+2. **Search**: the character rummages for 5 to 10 seconds, then finds up to 2 items (or nothing).
+3. The bin is then empty for 30 minutes to 2 hours.
+4. **Look inside**: opens the bin's shared storage.
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/emptytrash` | Staff groups, console | Empties every bin's storage and resets their search cooldowns. |
+
+- The command name is set by `Config.WipeCommand`.
+- Staff groups are listed in `Config.StaffGroups` (`superadmin`, `admin`, `moderator` by default).
+- Turn the command off with `Config.AllowStaffGroupsToWipeWithCommand = false`.
+
+## Configuration
+
+Every setting can be changed in game with **`/poggy`** (the Poggy Hub). You can also edit `config.lua` and `translations.lua` by hand. Restart the script after a change.
+
+| Setting | What it controls |
+|---|---|
+| `Config.CommonLoot` | The shared loot list: item, chance (percent), fewest and most. |
+| `Config.TrashBins` | Your listed bins: position, whether to spawn a bin prop, storage id and slots. |
+| `Config.AutoDetect`, `Config.AutoDetectModels` | Finding bins that already stand in the world. |
+| `Config.RefillTimeMin` / `Config.RefillTimeMax` | The cooldown after a search, in seconds. |
+| `Config.SearchTimeMin` / `Config.SearchTimeMax` | How long a search takes, in milliseconds. |
+| `Config.MaxItemsPerSearch` | The most different items one search can find. |
+| `Config.InteractionRadius`, `Config.BlockTrashIfPlayerIsNearRange` | Prompt distance, and how close another player may be. |
+| `Config.WipeStorageOnScriptStart` | Empty every bin at each restart. |
+| `Config.AllowWeaponsInStorages` | Whether weapons may go in bins. |
+| `Config.EnableBlips` | Map blips for listed bins. |
+| `Config.EnableLogs`, `Config.LogsWebhook` | Discord logging. |
+| `translations.lua` | Every player-facing message. |
+
+### Giving one bin its own loot
+
+Every bin uses `Config.CommonLoot`. To give one bin a different table, add a `loot = { ... }` list to that bin, in the same shape as `Config.CommonLoot`.
+
+### Storage ids
+
+Each bin's storage is saved under its `storageid`. Give every bin a different one. Changing an id loses whatever is stored in that bin.
 
 ## Escrow
 
 | File | Status |
 |---|---|
-| `config.lua` | **Open** — fully editable |
-| `translations.lua` | **Open** — every player-facing string |
+| `config.lua` | **Open**, fully editable |
+| `translations.lua` | **Open**, every player-facing message |
 | `client/main.lua` | Escrowed |
 | `server/main.lua` | Escrowed |
 | `ui/progressbar.html` | Escrowed |
 
-## Configuration Overview
+## Troubleshooting
 
-All settings are in `config.lua`:
+**Searching never finds anything.**
+Check that the loot items exist in your items table, and that `Config.MaxItemsPerSearch` is above 0. A full inventory also means nothing is given.
 
-- **Loot Table** (`Config.CommonLoot`) — Add, remove, or adjust items and drop chances in one place.
-- **Bin Locations** (`Config.TrashBins`) — Add new bins by appending an entry with coordinates and a unique `storageid`.
-- **Auto-Detection** (`Config.AutoDetect`) — Automatically finds world trash bin props and registers them.
-- **Cooldowns** (`Config.RefillTimeMin` / `Config.RefillTimeMax`) — Control how long before a bin can be searched again.
-- **Search Duration** (`Config.SearchTimeMin` / `Config.SearchTimeMax`) — How long the search animation plays.
-- **Staff Command** (`Config.WipeCommand`) — In-game command for authorised staff to wipe all bin inventories.
-- **Translations** (`translations.lua`) — All player-facing text is configurable for localisation.
+**"Someone is standing too close to you!"**
+Another player is within `Config.BlockTrashIfPlayerIsNearRange` metres of the bin.
+
+**"It looks like someone has already messed around here."**
+The bin is on cooldown. Wait, or lower `Config.RefillTimeMin` / `Config.RefillTimeMax`.
+
+**Things left in bins disappear after a restart.**
+That is `Config.WipeStorageOnScriptStart = true`. Set it to `false` to keep bin contents across restarts.
+
+**The wipe command does nothing.**
+Check your character's group is in `Config.StaffGroups`, and that `Config.AllowStaffGroupsToWipeWithCommand` is on.
 
 ## Changelog
 
+- **1.5.2** — Poggy Hub support: settings, lists and help pages for `/poggy`. Bins no longer need `loot = Config.CommonLoot`: a bin without its own `loot` uses the shared list. Old configs that still have the line work as before.
 - **1.5.1** — The startup wipe and the staff wipe command no longer query the framework's inventory table directly (`character_inventories` does not exist on RSG, so the script errored at start). A wipe now registers the bin, destroys its contents with poggy_core's `storage.delete`, registers it again and confirms it is empty through `storage.items`, sweeping any leftovers with `storage.removeItem`. `oxmysql` is no longer a direct dependency (poggy_core still needs it). Behaviour on VORP is unchanged.
 - **1.5.0** — Layout to the owner's standard; every framework call through poggy_core.
 

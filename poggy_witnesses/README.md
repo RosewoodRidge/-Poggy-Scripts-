@@ -1,167 +1,260 @@
-# Witnesses - RedM Crime Detection System
+# Witnesses
 
-A sophisticated NPC witness system for RedM that creates realistic consequences for criminal actions. When players commit crimes, nearby NPCs will witness the event, flee to report it, and alert law enforcement.
+Every crime has a witness. Stop them before they reach the law.
 
-## Framework Support
+When a player commits a crime in town, a nearby NPC sees it, runs, and tries
+to report it. If the witness gets away, the law gets an alert with a blip and
+a waypoint. Catch the witness first and nobody hears about it.
 
-Witnesses runs on **poggy_core**, which detects your framework and talks to it. There is nothing to set in the config: install poggy_core and Witnesses works on any framework poggy_core supports.
+---
 
-## Features
+## What it does
 
-- **Framework-agnostic**: Everything framework-shaped goes through poggy_core
-- **Dynamic Witness System**: NPCs who witness crimes will try to flee and report to authorities
-- **Multiple Crime Types**: Detects shooting, threatening with weapons, melee combat, lassoing, trampling, and vehicle hijacking
-- **Witness Escape Logic**: Witnesses must successfully escape the player to report the crime
-- **Law Enforcement Alerts**: Integration with law enforcement jobs to receive crime notifications
-- **Blip System**: Visual tracking of witness locations on the map
-- **Persistent Blips**: Alert blips that remain on the map until the responding officer arrives at the location
-- **Town-Based Detection**: Configure which towns have active witness systems
-- **Town Blacklisting**: Disable witness system in specific towns like Van Horn or Wapiti
-- **Weapon Detection**: Smart weapon detection to determine if actions are threatening
-- **NPC Law Response**: Spawn NPC law enforcement when player LEO isn't on duty
-- **Engaged Crimes System**: Configure which crime types trigger NPC law enforcement response
-- **Player LEO Priority**: Automatically disable NPC law when player LEO is on duty
-- **Extensive Configuration**: Highly customizable via config/config.lua and config/npc.lua
+- **Witnesses.** An NPC near the crime becomes a witness, turns to look, then
+  flees. They report once they get far enough away and stay away long enough.
+- **Crimes it notices.** Shooting and aiming, threatening with a weapon, fist
+  fights and melee, lassoing, trampling, stealing a horse or wagon, and riding
+  with a hogtied hostage. Each can be switched on or off, with its own chance.
+- **Law alerts.** Law jobs get an alert with an icon, a blip, an area circle
+  and an optional waypoint. Alerts can go to law jobs only while they are on
+  duty.
+- **Player alert commands.** `/callpolice`, `/calldoctor`, `/undertaker`,
+  `/calltrain` and any you add. Each has its own jobs, grades, blip and
+  cooldown.
+- **Alerts for other scripts.** Robbery, break-in, bounty, drug sale and more,
+  fired by your other scripts.
+- **Blips that wait.** An alert can keep its blip until the responder arrives.
+- **Where it works.** Only inside the towns you list, or everywhere; with
+  blacklisted areas (Sisika, Van Horn, Wapiti by default) where nothing is
+  noticed.
+- **NPC law response (optional).** A posse of NPC lawmen rides out for the
+  crimes you choose, sized by how serious the crime is. Players can fight,
+  flee or surrender. It stands down when player lawmen are on duty.
+- **Law immunity.** Witnesses can ignore crimes by players with a law job.
+- **Three languages.** English, Spanish and French.
 
-## Dependencies
+## Requirements
 
-- **poggy_core** 0.14.0 or newer (required)
-- **PolyZone** (required): https://github.com/mkafrin/PolyZone
-- A duty resource poggy_core can read, for duty checks (on VORP: **vorp_police** / **vorp_medic**). Optional, see below. Witnesses itself never talks to a framework resource.
-- A jail script with a server export, if you want NPC law arrests to add jail time (`Config.LawResponse.JailExportCall` in `config/npc.lua`). Optional, see below.
+| Resource | Why |
+|---|---|
+| **poggy_core** 0.14.0 or newer | Required. Talks to your framework (VORP, RSG or QBR). |
+| **PolyZone** | Required. The town zones. https://github.com/mkafrin/PolyZone |
+| A duty script poggy_core can read | Optional. For duty checks. On VORP: vorp_police / vorp_medic. |
+| A jail script with a server export | Optional. Only if NPC law arrests should add jail time. |
+
+Witnesses never talks to your framework directly. Everything goes through
+poggy_core.
 
 ## Installation
 
-1. Install and start **poggy_core** and **PolyZone**
-2. Extract the `poggy_witnesses` folder into your server's `resources` directory
-3. Add `ensure poggy_witnesses` to your server.cfg, after poggy_core and PolyZone
-4. Restart your server
+1. Install and start **poggy_core** and **PolyZone**.
+2. Put the `poggy_witnesses` folder in your `resources` folder.
+3. Add `ensure poggy_witnesses` to `server.cfg`, after poggy_core and PolyZone.
+4. Restart the server.
 
-### Upgrading from the `Witnesses` folder
+### Upgrading from the old `Witnesses` folder
 
-From 1.2.0 the resource folder is called `poggy_witnesses` (it used to be `Witnesses`).
+From 1.2.0 the folder is called `poggy_witnesses`.
 
-1. Copy your settings out of the old `config.lua` and `config_npc.lua` (and `translations.lua` if you changed any text).
+1. Copy your settings out of the old `config.lua` and `config_npc.lua` (and
+   `translations.lua` if you changed any text).
 2. Delete the old `Witnesses` folder and put `poggy_witnesses` in its place.
-3. In server.cfg, change `ensure Witnesses` to `ensure poggy_witnesses`.
-4. Put your settings back: `config.lua` is now `config/config.lua`, `config_npc.lua` is now `config/npc.lua`, and `translations.lua` stays next to `fxmanifest.lua`.
+3. In `server.cfg`, change `ensure Witnesses` to `ensure poggy_witnesses`.
+4. Put your settings back. `config.lua` is now `config/config.lua`,
+   `config_npc.lua` is now `config/npc.lua`, and `translations.lua` stays next
+   to `fxmanifest.lua`.
 
-If another resource of yours uses the Witnesses API, update it too:
+If another script uses the Witnesses API, update it too:
 
-- `exports.Witnesses:CreateWitness(...)`, `exports.Witnesses:CreateWitnessLocal(...)` and `exports.Witnesses:TriggerAlertForPlayer(...)` become `exports.poggy_witnesses:...`
-- the server events `witnesses:onWitnessCreated`, `witnesses:onWitnessStopped`, `witnesses:onWitnessReported` and `witnesses:onAlertSent` become `poggy_witnesses:onWitnessCreated` and so on
+- `exports.Witnesses:...` becomes `exports.poggy_witnesses:...`
+- the server events `witnesses:onWitnessCreated` (and the others) become
+  `poggy_witnesses:onWitnessCreated` and so on.
 
 The alert commands and every setting are unchanged.
 
+---
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/callpolice` | Everyone | Calls the law to your position. 120 s cooldown. |
+| `/calldoctor` | Everyone | Calls a doctor. The blip stays until they arrive. 120 s cooldown. |
+| `/undertaker`, `/alertundertaker` | Everyone | Calls the undertaker. |
+| `/calltrain` | Everyone | Asks the conductor for a pickup. |
+| `/clearalerts` | Everyone | Removes all your alert blips and your waypoint. |
+| `/cleanalertblips` | Everyone | Removes all your alert blips. Keeps your waypoint. |
+| `/clearwaypoint`, `/clearmarker` | Everyone | Clears your waypoint and GPS route. |
+| `/getmyweaponhash_cl` | Everyone | Prints the weapon you hold to the F8 console (diagnostic). |
+| `/dumpalertgroups` | ACE `command.dumpalertgroups`, console | Lists who is registered for which alerts, then refreshes them. |
+| `/debugalertsgroups` | ACE `command.debugalertsgroups`, console | Prints the alert registrations to the server console. |
+
+The alert commands are set in the **Job alerts** list, so the names above are
+the ones it ships with. The other alerts in that list (robbery, break-in,
+bounty and so on) have odd names on purpose. They are meant to be fired by
+your other scripts. Anyone who knows a name can type it, so keep them odd.
+
+The crime alerts (`witness_shooting_alert` and the others) are fired by the
+script itself when a witness reports.
+
+---
+
 ## Configuration
 
-The script is highly configurable through the `config/config.lua` file:
+**Every setting can be changed in game with `/poggy`**, with a description of
+each one. Changes need a restart of the script, which the hub offers.
 
-- **Duty Check**: `Config.DutyCheckEnabled` decides whether law jobs only get alerts while on duty
-- **Debug Settings**: Toggle debugging information
-- **Witness Parameters**: Control cooldowns, maximum witnesses, search radius, etc.
-- **Crime Detection**: Enable/disable specific crime types and their parameters
-- **Town Zones**: Set which towns have active witness detection
-- **Town Blacklisting**: Prevent witness detection in specific towns
-- **Non-threatening Items**: Configure which items don't trigger threatening alerts
-- **NPC Blacklist**: Prevent specific NPC models from becoming witnesses
-- **Alert Configuration**: Customize alert messages, blips, and job requirements
-- **Notification Options**: Toggle top notifications for witness alerts
+The files, if you prefer to edit them by hand:
 
-### Duty Checks
+| File | What it holds |
+|---|---|
+| `config/config.lua` | Witnesses, crimes, towns, law jobs, duty, alert blips, job alerts, ignored items and NPCs |
+| `config/npc.lua` | The optional NPC law response |
+| `translations.lua` | The language, and every message in English, Spanish and French |
 
-With `Config.DutyCheckEnabled = true`, a player with a law job only receives alerts while on duty, unless the alert sets `overrideDutyCheck = true`. Duty comes from poggy_core; on VORP an officer is on duty after going on duty in vorp_police (or vorp_medic). When no duty resource is running, nobody counts as on duty.
+### Highlights
 
-If your duty script is one poggy_core does not read, set an override that returns `true` when the player is on duty:
+| Setting | What it does |
+|---|---|
+| `Config.Checks` | Which crimes are noticed, and the chance for each. |
+| `Config.MaxActiveWitnesses` | How many witnesses can flee at once. |
+| `Config.WitnessEscape` | How far a witness must run, and how long they need to report. |
+| `Config.EnforceTownLimits` | `true`: only inside the towns in `Config.Towns`. `false`: everywhere. |
+| `Config.BlacklistedTowns` | Areas where nothing is ever noticed. |
+| `Config.PoliceJobList` | Your law jobs. Exact names, case-sensitive. |
+| `Config.DutyCheckEnabled` | Only alert law jobs who are on duty. |
+| `Config.Alerts` | Every alert and alert command. |
+| `Config.LawResponse.Enabled` | Turns the NPC law response on. Off by default. |
+
+### Duty checks
+
+With `Config.DutyCheckEnabled = true`, a player with a law job only gets alerts
+while on duty. An alert with `overrideDutyCheck = true` ignores this. Duty
+comes from poggy_core. On VORP, an officer is on duty after going on duty in
+vorp_police (or vorp_medic). With no duty script running, nobody counts as on
+duty, so law jobs get no alerts.
+
+Other jobs, such as doctors or the undertaker, are always alerted.
+
+If your duty script is one poggy_core does not read, set an override in
+`config/config.lua` that returns `true` when the player is on duty:
 
 ```lua
 Config.DutyExportCall = "return exports['my_duty_script']:IsOnDuty(playerid)"
 ```
 
-Leave it `""` to use poggy_core.
+`playerid`, `job`, `charId`, `identifier` and `jobGrade` are replaced with the
+player's values. Leave it `""` to use poggy_core. This setting runs as code, so
+it can only be changed in the file, not in `/poggy`.
 
-## How It Works
+### Blips that wait for the responder
 
-1. When a player commits a crime (shooting, fighting, etc.), nearby NPCs become witnesses
-2. Witnesses will flee from the player to report the crime
-3. If a witness successfully escapes (reaches a safe distance for a set duration), they report the crime
-4. Law enforcement players receive an alert with location information
-5. Players can eliminate witnesses before they report to prevent law enforcement notification
+Add `persistentBlip = true` to an alert and its blip stays until the responder
+gets within `Config.PersistentBlipClearDistance` metres (25 by default).
+`Config.PersistentBlipEnabled = false` turns this off everywhere.
 
-## Player Victim Configuration
+### NPC law response (`config/npc.lua`)
 
-The system can be configured to recognize players as victims of crimes through the `Config.AllowPlayersAsVictims` option. This allows crime detection when actions are performed against other players, though players cannot become witnesses themselves.
+Off by default. Turn it on with `Config.LawResponse.Enabled = true`.
 
-## Persistent Blips
+- Only crimes in `Config.LawResponse.EngagedCrimes` bring a posse (Shooting and
+  Hijacking by default). Other crimes still alert player lawmen.
+- `Config.LawResponse.PlayerLEOPriority = true`: no posse while any player with
+  a law job is on duty.
+- `CrimeSeverity` makes each crime LOW, MEDIUM or HIGH. `ResponseTypes` sets
+  the posse size, aggressiveness and chance for each severity.
+- Officers appear at least 70 m away. Get further than `DespawnDistance` away
+  and you have escaped.
+- The officers' models depend on the town (`Config.TownLawModels`); outside
+  towns, bounty hunters come (`Config.DefaultLawModels`).
 
-Persistent blips allow alert blips to remain on the map until the responding officer physically arrives at the crime scene location. This is useful for ensuring officers don't lose track of alerts.
-
-### Configuration (config/config.lua)
-
-```lua
-Config.PersistentBlipEnabled = true           -- Master toggle for persistent blip feature
-Config.PersistentBlipClearDistance = 25.0     -- Distance in meters at which persistent blips are cleared when player arrives
-Config.PersistentBlipCheckInterval = 1000     -- How often (in ms) to check player distance from persistent blips
-```
-
-### Per-Alert Configuration
-
-Add `persistentBlip = true` to any alert in `Config.Alerts` to enable persistent blips for that alert type:
-
-```lua
-{
-    name = 'NEED DOCTOR',
-    command = 'calldoctor',
-    -- ... other settings ...
-    persistentBlip = true  -- Blip stays until doctor arrives
-}
-```
-
-## Engaged Crimes & Player LEO Priority
-
-The system can be configured to only spawn NPC law enforcement for specific "engaged" crime types, and to automatically disable NPC law response when player law enforcement is on duty.
-
-### Engaged Crimes (config/npc.lua)
-
-Only crimes listed in `Config.EngagedCrimes` will trigger NPC law enforcement response. Other crimes will still alert player LEO but won't spawn NPC officers:
+**Surrender and jail.** A player can surrender to the posse and be arrested.
+Jail time is off by default: stock VORP has no jail API. If you run a jail
+script with a server export, set the call in `config/npc.lua`. `src`, `charId`
+and `timeInSeconds` are replaced with the real values:
 
 ```lua
-Config.EngagedCrimes = {
-    "Shooting",    -- Shooting triggers NPC law response
-    "Hijacking",   -- Hijacking triggers NPC law response
-    -- "Threatening", -- Uncomment to enable NPC response for threatening
-    -- "Melee",       -- Uncomment to enable NPC response for melee
-    -- "Lassoing",    -- Uncomment to enable NPC response for lassoing
-    -- "Trampling"    -- Uncomment to enable NPC response for trampling
-}
+JailExportCall = "exports.another_jail:JailPlayer(src, timeInSeconds, 'Arrested by law')",
 ```
 
-### Player LEO Priority (config/npc.lua)
+Leave it `""` to arrest without jail. Like the duty override, it runs as code
+and can only be changed in the file.
 
-With `PlayerLEOPriority = true`, NPC law does not spawn while at least one player with a job from `Config.PoliceJobList` is on duty (duty as described above).
+---
 
-### NPC Arrests and Jail (config/npc.lua)
+## For developers
 
-When a player surrenders to NPC law they are arrested and the law response ends. Jail time is off by default: stock VORP has no jail API (vorp_police only jails through its `/jail` command and exports nothing), so `Config.LawResponse.JailExportCall` ships empty and the `JailTime` table is not used.
-
-If you run a jail script that has a server export, put the call in `JailExportCall`. `src`, `charId` and `timeInSeconds` are replaced with the real values before it runs:
+Other scripts can use the full witness flow for their own crimes.
 
 ```lua
-Config.LawResponse.JailExportCall = "exports.another_jail:JailPlayer(src, timeInSeconds, 'Arrested by law')"
+-- Server: a witness must see it and escape before the alert is sent.
+local requestId = exports.poggy_witnesses:CreateWitness(source, "GraveRobbing", {
+    alertCommand       = "graverobbing8x2kp19", -- an alert from Config.Alerts
+    triggerLawResponse = true,                  -- send the NPC posse if reported
+    lawActionType      = "Shooting",            -- severity to use for the posse
+})
+
+-- Client
+exports.poggy_witnesses:CreateWitnessLocal("GraveRobbing", { alertCommand = "graverobbing8x2kp19" })
+
+-- Server: send an alert straight away, no witness.
+exports.poggy_witnesses:TriggerAlertForPlayer(src, "graverobbing8x2kp19")
 ```
 
-Leave it `""` to arrest without jail. The old default (`exports.vorp_police:StartJailTimerForPlayer(...)`) is ignored if it is still in your config.
+Server events: `poggy_witnesses:onWitnessCreated`, `onWitnessStopped`,
+`onWitnessReported` and `onAlertSent`. The full option list is at the top of
+`shared/api.lua`.
+
+---
+
+## Troubleshooting
+
+**Law players get no alerts.**
+Check the job name is in `Config.PoliceJobList` and the grade is in
+`Config.PoliceJobRanks`. If `Config.DutyCheckEnabled` is on, they must be on
+duty in a duty script poggy_core reads. `/dumpalertgroups` shows who is
+registered.
+
+**Nothing is ever witnessed.**
+With `Config.EnforceTownLimits = true`, crimes only count inside the towns in
+`Config.Towns`. Check you are not in a blacklisted area. Check the crime is
+enabled in `Config.Checks` and its chance is above 0. Law jobs are immune when
+`Config.LawImmunityEnabled` is on.
+
+**Aiming a lasso or camera starts a witness.**
+Add the weapon name to `Config.NonThreateningAimItems`.
+`/getmyweaponhash_cl` shows the name the script sees.
+
+**A job NPC from another script runs off to report.**
+Add its model name to `Config.BlacklistNPCs`.
+
+**The NPC posse never comes.**
+`Config.LawResponse.Enabled` must be `true`, the crime must be in
+`EngagedCrimes`, and with `PlayerLEOPriority` on, no player lawmen may be on
+duty.
+
+**A setting shows as read-only in `/poggy`.**
+It is built from another setting (a job alert that uses the law jobs list or a
+translation) or it runs as code. Change the setting it comes from, or edit
+the file.
+
+---
 
 ## Changelog
 
-- **1.3.0** — Framework-agnostic: no framework events or exports are used anywhere. Client job changes come from `poggy_core:jobChangedLocal`, duty from poggy_core's `job.get` / `players.onDuty`. Requires poggy_core 0.14.0.
-- **1.2.1** — Duty and jail defaults fixed: no calls to exports that do not exist.
+- **1.3.1** — Poggy Hub support: settings, commands and help in `/poggy`.
+- **1.3.0** — Framework-agnostic: no framework events or exports are used
+  anywhere. Client job changes come from `poggy_core:jobChangedLocal`, duty
+  from poggy_core's `job.get` / `players.onDuty`. Requires poggy_core 0.14.0.
+- **1.2.1** — Duty and jail defaults fixed: no calls to exports that do not
+  exist.
 - **1.2.0** — Folder renamed to `poggy_witnesses`; runs on poggy_core.
 
-## License & Legal
+## Licence
 
-© 2025 All Rights Reserved
+© 2025 All rights reserved.
 
-This resource is protected by copyright law. The config file is available for configuration, but the client and server files are escrowed. You may not redistribute, modify, or repackage this resource without explicit permission from the author.
-
-This product is for commercial use only within your server. Resale, transfer, or redistribution is strictly prohibited.
+The config and translation files are open for you to edit. The client and
+server files are escrowed. You may not redistribute, modify or repackage this
+resource without permission from the author. For use on your own server only.
+Resale, transfer or redistribution is not allowed.

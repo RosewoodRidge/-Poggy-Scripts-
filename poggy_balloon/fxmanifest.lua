@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_balloon'
 author 'Poggy'
 description 'Hot air balloons with an NPC taxi service to waypoints, self-piloted rentals and passenger animations.'
-version '1.6.0'
+version '1.6.1'
 poggy_core_min '0.14.0'
 
 dependencies {
@@ -35,6 +35,10 @@ server_scripts {
     'server/balloon_server.lua',
     'server/balloon_taxi_server.lua',
     'server/balloon_rental_server.lua',
+}
+
+files {
+    'docs/icon.png',
 }
 
 escrow_ignore {

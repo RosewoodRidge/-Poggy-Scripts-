@@ -29,15 +29,15 @@ Config.Exchange = {
     -- run /pmhere to get the coordinates, then paste them here.
     desks = {
         { name   = "Blackwater Exchange",
-          coords = vec3(-852.84, -1233.46, 43.46), heading = 357.0,
+          coords = vector3(-852.84, -1233.46, 43.46), heading = 357.0,
           npc    = "mp_u_m_m_trader_01", blip = true },
 
         { name   = "Saint Denis Exchange",
-          coords = vec3(2647.05, -1294.80, 51.25), heading = 297.0,
+          coords = vector3(2647.05, -1294.80, 51.25), heading = 297.0,
           npc    = "mp_u_m_m_trader_01", blip = true },
 
         { name   = "Valentine Exchange",
-          coords = vec3(-303.22, 772.56, 117.70),  heading = 106.0,
+          coords = vector3(-303.22, 772.56, 117.70),  heading = 106.0,
           npc    = "mp_u_m_m_trader_01", blip = true },
     },
 

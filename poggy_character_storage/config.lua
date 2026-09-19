@@ -200,7 +200,7 @@ Config.ArmoryShops = {
             coords   = vector4(-769.41, -1230.65, 48.46, 88.06),
             scenario = "WORLD_HUMAN_CLIPBOARD",
         },
-        sellitems  = Config.WeaponArmoryItems,
+        sellitems  = "WeaponArmoryItems", -- the name of an item list in this file (Config.<name>)
         -- Discord Webhook Tracking (activity only — tracks who takes what)
         discord = {
             enabled = false,            -- set to true after pasting your webhook URL below
@@ -222,7 +222,7 @@ Config.ArmoryShops = {
     --         coords   = vector4(x, y, z, heading),
     --         scenario = "WORLD_HUMAN_CLIPBOARD",
     --     },
-    --     sellitems  = Config.WeaponArmoryItems, -- reuse a master list
+    --     sellitems  = "WeaponArmoryItems", -- reuse a master list by name
     -- },
 }
 
@@ -419,8 +419,8 @@ Config.Translations = {
         ["open_storage_prompt"] = "Open Storage",
         
         -- Commands
-        ["usage_movestorage"] = "Usage: ".. Config.adminmovestorage .." id x y z",
-        ["usage_deletestorage"] = "Usage: ".. Config.admindeletestorage .." id",
+        ["usage_movestorage"] = "Usage: /%s id x y z", -- %s = the command name (Config.adminmovestorage)
+        ["usage_deletestorage"] = "Usage: %s id", -- %s = the command name (Config.admindeletestorage)
         ["storage_deleted"] = "Storage #%d deleted",
         ["invalid_location"] = "You cannot create a storage here",
         
@@ -567,7 +567,6 @@ Config.Translations = {
         ["player_info_loading"] = "Cargando jugador %d...",
         ["player_info_wait"] = "Por favor espera mientras se carga la información",
         ["add_remove_desc"] = "Haz clic para eliminar el acceso de este jugador a tu almacén",
-        ["nearby_player_desc"] = "ID de Personaje: %d\nID de Servidor: %d",
         ["manual_player_desc"] = "Introduce manualmente el nombre del jugador",
         ["nearby_players_desc"] = "Buscar jugadores en tu vecindad",
         ["manage_job_access_desc"] = "Define qué trabajos y grados pueden acceder a este almacén",
@@ -594,8 +593,8 @@ Config.Translations = {
         ["open_storage_prompt"] = "Abrir Almacén",
         
         -- Commands
-        ["usage_movestorage"] = "Uso: ".. Config.adminmovestorage .." id x y z",
-        ["usage_deletestorage"] = "Uso: ".. Config.admindeletestorage .." id",
+        ["usage_movestorage"] = "Uso: /%s id x y z",
+        ["usage_deletestorage"] = "Uso: %s id",
         ["storage_deleted"] = "Almacén #%d eliminado",
         ["invalid_location"] = "No puedes crear un almacén aquí",
         
@@ -768,8 +767,8 @@ Config.Translations = {
         ["open_storage_prompt"] = "Lager öffnen",
 
         -- Befehle
-        ["usage_movestorage"] = "Verwendung: ".. Config.adminmovestorage .." id x y z",
-        ["usage_deletestorage"] = "Verwendung: ".. Config.admindeletestorage .." id",
+        ["usage_movestorage"] = "Verwendung: /%s id x y z",
+        ["usage_deletestorage"] = "Verwendung: %s id",
         ["storage_deleted"] = "Lager #%d gelöscht",
         ["invalid_location"] = "Du kannst hier kein Lager erstellen",
 

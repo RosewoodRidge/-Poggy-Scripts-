@@ -12,7 +12,7 @@ Config.DEBUG = false
 --================================--
 
 -- Update interval: How often to send blip updates to admins (milliseconds)
-Config.UPDATE_INTERVAL = 150
+Config.UPDATE_INTERVAL_MS = 500
 
 -- Pending player retry interval (milliseconds)
 Config.PENDING_RETRY_INTERVAL = 5000
@@ -27,7 +27,8 @@ Config.ADMIN_GROUPS = {
 --       CLIENT CONFIGURATION     --
 --================================--
 
--- Whitelist: Only these Steam Names (Display Names) can see blips
+-- Whitelist: Only these Steam Names (Display Names) can see blips.
+-- They must also be in one of the ADMIN_GROUPS.
 -- If empty, all players in ADMIN_GROUPS will see blips
 Config.ALLOWED_NAMES = {
 }

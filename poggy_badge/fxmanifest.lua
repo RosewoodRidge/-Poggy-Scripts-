@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_badge'
 author 'Poggy'
 description 'Poggy Badge – custom badge attachment, editor & display'
-version '1.3.0'
+version '1.3.1'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -35,6 +35,7 @@ files {
     'ui/style.css',
     'ui/script.js',
     'ui/images/*.png',
+    'docs/icon.png',
 }
 
 escrow_ignore {

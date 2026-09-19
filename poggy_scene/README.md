@@ -1,231 +1,309 @@
-# poggy_scene
+# Poggy Scene
 
-A RedM roleplay utility resource that lets players place floating scene text in the world, set persistent status labels on their character, send in-character `/me` and `/do` actions, and view nearby `/me` messages in a tidy on-screen box.
+Roleplay text tools for RedM.
 
----
-
-## Table of Contents
-
-1. [Features at a Glance](#features-at-a-glance)
-2. [Commands](#commands)
-3. [Scene Editor — Step by Step](#scene-editor--step-by-step)
-4. [Status Editor — Step by Step](#status-editor--step-by-step)
-5. [ME Display Box](#me-display-box)
-6. [Removing a Scene](#removing-a-scene)
-7. [Configuration Reference](#configuration-reference)
-8. [UI Themes](#ui-themes)
+Players place coloured floating text in the world, wear a status tag above their head, and send `/me` and `/do` actions. Nearby `/me` messages also collect in a tidy on-screen box so nobody misses them.
 
 ---
 
-## Features at a Glance
+## Contents
+
+1. [Features](#features)
+2. [Requirements](#requirements)
+3. [Installation](#installation)
+4. [Commands](#commands)
+5. [Scene Editor](#scene-editor)
+6. [Status Editor](#status-editor)
+7. [The /me box](#the-me-box)
+8. [Removing a scene](#removing-a-scene)
+9. [Managing scenes in /poggy](#managing-scenes-in-poggy)
+10. [Permissions](#permissions)
+11. [Configuration](#configuration)
+12. [UI themes](#ui-themes)
+13. [Troubleshooting](#troubleshooting)
+
+---
+
+## Features
 
 | Feature | What it does |
 |---|---|
-| **Scene text** | Place coloured, size-formatted floating text anchored to a spot in the world. Visible to all nearby players. Persists across reconnects and server restarts. |
-| **Status label** | Attach a persistent coloured text tag above your character that all nearby players see. Save commonly-used statuses as presets. |
-| **/me / /do** | Send in-character action and description messages. Text floats above your character with a dark background and also appears in the ME Box. |
-| **/id / /cash** | Show your server ID or current cash amount as a floating label above your character. |
-| **ME Display Box** | A semi-transparent chat box near the top of the screen that collects nearby `/me` messages so you never miss them even if the overhead text scrolls away. |
+| **Scene text** | Coloured, sized text fixed to a spot in the world. Everyone nearby sees it. It stays through reconnects and server restarts. |
+| **Status tag** | Coloured text that stays above your character. Save the ones you use often as presets. |
+| **/me and /do** | In-character actions and scene descriptions, floating above your character. |
+| **/id and /cash** | Show your server ID or your cash above your character for a few seconds. |
+| **/me box** | A see-through box near the top of the screen that collects nearby `/me` messages. |
+| **Scenes panel** | Every placed scene in one table in `/poggy`: who placed it, where and when. Fix its text, delete one, everything by one player, or everything older than a number of days. |
+
+---
+
+## Requirements
+
+| Resource | Why |
+|---|---|
+| **poggy_core** 0.13.0 or newer | Characters, jobs, groups, cash and notifications, on VORP, RSG or QBR |
+| [oxmysql](https://github.com/overextended/oxmysql) | Stores scenes and status presets |
+| `/assetpacks` | Built into the server (FXServer); nothing to install |
+
+---
+
+## Installation
+
+1. Put the `poggy_scene` folder in your `resources` folder.
+2. Add it to `server.cfg`, after poggy_core and oxmysql:
+   ```
+   ensure poggy_core
+   ensure poggy_scene
+   ```
+3. Restart the server.
+
+The scene and status tables are created for you when the script starts. There is nothing to import.
+
+If you manage the database yourself, set `PoggyCoreConfig.Sql.AutoInstall = false` in `poggy_core/config.lua` and import `sql/install.sql`.
 
 ---
 
 ## Commands
 
-| Command | Usage | Description |
+| Command | Example | What it does |
 |---|---|---|
 | `/scene` | `/scene` | Opens the Scene Editor to place world text. |
-| `/me` | `/me texts a note` | Sends an in-character action. Floats above your character and appears in the ME Box. |
-| `/do` | `/do The wanted poster is torn` | Sends an out-of-character description. Floats above your character. |
-| `/status` | `/status Injured, left arm` | Sets a persistent status label above your character. Using it alone (`/status`) opens the full Status Editor with colour options and saved presets. |
-| `/cstatus` | `/cstatus` | Clears your active status label. |
-| `/id` | `/id` | Displays your server ID as a floating label above your character (visible to nearby players). |
-| `/cash` | `/cash` | Displays your current cash as a floating label above your character. |
-| `/mebox` | `/mebox <option>` | Controls the ME Display Box. See [ME Display Box](#me-display-box) for all options. |
+| `/me` | `/me tips his hat` | An in-character action. Floats above you and goes into nearby `/me` boxes. |
+| `/do` | `/do The wanted poster is torn` | A scene description, in red above you. |
+| `/status` | `/status Injured, left arm` | Sets a status tag above you. Alone, `/status` opens the Status Editor. |
+| `/cstatus` | `/cstatus` | Clears your status tag. |
+| `/id` | `/id` | Shows your server ID above you. |
+| `/cash` | `/cash` | Shows your cash above you. |
+| `/mebox` | `/mebox persist` | Controls your `/me` box. See [The /me box](#the-me-box). |
 
-> All command names are configurable by a server admin in `config.lua`.
+Everyone can use every command. `/scene` can be limited to some jobs (see [Permissions](#permissions)).
 
-### Database
-
-The scene and status tables are created automatically when the script starts (`sql/install.sql`). To import the file yourself instead, set `PoggyCoreConfig.Sql.AutoInstall = false` in `poggy_core/config.lua`.
+All command names can be changed in the config.
 
 ---
 
-## Scene Editor — Step by Step
+## Scene Editor
 
-Scenes are floating lines of text placed at a fixed point in the world. Everyone within range can read them without interaction.
+Scenes are lines of text fixed to a spot in the world. Anyone close enough can read them.
 
-### Placing a Scene
+### Step 1: write the text
 
-1. Type `/scene` in chat.
-2. The **Scene Editor** panel opens in the bottom-right corner.
+1. Type `/scene`. The Scene Editor opens in the bottom-right corner.
+2. Type your text in the box.
+3. **Size:** pick a font size from the dropdown on the toolbar.
+4. **Colour:** click a colour square. Type after clicking and the text is that colour. You can change colour mid-line.
+5. Select text you already typed, then click a colour or size, to change it.
+6. Click **Confirm →**.
 
-**Step 1 — Write your text**
+Text placed in the world is shown in **capitals**. That is how the game draws it.
 
-- Click inside the text box and type your scene description.
-- All text is automatically converted to **uppercase** when placed in the world (this is an RDR2 engine limitation).
+### Step 2: position it
 
-**Formatting your text:**
+The text now floats in the world so you can see it.
 
-- **Font size** — Use the dropdown on the left of the toolbar to change how large the text is before you type or after selecting existing text.
-- **Colour** — Click any of the coloured squares in the toolbar to set the colour. The active colour has a gold border. Click a swatch first, then type, and that section will be that colour. You can mix colours on the same line by changing the swatch mid-sentence.
+- Click the **◄ ►** arrows on X (left/right), Y (forward/back) and Z (up/down).
+- Scroll the mouse wheel over a value to fine-tune.
+- Type a number and press **Enter**.
+- Click and hold outside the panel to look around.
 
-> **Tip:** If you colour text and then change the font size, the colour is preserved. You can also select existing typed text and then click a colour or size to reformat it.
+Click **✓ Place** to save it. Click **✕ Cancel** to go back to the text without losing it.
 
-3. Click **Confirm →** when you are happy with the text.
-
-**Step 2 — Position the text**
-
-A position editor replaces the text panel. Your text is now floating in the world so you can see it live.
-
-- Use the **◄ ►** arrow buttons on each axis (X, Y, Z) to nudge the text in that direction.
-- Scroll the **mouse wheel** over an axis value for fine adjustments.
-- Type a number directly into any axis field and press **Enter**.
-- **X** = left/right, **Y** = forward/back, **Z** = up/down.
-
-4. Click **✓ Place** to save the scene. It is now visible to all nearby players and persists on the server.
-5. Click **✕ Cancel** at any point to go back to the text editor without losing your work.
-
-### Visibility
-
-Scenes are visible to any player within the distance set by `Config.scenevisabilitydistance` (default: **5 units**).
+Scene text can be read from 5 metres away by default (`Config.scenevisabilitydistance`).
 
 ---
 
-## Status Editor — Step by Step
+## Status Editor
 
-A status is a short piece of text that floats above your character at all times, visible to other players nearby. It is intended for things like injury states, moods, or RP tags.
+A status tag floats above your character until you clear it. Use it for injuries, moods or RP tags.
 
-### Setting a Status
+- **Quick:** `/status Your text` sets it at once, with no colours.
+- **Full editor:** `/status` on its own opens the Status Editor.
+  1. Type your status.
+  2. Pick colours from the toolbar.
+  3. Optional: type a preset name and click 💾 to save it.
+  4. Click **▶ Apply**.
 
-**Quick method:** `/status Your text here` — applies instantly with no colour formatting.
+**Presets** are listed at the bottom. Click a name to load it, **▶** to apply it, **✕** to delete it. Presets are saved per character.
 
-**Full editor method:** `/status` with no arguments opens the Status Editor panel.
-
-1. Click inside the **Status Text** box and type your status.
-2. Use the **colour swatches** in the toolbar to choose a colour before or after typing.
-3. *(Optional)* Enter a **Preset name** in the name field and click 💾 to save it for later.
-4. Click **▶ Apply** to set the status.
-
-### Presets
-
-Saved presets appear as a list at the bottom of the Status Editor. Clicking a preset name loads it into the text box for editing. Click **▶** to apply it instantly, or **✕** to delete it.
-
-### Clearing a Status
-
-- Click **■ Clear** in the Status Editor, or
-- Type `/cstatus` in chat.
+**Clear it** with **■ Clear** in the editor, or `/cstatus`.
 
 ---
 
-## ME Display Box
+## The /me box
 
-The ME Box is a semi-transparent overlay near the top-centre of your screen that collects `/me` messages from players close to you. This lets you read emote messages even when the overhead text above a player's head has already faded.
-
-### Controlling the Box
+A see-through box near the top of the screen that collects `/me` messages from players near you. Your own `/me` messages always appear.
 
 Use `/mebox <option>`:
 
 | Option | Effect |
 |---|---|
-| `auto` | The box appears when a `/me` is received and automatically fades after the configured timeout (default 30 seconds). **This is the default mode.** |
-| `persist` | The box stays visible at all times as long as there are messages in it. It never fades automatically. |
-| `off` | Hides the box entirely. You will not see any incoming `/me` messages in it. |
-| `small` | Makes the box narrower. |
-| `normal` | Resets the box to its default width. |
-| `large` | Makes the box wider. |
-| `move` | Enters **drag mode** — you can click and drag the box anywhere on screen. Press **ESC** to save the new position and exit drag mode. The position is remembered permanently. |
+| `auto` | Shows when a `/me` arrives, fades after 30 seconds (default). **This is the default mode.** |
+| `persist` | Stays on screen while it has messages. |
+| `off` | Hidden. |
+| `small` / `normal` / `large` | Box width. |
+| `move` | Drag the box anywhere. Press **Esc** to save the spot. |
 
-### Message Behaviour
+Each player's choice is remembered on their own PC.
 
-- Messages **older than 5 minutes** are automatically and permanently removed from the box. This is separate from the box fading — faded messages still exist and come back if the box is re-shown (e.g. when you press **T** to open chat).
-- When the box re-appears after being hidden, it scrolls to the **most recent** messages automatically. Older messages are still accessible by **scrolling up** inside the box.
-- Your own `/me` messages always appear in your ME Box regardless of distance.
+**How messages behave**
 
-### Scrolling
-
-If the box has more messages than fit on screen, you can scroll up/down with the **mouse wheel** while hovering over it. Scrolling back down to the bottom shows the latest messages.
+- Each message is deleted after **5 minutes** (`Config.meboxdissipateafter`).
+- A faded box comes back with its messages when you press **T** to chat.
+- Scroll with the mouse wheel over the box to read older messages.
 
 ---
 
-## Removing a Scene
+## Removing a scene
 
-Walk up close to a scene you placed (or any scene if your job has admin permission). When you are within range, a hint appears on screen:
+Stand next to a scene. The hint **Press 4 To Remove** appears. Press **4**.
 
-> **Press 4 To Remove**
-
-Press **4** to delete the scene. It is removed for all players immediately.
-
-- You can always remove **your own** scenes.
-- Players with certain staff jobs (configured in `Config.removejobs`) can remove **any** scene.
+The scene is removed for everyone.
 
 ---
 
-## Configuration Reference
+## Managing scenes in /poggy
 
-All settings live in `config.lua`. A server admin edits this file — players do not need to touch it. The table below explains every option in plain language.
+The main admin tool is the **Scenes** tab in `/poggy` (poggy_core's settings
+hub): **/poggy** → **Poggy Scene** → **Scenes**. It lists every scene on the
+server with its text, who placed it (name and character id), where, and when.
 
-### General
+| Do this | How |
+|---|---|
+| Fix a scene's text | Click the text and edit it. Colour codes (`~e~`, `~t6~` …) work as in the editor. |
+| Delete one scene | The row's **Delete** button. |
+| Delete everything one player placed | The row's **Delete all by this player**. You type the scene id to confirm. |
+| Clean up old scenes | **Delete all older than…** at the top: a number of days. You type `CONFIRM`. |
 
-| Option | Default | What it does |
+Every change shows for every player at once, the same as removing a scene with
+**4**, and is printed to the server console with who made it. Only people who
+may edit settings in `/poggy` can use the panel.
+
+Scenes do not expire on their own. Placing times are recorded from version
+1.3.2; older scenes show no date, and **Delete all older than…** keeps them
+unless you choose to delete them too.
+
+---
+
+## Permissions
+
+| Who | Place scenes | Remove own scenes | Remove anyone's scenes |
+|---|---|---|---|
+| Everyone (Job lock off) | Yes | Yes | No |
+| Everyone (Job lock on, Allowed jobs set) | Only jobs in `Config.allowjobs` | Yes | No |
+| Jobs in `Config.removejobs` | Yes | Yes | Yes |
+| Players in the `admin` group | Yes | Yes | Yes |
+
+- Job names are exact and case-sensitive.
+- With Job lock on but **Allowed jobs** empty, everyone can still place scenes.
+- The `admin` group name is fixed in the script. poggy_core checks both the account group and the character group.
+- Every removal is checked again on the server.
+
+No ACE is needed.
+
+---
+
+## Configuration
+
+Every setting can be changed in game with **/poggy** (Poggy Hub). You can also edit `config.lua` by hand. Restart the script after a change.
+
+### Scenes and permissions
+
+| Setting | Default | What it does |
 |---|---|---|
-| `Config.scenevisabilitydistance` | `5` | How close (in world units) a player must be to see floating scene text. |
-| `Config.denysceneinhideout` | `false` | If `true`, players cannot place scenes while inside the gang hideout zone. |
-| `Config.joblock` | `false` | If `true`, only jobs listed in `Config.allowjobs` can use `/scene`. |
-| `Config.allowjobs` | `{}` | List of job names allowed to use `/scene` when `joblock` is enabled. |
-| `Config.removejobs` | `{...}` | Job names that can remove **any** scene, not just their own. |
-| `Config.webhook` | `""` | Discord webhook URL — fill this in to log scene placements to a Discord channel. |
+| `Config.scenevisabilitydistance` | `5` | How close (metres) you must be to read scene text and status tags. |
+| `Config.joblock` | `false` | Only allowed jobs can place scenes. |
+| `Config.allowjobs` | `{}` | Jobs that may place scenes while Job lock is on. |
+| `Config.removejobs` | `police`, `sheriff`, `marshal` | Jobs that can remove any scene. |
+| `Config.denysceneinhideout` | `false` | Blocks `/scene` within 100 m of one fixed hideout spot (1785, -821, 191). |
 
 ### Commands
 
-| Option | Default | What it does |
+| Setting | Default |
+|---|---|
+| `Config.scenecommand` | `"scene"` |
+| `Config.mecommand` | `"me"` |
+| `Config.ooccommand` | `"do"` |
+| `Config.statuscommand` | `"status"` |
+| `Config.stopdisplay` | `"cstatus"` |
+| `Config.id` | `"id"` |
+| `Config.cash` | `"cash"` |
+| `Config.meboxcommand` | `"mebox"` |
+
+### Overhead text (`/me`, `/do`, `/id`, `/cash`)
+
+| Setting | Default | What it does |
 |---|---|---|
-| `Config.scenecommand` | `"scene"` | The chat command to open the Scene Editor (`/scene`). |
-| `Config.mecommand` | `"me"` | The command for in-character actions (`/me`). |
-| `Config.ooccommand` | `"do"` | The command for OOC descriptions (`/do`). |
-| `Config.statuscommand` | `"status"` | The command for setting a status label. |
-| `Config.stopdisplay` | `"cstatus"` | The command to clear your status label. |
-| `Config.id` | `"id"` | The command to show your server ID above your character. |
-| `Config.cash` | `"cash"` | The command to show your cash above your character. |
+| `Config.meoverheadduration` | `10` | Seconds the text floats above a character. |
+| `Config.meoverheadradius` | `20` | How far away (metres) it can be seen. |
 
-### Overhead /me Text (floating above peds)
+### /me box
 
-| Option | Default | What it does |
+| Setting | Default | What it does |
 |---|---|---|
-| `Config.meoverheadduration` | `10` | How many **seconds** the floating `/me` or `/do` text stays visible above a player's head before disappearing. |
-| `Config.meoverheadradius` | `20` | How far away (world units) you can be and still see floating `/me` text above other players. |
+| `Config.meboxdistance` | `6` | How close (metres) someone must be for their `/me` to reach your box. |
+| `Config.meboxtimeout` | `30` | Seconds before the box fades in auto mode. |
+| `Config.meboxmaxlines` | `7` | Lines shown before it scrolls. |
+| `Config.meboxhistory` | `50` | Messages kept for scrolling back. |
+| `Config.meboxdissipateafter` | `300` | Seconds before a message is deleted. |
+| `Config.meboxDefaultNameColor` | `"#eeebe4"` | Name colour when the sender's job has none. |
+| `Config.meboxJobColors` | law and doctor | Name colour per job. |
 
-### ME Display Box
+### Look and text
 
-| Option | Default | What it does |
-|---|---|---|
-| `Config.meboxcommand` | `"mebox"` | The chat command to control the ME Box. |
-| `Config.meboxdistance` | `6` | How close (world units) another player must be for their `/me` to appear in **your** ME Box. |
-| `Config.meboxtimeout` | `30` | In **auto** mode, how many seconds after the last message before the box fades. |
-| `Config.meboxmaxlines` | `7` | How many lines are visible at once before the box starts scrolling. |
-| `Config.meboxhistory` | `50` | Maximum number of messages kept in the scroll-back buffer. Oldest are trimmed once this limit is reached. |
-| `Config.meboxdissipateafter` | `300` | How many **seconds** before an individual message is permanently deleted from the box (default: 5 minutes). |
-| `Config.meboxDefaultNameColor` | `"#eeebe4"` | The default colour of the sender's name in the ME Box when their job has no specific colour. |
-| `Config.meboxJobColors` | `{...}` | A table mapping job names to hex colour codes. The sender's name appears in that colour in the ME Box. Add or remove jobs as needed. |
+| Setting | What it does |
+|---|---|
+| `Config.sceneColors` | The colour swatches in the editors, in order. Each has a game colour `code`, a `hex` colour for the button and a `title`. |
+| `Config.uitheme` | Editor colour scheme. See below. |
+| `Config.Language` | Player messages and the prefixes for `/do`, `/status`, `/cash` and `/id`. |
 
-### UI Theme
-
-| Option | Default | What it does |
-|---|---|---|
-| `Config.uitheme` | `"amber-frontier"` | The colour scheme used for the Scene and Status editor panels. See [UI Themes](#ui-themes) below. |
+`Config.webhook` is in the file but not used: nothing is sent to Discord.
 
 ---
 
-## UI Themes
+## UI themes
 
-Change `Config.uitheme` in `config.lua` to switch the look of the editor panels. The change takes effect the next time a player loads their character.
+Set `Config.uitheme`. Players see it after the script restarts.
 
-| Theme name | Colours |
+| Theme | Look |
 |---|---|
-| `"amber-frontier"` | **Old West gold & amber** — the default dark sepia look. |
-| `"steel-blue"` | **Modern dark navy** with cool steel-blue accents. |
-| `"ivory-noir"` | **Black & white** — no colour tint at all, pure monochrome. |
-| `"lavender-dusk"` | **Soft pastel lavender** and purple tones. |
-| `"crimson-dusk"` | **Deep dramatic red** — dark background with blood-red accents. |
-| `"emerald-ridge"` | **Earthy forest green** — dark background with green accents. |
+| `"amber-frontier"` | Old West gold and amber (default) |
+| `"steel-blue"` | Dark navy with steel-blue accents |
+| `"ivory-noir"` | Black and white |
+| `"lavender-dusk"` | Soft lavender and purple |
+| `"crimson-dusk"` | Deep red |
+| `"emerald-ridge"` | Forest green |
 
-> The ME Display Box is intentionally not affected by the UI theme — it always matches the poodlechat overlay style.
+The `/me` box is not themed. It always matches the chat overlay style.
+
+---
+
+## Troubleshooting
+
+**"Cant place scene in hideout" but I am not near a hideout.**
+The same message is shown when Job lock blocks you. Check `Config.joblock` and `Config.allowjobs`.
+
+**I cannot remove someone else's scene.**
+Only jobs in `Config.removejobs` and the `admin` group can. Job names are case-sensitive. Server staff can also delete any scene from the Scenes panel in `/poggy`.
+
+**Scenes vanished after a restart.**
+Scenes are loaded from the database when the script starts. Check that oxmysql is running and look for `loaded N scene(s) from DB` in the server console.
+
+**Colours look different in the world than in the editor.**
+The world uses the game's own colour codes. The editor swatch is only a close match. Adjust `hex` in `Config.sceneColors` to match better.
+
+---
+
+## Files
+
+```
+poggy_scene/
+├── fxmanifest.lua
+├── config.lua          settings and player text
+├── README.md
+├── client/main.lua     editors, overhead text, /me box
+├── server/main.lua     scenes, statuses, permissions
+├── server/hub.lua      the Scenes panel in /poggy
+├── sql/install.sql     tables (applied automatically)
+├── docs/               Poggy Hub card and help pages
+└── ui/                 Scene and Status editors, /me box
+```

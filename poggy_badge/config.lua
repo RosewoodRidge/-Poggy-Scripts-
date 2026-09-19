@@ -4,7 +4,7 @@ Config = {}
 Config.debug          = false        -- when true, prints resolveBadge info to server console
 
 -- ── Commands ─────────────────────────────────────────────────────────────
-Config.command        = "badge"      -- /pbadge  → opens badge menu / toggle
+Config.command        = "badge"      -- /badge  → opens badge menu / toggle
 Config.showDistance   = 2             -- how far away others can see the badge display
 
 -- ── Skeleton Attachment Defaults ─────────────────────────────────────────

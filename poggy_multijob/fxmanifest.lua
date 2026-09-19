@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_multijob'
 author 'Poggy'
 description 'Multijob System'
-version '1.7.1'
+version '1.7.3'
 poggy_core_min '0.14.0'
 
 dependencies {
@@ -28,8 +28,10 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/joblist.lua',
     'server/main.lua',
     'server/admin.lua',
+    'server/api.lua',
 }
 
 ui_page 'ui/index.html'
@@ -38,6 +40,7 @@ files {
     'ui/index.html',
     'ui/style.css',
     'ui/script.js',
+    'docs/icon.png',
 }
 
 escrow_ignore {
