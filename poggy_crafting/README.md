@@ -74,8 +74,10 @@ own.
 3. Copy `docs/item_images/campfire.png` into your inventory's item image folder
    (`vorp_inventory/html/img/items/`, or your framework's equivalent).
 
-There is no SQL to import. poggy_core creates the table and adds the campfire
-item the first time the script starts. To manage the database yourself, set
+There is no SQL to import. poggy_core creates the table the first time the
+script starts, and on VORP it adds the campfire item too. On RSG and QBR, whose
+items live in a Lua file rather than the database, add a `campfire` item there
+yourself (or set `Config.CampfireItem = false`). To manage the database yourself, set
 `PoggyCoreConfig.Sql.AutoInstall = false` in poggy_core's config and import
 `sql/install.sql`.
 
@@ -92,7 +94,8 @@ feature with stock item names. They are meant to be deleted.
 | `/gt` | Everyone | Lends the mouse to the gathering tracker so you can drag it somewhere else. |
 | `/gthide` | Everyone | Hides or shows the tracker. |
 | `/extinguish` | Everyone | Puts out the campfire you placed. |
-| `/campfire` | Everyone | Places a campfire without the item. **Off by default**; for testing only. |
+| `/campfire` | Staff | Places a campfire without the item. **Off by default**; for testing. Admins only. |
+| `poggycrafting_icons` | Server console | Runs the hidden-recipe check again and prints the result. |
 
 Every command name is set in `Config.Commands`. Set one to `false` to remove it.
 
@@ -124,6 +127,23 @@ an update and new settings appear alongside them.
 | `Config.ShoppingList.enabled` | `true` | The shopping list and gathering tracker. |
 | `Config.Skillcheck.enabled` | `true` | `false` turns every skillcheck into a progress bar. |
 | `Config.Webhook` | `''` | Discord webhook for a log of every craft. Blank = no log. |
+| `Config.HideRecipesWithoutIcons` | `false` | Hide recipes whose items have no icon, so the browser never shows placeholders. See below. |
+
+### Hiding recipes with no item icon
+
+An item with no icon draws a placeholder in the browser. Turn on
+`Config.HideRecipesWithoutIcons` and the server checks every item each recipe
+uses, once when it starts, and hides the recipes it cannot draw. They cannot be
+crafted either, even by name.
+
+- With `Config.HideBrokenChains` (on by default) it then hides recipes that can no
+  longer be made: every recipe for one of their ingredients is hidden. Raw
+  materials (anything no recipe makes) never cause this.
+- **`/poggy` shows why.** Open Poggy Crafting's recipes: each hidden recipe is
+  marked with the reason and the exact icon file to add.
+- Poggy Core finds the icons for your framework (VORP, RSG or QBR). If yours live
+  in another resource, set `Config.IconResource` and `Config.IconPath`.
+- Add the missing icon and restart the server, and the recipe comes back.
 
 ### Where people craft
 
@@ -151,17 +171,24 @@ and skillcheck recipes.
 
 ## Permissions
 
-There are no admin commands and no ACEs. Access is decided by jobs and places:
+No ACEs. The one staff command is `/campfire` (off by default), which only
+admins can use. Everything else is decided by jobs and places:
 
 | Field | Where | Effect |
 |---|---|---|
 | `Job` | a category | Only these jobs can craft in it. |
 | `Job` | a recipe | Only these jobs can craft it, unless it has a `jobSkillcheck`. |
-| `Job` | a bench | Only these jobs see the bench's prompt. |
+| `Job` | a bench | Only these jobs can use the bench. |
 | `Config.CampfireJobLock` | all props and campfires | Only these jobs can craft at them. |
 | `Location` | a category or recipe | Only at these benches or props. |
 
 `0` means anyone, or anywhere. Otherwise, give a list: `{ 'blacksmith' }`.
+
+The server checks these itself on every craft, not just the menu: the recipe
+and category jobs, that the player is really at the bench they crafted at, that
+the bench's job lock and categories allow it, and `Config.CampfireJobLock` at
+props and campfires. (The server cannot see world props, so it cannot check
+that a player is standing at one.)
 
 ---
 
@@ -176,6 +203,7 @@ There are no admin commands and no ACEs. Access is decided by jobs and places:
 | An ingredient says "Unknown" | Add it to `config/item_sources.lua`. |
 | Shopping list entries vanished | A recipe's `Text` was renamed. `Text` is the recipe's id. |
 | A config change did nothing | Restart `poggy_crafting`. |
+| A recipe is missing from the browser | `Config.HideRecipesWithoutIcons` is on and one of its items has no icon. `/poggy` names the item and the file; or run `poggycrafting_icons` in the console. |
 
 ---
 

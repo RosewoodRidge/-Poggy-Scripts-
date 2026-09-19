@@ -24,6 +24,8 @@ PoggyCrafting.Locale = {
 
     -- ── Refusals ────────────────────────────────────────────────────────
     not_job             = 'You do not know how to make that',
+    not_here            = 'You cannot craft that here',
+    no_permission       = 'Only staff can do that',
     not_enough          = 'You do not have everything you need',
     too_full            = 'You cannot carry any more of that',
     weapons_full        = 'You cannot carry any more weapons',

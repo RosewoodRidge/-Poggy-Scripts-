@@ -22,6 +22,10 @@
     {
       "title": "Skillcheck recipes",
       "file": "docs/help/skillchecks.md"
+    },
+    {
+      "title": "Hidden recipes",
+      "file": "docs/help/hidden-recipes.md"
     }
   ],
   "commands": [
@@ -38,8 +42,8 @@
     {
       "command": "/campfire",
       "configPath": "Config.Commands.campfire",
-      "who": "Everyone",
-      "description": "Places a campfire without using the item. Off by default (false); meant for testing, as anyone can use it.",
+      "who": "Staff (admins)",
+      "description": "Places a campfire without using the item. Off by default (false). Staff only: the server checks the player is an admin.",
       "usage": "/campfire",
       "examples": [
         "/campfire"
@@ -73,6 +77,15 @@
       "usage": "/gthide",
       "examples": [
         "/gthide"
+      ]
+    },
+    {
+      "command": "poggycrafting_icons",
+      "who": "Server console",
+      "description": "Runs the hidden-recipe check again and prints how many recipes are hidden and why. Only matters with Hide recipes with no item icon on.",
+      "usage": "poggycrafting_icons",
+      "examples": [
+        "poggycrafting_icons"
       ]
     }
   ],
@@ -236,6 +249,18 @@
       "tooltip": "Item name = label shown in the browser, for items with no label or an unreadable one (raw fish model names). Cosmetic only.",
       "tab": "recipes",
       "group": "Item names in the browser"
+    },
+    "Config.HideRecipesWithoutIcons": {
+      "label": "Hide recipes with no item icon",
+      "tooltip": "On = at start the server checks every item each recipe uses and hides (and blocks) the recipes whose items have no icon, so the browser never shows placeholders. The Recipes list here marks each hidden recipe with the reason and the exact icon file to add. Add the icon and restart the server to bring it back.",
+      "tab": "recipes",
+      "group": "Hidden recipes"
+    },
+    "Config.HideBrokenChains": {
+      "label": "Also hide recipes that can no longer be made",
+      "tooltip": "With the setting above on: hides a recipe when every recipe that made one of its ingredients is hidden. Raw materials (anything no recipe makes) never cause this.",
+      "tab": "recipes",
+      "group": "Hidden recipes"
     },
     "Config.Distances": {
       "label": "Reach",

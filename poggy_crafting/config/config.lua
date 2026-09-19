@@ -382,3 +382,27 @@ Config.CraftingExplosion = {
 Config.CraftingFire = {
     FireDuration = 10000,   -- ms
 }
+
+-- ===========================================================================
+--  10.  HIDING RECIPES WITH NO ITEM ICON
+-- ===========================================================================
+
+-- An item with no icon draws a placeholder in the browser. A few of those look
+-- untidy; a page of them looks broken. Turn this on and the server checks
+-- every item each recipe uses, once at start, and hides the recipes it cannot
+-- draw (they cannot be crafted either). /poggy lists every hidden recipe, why,
+-- and the exact icon file to add. Add the icon, restart, and it comes back.
+Config.HideRecipesWithoutIcons = false
+
+-- With the above on: a recipe can have every icon and still be pointless, if
+-- every recipe that made one of its ingredients was hidden. This hides those
+-- too, down the whole chain. Raw materials (anything no recipe makes) never
+-- cause this: they are assumed to come from the world.
+Config.HideBrokenChains = true
+
+-- Where the icons are. Leave these unset and Poggy Core finds them for your
+-- framework (VORP, RSG or QBR). Set both only if your item icons live in
+-- another resource: the resource name, and the path inside it with %s for the
+-- item name.
+-- Config.IconResource = 'vorp_inventory'
+-- Config.IconPath     = 'html/img/items/%s.png'

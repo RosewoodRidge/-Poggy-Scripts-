@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_crafting'
 author 'Poggy'
 description 'Crafting benches, campfire cooking and a recipe browser with chains, a shopping list and a gathering tracker.'
-version '2.0.1'
+version '2.0.2'
 poggy_core_min '0.16.0'
 
 dependencies {
@@ -38,6 +38,7 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/main.lua',
+    'server/icons.lua',
     'server/craft.lua',
     'server/shoppinglist.lua',
 }
@@ -53,11 +54,15 @@ files {
     'docs/icon.png',
 }
 
+-- Free and open source (GPL v2, from VORP's vorp_crafting): nothing is
+-- encrypted when this goes through the Cfx portal.
 escrow_ignore {
     'config/*.lua',
     'translations.lua',
     'sql/*.sql',
+    'client/*.lua',
+    'server/*.lua',
+    'shared/*.lua',
+    'ui/*',
+    'ui/**',
 }
-
-dependency '/assetpacks'
-dependency '/assetpacks-redm'
