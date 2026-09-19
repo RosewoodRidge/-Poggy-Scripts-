@@ -692,7 +692,7 @@ Config.Sounds = {
 }
 
 ---------------------------------------------------------------------------
---  MUSIC TRACKS  (cycled with C key while fishing)
+--  MUSIC TRACKS  (cycled with D key while fishing)
 --  Each entry: { id = sound id, label = display name }
 --  The first entry is always "Off" (no music).
 --  Sound ids must match a key in Config.Sounds above.

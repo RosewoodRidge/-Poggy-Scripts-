@@ -1,233 +1,226 @@
 # Poggy Fishing
 
-A skillcheck-based fishing system for RedM (VORP framework) featuring zone-specific fish, two rod types with distinct playstyles, a bait targeting system, dynamic seasons, and a full NUI interface with sound and music.
+Rod fishing for RedM. Players cast, tug the line to hook a fish, then win a skillcheck fight to land it.
 
-## Dependencies
+- 28 fish across 34 waters, with day and night feeders.
+- Bait that changes what bites.
+- Random seasons, so the catch changes every restart.
+- A Pro Rod with a mouse-driven pull fight.
+- Bonus loot on every fish kept.
+- A full HUD with sound, music and two looks (brass or default).
 
-| Resource | Purpose |
-|----------|---------|
-| `poggy_core` (0.13.0 or newer) | Framework layer: items, baits, fish, notifications |
-| `poggy_skillcheck` | Skillcheck UI/logic |
-| `oxmysql` | Database access |
+Works on every framework poggy_core supports (VORP, RSG, QBR).
+
+## Requirements
+
+| Resource | Why |
+|---|---|
+| `poggy_core` 0.13.0 or newer | Framework layer: items, money, notifications |
+| `poggy_skillcheck` | The skillcheck circle |
+| `oxmysql` | Database |
+| `poggy_fishing_journal` (optional) | Records discoveries; needed for "hide fish not yet caught" |
 
 ## Installation
 
-1. Place `poggy_fishing` in your resources folder.
-2. Add `ensure poggy_fishing` to your server.cfg (after all dependencies).
-3. Configure `config.lua` to taste. Water zones and the fish found in each are built into the script.
-4. Copy the item icons from `docs/item_images/` into your inventory's item image folder (on VORP: `vorp_inventory/html/img/items/`), so fish, bait and rods show their pictures. The journal's icon is in `poggy_fishing_journal/docs/item_images/`.
+1. Put `poggy_fishing` in your resources folder.
+2. Add `ensure poggy_fishing` to `server.cfg`, after its requirements.
+3. Copy the item icons from `docs/item_images/` into your inventory's image folder.
+   On VORP that is `vorp_inventory/html/img/items/`.
+4. Restart the server. The items are added to the database for you.
 
-## Database
+### Database
 
-The fish, bait, rod and loot items are added to the database automatically when the script starts (`sql/install.sql`); items you already have are never changed. To import the file yourself instead, set `PoggyCoreConfig.Sql.AutoInstall = false` in `poggy_core/config.lua`.
+`sql/install.sql` runs by itself when the script starts. It adds the rods, baits, fish and loot items.
+Items you already have are never changed.
+To import it yourself, set `PoggyCoreConfig.Sql.AutoInstall = false` in `poggy_core/config.lua`.
 
-On a framework without an `items` table (RSG), poggy_core skips those rows and the items must be added to the framework's item list by hand (RSG: `rsg-core/shared/items.lua`): the two rods (`fishingrod`, `fishingrod_pro`), the baits and lures (`bait_worm`, `bait_cricket`, `bait_bread`, `bait_crawdad`, `p_lgoc_spinner_v4`, `p_finishedragonflylegendary01x`), every fish in `Config.Fish` (`a_c_fish…`) and the loot drops (`whitepearl`, `redpearl`, `bluepearl`, `goldpearl`, `blackpearl`, `golden_nugget`, `diamond_uncut`). At start the script prints one yellow line naming any of these your item list does not have.
+On RSG (no `items` table) the items must go in `rsg-core/shared/items.lua` by hand:
+
+- Rods: `fishingrod`, `fishingrod_pro`
+- Baits and lures: `bait_worm`, `bait_cricket`, `bait_bread`, `bait_crawdad`, `p_lgoc_spinner_v4`, `p_finishedragonflylegendary01x`
+- Every fish item in the Fish list (`a_c_fish…`)
+- Loot: `whitepearl`, `redpearl`, `bluepearl`, `goldpearl`, `blackpearl`, `golden_nugget`, `diamond_uncut`
+
+At start the script prints one yellow line naming any item your list is missing.
+
+## Commands
+
+| Command | Who | What it does |
+|---|---|---|
+| `/rerollseasons` | ACE `command.rerollseasons`, or the server console | Picks a new random set of in-season fish now |
+
+To let a group use it: `add_ace group.admin command.rerollseasons allow`
 
 ## Controls
 
 | Key | Action |
-|-----|--------|
-| **LMB** | Cast line |
-| **E** | Tug line (interest phase) |
-| **G** | Open bait menu |
-| **C** | Cycle music track |
-| **Backspace** | Stow rod |
-| **Mouse** | Counter fish pull direction (Pro Rod only) |
+|---|---|
+| Use the rod item | Equip the rod |
+| **Left mouse** | Cast |
+| **E** | Tug the line (normal rod) |
+| **G** | Bait menu |
+| **D** | Next music track |
+| **Backspace** | Stow the rod |
+| **Mouse** | Counter the fish's pull (Pro Rod) |
+| **E** / **Backspace** after a catch | Keep the fish / throw it back |
 
-## How It Works
+## How a catch works
 
-Fishing follows a five-phase state machine:
+1. **Equip.** Use `fishingrod` or `fishingrod_pro`. The HUD shows the water and its fish.
+2. **Cast.** Left mouse. The splash is seen by nearby players.
+3. **Bite.**
+   - Normal rod: after 3 to 20 seconds the tug game starts. Tap **E** to raise interest (blue bar).
+     Each tap adds tension (red bar). Interest 100 hooks the fish. Tension 100 snaps the line.
+   - Pro Rod: no tug game. A fish bites after 4 to 15 seconds.
+4. **Fight.** Skillchecks fill the progress bar. The fish is landed at 100.
+   - Misses take progress away. At 0 the fish escapes.
+   - Misses in a row make the needle faster.
+   - Normal rod: 4 misses snap the line.
+   - Pro Rod: the fish also pulls left, right or forward. Move the mouse to counter it.
+     Countering well slows the drain and eases tension. Tension 100 snaps the line.
+5. **Keep or throw back.** A kept fish goes to the inventory with a random weight, plus a loot roll.
 
-### 1. Equip Rod
-The player uses a `fishingrod` or `fishingrod_pro` item from inventory. A draw animation plays, the rod prop attaches to the hand, and the fishing HUD appears showing the current water zone and available fish.
+### Normal rod and Pro Rod
 
-### 2. Cast Line
-LMB triggers a wind-up animation. The line lands with a synced splash effect visible to nearby players, then a brief random wait begins (3–20 seconds, configurable).
-
-### 3. Wait for Bite
-
-**Regular Rod** — An interactive interest/tension minigame:
-- Press **E** to tug the line, building both interest (blue bar) and tension (red bar).
-- Both bars decay naturally when not pressing.
-- Fish hooks when interest reaches 100%. Line snaps if tension hits 100%.
-- Difficulty scales per fish tier (easy through expert) — harder fish gain interest slower and lose it faster.
-
-**Pro Rod** — Skips the interest phase entirely. The fish bites after a random wait (4–15 seconds) and you go straight to the fight.
-
-### 4. Fight Phase
-
-**Regular Rod** — Progressive skillchecks:
-- 3–10 rounds depending on fish difficulty tier.
-- Good/Great hits fill the progress bar; misses drain it.
-- Consecutive misses increase speed and shake intensity.
-- 4 total misses snaps the line.
-
-**Pro Rod** — Skillchecks plus a real-time direction pull system:
-- The fish pulls LEFT, RIGHT, or FORWARD. Direction changes every 3–6 seconds.
-- Move your mouse to counter the pull (camera controls are disabled during this phase).
-- Correct pull reduces drain by 88% and decays tension. Wrong pull increases drain to 120% and builds tension at 20/sec.
-- Random forward jerks keep you on your toes.
-- Progress ≤ 0 = fish escapes. Tension ≥ 100 = line snaps.
-- Skillcheck gains are reduced (65% good, 75% great) and misses hurt 50% more.
-
-### 5. Fish Caught
-A size-appropriate unhook animation plays, the fish ped spawns in the player's hands, and the catch + any bonus loot is awarded to inventory.
-
-## Rod Comparison
-
-| | Regular Rod | Pro Rod |
+| | Normal rod | Pro Rod |
 |---|---|---|
-| Approach phase | Interest/tension tug minigame | Skipped (random wait) |
-| Fight phase | Skillchecks only | Skillchecks + direction pull |
-| Skillcheck difficulty | Standard | Harder (reduced gains, harsher misses) |
-| Rare fish chance | Normal | Weighted toward larger/rarer fish |
-| Loot rolls per catch | 1 | 2 |
-| Bait loss on escape | Standard | Halved |
-| Line snap condition | 4 failed skillchecks | Tension ≥ 100 |
+| Before the bite | Tug game | Random wait |
+| Fight | Skillchecks | Skillchecks and pull fight |
+| Progress per hit | Full | 65% good, 75% great |
+| Miss penalty | Normal | 50% more |
+| Bigger fish | Normal odds | Shifted toward large and legendary |
+| Loot rolls | 1 | 2 |
+| Bait loss when a fish escapes | Normal | Halved |
+| Line snaps on | 4 misses | Tension 100 |
 
-## Bait System
+## Baits
 
-Equip bait through the bait menu (**G** key). Each bait has:
+Pick a bait with **G**. Each bait has:
 
-- **Bonus** — Reduces effective skillcheck difficulty (0–2 tiers).
-- **Target fish** — Specific species this bait attracts. `nil` = works on everything.
-- **Lose chance** — Probability (0–100%) the bait is consumed when a fish escapes. Line snaps always consume bait.
-- **Size weights** — Per-size multiplier controlling how likely small/medium/large/XL fish are to bite.
+- **Bonus**: makes the skillcheck zone larger (0 to 2). 0 counts like no bait.
+- **Target fish**: three times as likely to bite.
+- **Lose chance**: chance it is lost when a fish escapes. A snapped line always loses it.
+- **Size weights**: how likely each fish size is to bite.
 
-| Bait | Bonus | Targets | Lose % | Best For |
-|------|-------|---------|--------|----------|
-| Spinner Lure (V4) | 0 | All | 20% | General purpose |
-| Worm | 1 | Bass, catfish, perch, bluegill | 75% | Medium fish |
-| Cricket | 1 | Pickerel, trout, salmon, rock bass | 70% | Medium-hard fish |
-| Bread | 0 | Small fish (bluegill, perch, rock bass) | 80% | Beginners |
-| Crawdad | 2 | Large bottom-feeders (catfish, sturgeon, gar, pike, muskie) | 60% | Trophy fish |
-| Legendary Dragon Fly Lure | 2 | Trophy fish (sturgeon, gar, pike, muskie, salmon, bass) | 5% | Rare drop, nearly impossible to lose |
+| Bait | Bonus | Targets | Lose chance |
+|---|---|---|---|
+| Spinner Lure (V4) | 0 | anything | 20% |
+| Worm | 1 | bluegill, bullhead, perch, bass | 75% |
+| Cricket | 1 | pickerel, rock bass, rainbow trout, sockeye | 70% |
+| Bread | 0 | small bluegill, perch, rock bass, bullhead | 80% |
+| Crawdad | 2 | longnose gar, northern pike | 60% |
+| Legendary Dragon Fly Lure | 2 | pike, gar, sockeye, large bass, the four legendary fish | 5% |
 
-**No-bait fishing** is possible but much harder — interest gain is drastically reduced. A risk/reward mechanic grants a 3× interest bonus when tension is between 20–85%.
+Fishing with no bait works, but interest rises slowly and legendary fish never bite.
+With no bait, taps give more interest while the line is tense (a risk and reward).
 
 ## Fish
 
-32 species across 4 size classes. Difficulty is determined by base sale price:
+A fish's price sets its difficulty.
 
-| Price Range | Tier | Example Species |
+| Price | Tier | Examples |
 |---|---|---|
-| < $1.00 | Easy | Bluegill, Perch, Rock Bass, Bullhead (sm) |
-| $1.00 – $2.99 | Medium | Largemouth Bass, Smallmouth Bass, Rainbow Trout, Salmon (md) |
-| $3.00 – $5.99 | Hard | Large bass, Large trout, Sockeye Salmon (lg) |
-| ≥ $6.00 | Expert | Channel Catfish, Northern Pike, Longnose Gar, Muskie, Lake Sturgeon |
-| ≥ $20.00 | Legendary | The four legendary fish, hooked only on the Legendary Dragon Fly Lure |
+| under $1 | Easy | small bluegill, perch, rock bass, bullhead, pickerel |
+| $1 to $2.99 | Medium | medium bass, pickerel, sockeye, rainbow trout |
+| $3 to $5.99 | Hard | large bass, large sockeye, steelhead trout |
+| $6 to $19.99 | Expert | northern pike, longnose gar |
+| $20 or more | Legendary | rainbow trout, muskellunge, lake sturgeon, channel catfish |
 
-Many fish have **time-of-day windows** (e.g., Bullhead Catfish is nocturnal 8PM–6AM, Chain Pickerel feeds 5AM–12PM). Fish outside their active hours cannot be caught.
+Many fish only bite at certain hours. Bullhead feed at night (8 PM to 6 AM). Chain pickerel feed in the morning (5 AM to noon).
 
-## Water Zones
+## Waters
 
-25+ zones mapped to RDR2's native water-map-zone hashes. Each zone has a curated fish list:
+34 waters are built in: lakes, rivers, the bayou, creeks, ponds and the sea. Each has its own fish list.
 
-| Zone Type | Examples | Typical Fish |
-|---|---|---|
-| **Lakes** | Flat Iron Lake, O'Creagh's Run, Owanjila, Lake Isabella, Elysian Pool | Bass, sturgeon, muskie, trout, salmon |
-| **Rivers** | Dakota River, Kamassa River, Lannahechee River, Upper/Lower Montana | Pickerel, salmon, pike, gar |
-| **Swamps** | Bayou Nwa | Gar, catfish, bullhead |
-| **Creeks** | Dewberry Creek, Ringneck Creek | Small fish only (beginner zones) |
+| Fish | Where |
+|---|---|
+| Legendary lake sturgeon | Flat Iron Lake |
+| Legendary rainbow trout | O'Creagh's Run |
+| Legendary muskellunge | Owanjila |
+| Legendary channel catfish | Bayou Nwa |
+| Northern pike | Owanjila, Lake Isabella, Dakota River, Upper and Lower Montana River |
+| Longnose gar | Elysian Pool, Kamassa, Lannahechee and San Luis rivers, Bayou Nwa, Arroyo de la Vibora, Bahia de la Paz |
 
-Some trophy fish are zone-exclusive: Lake Sturgeon only appears in Flat Iron Lake and O'Creagh's Run. Muskie is limited to Flat Iron Lake and Owanjila.
+The water list is part of the script and cannot be edited. Fish, baits and everything else can.
 
-## Loot Drops
+## Loot
 
-Every successful catch rolls a bonus loot table (Pro Rod rolls twice):
+Every kept fish gives one bonus item, picked by weight. The Pro Rod rolls twice.
 
-| Item | Drop Weight |
-|------|-------------|
-| Cricket Bait | 25.0 |
-| White Pearl | 10.0 |
-| Red Pearl | 6.5 |
-| Blue Pearl | 4.5 |
-| Gold Pearl | 2.0 |
-| Golden Nugget | 2.0 |
-| Black Pearl | 0.5 |
-| Uncut Diamond | 0.5 |
-| Legendary Dragon Fly Lure | 0.2 |
+| Item | Weight |
+|---|---|
+| `bait_crawdad` | 25 |
+| White pearl | 10 |
+| Red pearl | 6.5 |
+| Blue pearl | 4.5 |
+| Golden nugget (listed twice) | 2 + 2 |
+| Gold pearl | 2 |
+| Legendary Dragon Fly Lure | 1 |
+| Black pearl | 0.5 |
+| Uncut diamond | 0.5 |
 
-## Season System
+A weight is not a percentage. An item's odds are its weight divided by the total.
 
-On server start, a random 80% of all fish species are marked "in season." Out-of-season fish cannot be caught. Seasons reset every server restart or via the `/rerollseasons` command.
+## Seasons
+
+At every start, a random 80% of the fish are in season. Out-of-season fish cannot be caught.
+`/rerollseasons` picks again without a restart.
 
 ## Music
 
-Press **C** to cycle through ambient music tracks while fishing:
-
-| Track | Label |
-|-------|-------|
-| — | Off |
-| fishingMusic_1 | Peaceful Waters |
-| fishingMusic_2 | Serene Lakes |
-| fishingMusic_3 | Circle of Stones |
-| fishingMusic_4 | Mountain Banjo |
+Press **D** while fishing to cycle: Off, Peaceful Waters, Serene Lakes, Circle of Stones, Mountain Banjo.
+Peaceful Waters plays when the rod comes out.
 
 ## Configuration
 
-All mechanics are tunable in `config.lua`:
+Every setting can be changed in game with **`/poggy`** (the Poggy Hub), then a restart of the script.
+You can also edit `config.lua` by hand.
 
-| Section | What It Controls |
-|---------|-----------------|
-| `Config.ProRod` | Pro rod drain, tension, pull sensitivity, skillcheck multipliers |
-| `Config.SkillCheck` | Difficulty tiers, speed, rounds, good/great/miss values |
-| `Config.Interest` | Interest/tension gains, decay rates, scaling per tier |
-| `Config.Baits` | Bait bonuses, target fish lists, lose chances, size weights |
-| `Config.Fish` | All 32 species — price, weight range, model, time windows |
-| `Config.LootDrops` | Bonus item table and drop weights |
-| `Config.Sounds` | SFX files and volumes |
-| `Config.MusicTracks` | Available music tracks |
-| `Config.Season` | Percentage of fish active per season cycle |
-| `Config.UI` | Interface skin |
+| Section | What it controls |
+|---|---|
+| General | Rod items, bite wait, seasons, interface skin, hide fish not yet caught |
+| `Config.SkillCheck` | Fight difficulty per tier |
+| `Config.Interest` | The normal rod's tug game |
+| `Config.ProRod` | The Pro Rod: drain, tension, mouse feel, loot and bait changes |
+| `Config.Baits` | Baits and lures |
+| `Config.Fish` | Fish: name, item, price, size, weight range, hours |
+| `Config.LootDrops` | Bonus loot table |
+| `Config.Sounds`, `Config.MusicTracks` | Sound files, volumes and music |
 
-Zone definitions and fish-per-zone assignments are built into the script and are not user-editable; the Water Zones section above lists what is included. Everything owners tune lives in `config.lua`.
+The hub has two guides: *Tuning baits and what bites* and *Making fishing easier or harder*.
 
 ### Interface skin
 
-`Config.UI.skin` in `config.lua` sets the look of the fishing HUD and the bait
-menu. `"default"` is the dark water theme. `"brass"` is riveted brass and
-gunmetal, in the style of the reel plate in the corner of the HUD.
+`Config.UI.skin` sets the look of the HUD and bait menu.
 
-A skin is a stylesheet and its images in `ui`: `skin-<name>.css` and
-`skin-<name>-*.png`. The manifest picks up any file named that way. To make
-your own, copy `skin-brass.css` under a new name, change the image names in
-it, and set `skin` to that name. Every image is optional. A missing one leaves
-that piece in plain colour, so nothing breaks while the art is unfinished. The
-image sizes are listed at the top of `skin-brass.css`, and the prompts that
-make them are in `docs/ui-skin-brass-prompts.md`.
+- `"brass"`: riveted brass and walnut, like the reel plate.
+- `"default"`: the dark water theme.
 
-## File Structure
+To make your own, copy `ui/skin-brass.css` as `ui/skin-<name>.css`, change the image names in it, and set `skin` to `<name>`.
+Images are optional; a missing one leaves that piece in plain colour.
+Image sizes are listed at the top of `skin-brass.css`. The brass images are described in `docs/ui-skin-brass-prompts.md`.
 
-```
-poggy_fishing/
-├── fxmanifest.lua          # Resource manifest & dependencies
-├── config.lua              # All mechanics configuration
-├── README.md
-├── shared/
-│   └── fishing.lua         # Water zones, fish availability, helpers (built in, escrowed)
-├── sql/
-│   └── install.sql         # Item registration (applied automatically on start)
-├── client/
-│   └── client.lua          # Client state machine & animations
-├── server/
-│   └── server.lua          # Catch handling, item awards, season logic
-└── ui/
-    ├── index.html           # NUI overlay structure
-    ├── style.css            # Styling & animations
-    ├── app.js               # NUI logic (fish window, pull bar, HUD)
-    ├── skin.js              # Applies Config.UI.skin
-    ├── skin-brass.css       # The brass skin (its images sit beside it as skin-brass-*.png)
-    ├── img/                 # Reel overlay art
-    └── sfx/                 # Sound effects & music (mp3)
-```
+## Troubleshooting
+
+**"Nothing seems to be biting here..."**
+No fish of this water is available right now. It may be the wrong hour, out of season, or the bait's size weights are 0 for every fish here. Try another bait, another time, or `/rerollseasons`.
+
+**A yellow line at start names missing items.**
+Add those items to your framework's item list (RSG: `rsg-core/shared/items.lua`).
+
+**The HUD shows no fish icons.**
+Copy `docs/item_images/` into your inventory's image folder. With "hide fish not yet caught" on, a fish only shows after it is caught in that water.
+
+**Nothing happens when using the rod.**
+Check `poggy_core` and `poggy_skillcheck` are started before `poggy_fishing`.
 
 ## Debug
 
-Set `Config.Debug = true` for console logging. Set `Config.DebugState = true` to print state-transition audits to the F8 console.
+`Config.Debug = true` prints catch and fight lines. `Config.DebugState = true` prints every state change to F8.
 
 ## Changelog
 
-- **1.3.1** — Legendary fish are fairer. Their skillchecks no longer appear further off centre than any other fish's, where they could land behind the fishing HUD and be impossible to hit. The great zone is larger and each hit fills more of the bar, so a legendary fight is about one hit shorter on the rod and two on the Pro Rod. Every other tier is unchanged.
-- **1.3.0** — The fish window now means something: a hook hangs from the surface on a line, the fish swims in from the right as interest rises and backs off as it falls, the line reddens and jitters with tension, and on the bite the fish lunges onto the hook and the line jerks before the fight starts. There is no fish until the line is in the water; it then swims in over the random time until the bite (with the Pro Rod it reaches the hook exactly as the fish bites; with the normal rod it arrives where the interest game takes over). Every fill bar (progress, interest, tension, pull tension) carries its water texture across the whole bar and loops without a jump; the wave along the top of the HUD loops cleanly too. The LEFT / FORWARD / RIGHT labels stay sharp while the pull needle moves. Pro Rod: when the fish pulls FORWARD it now shoves the bar steadily off centre (`ForwardPushForce`) and the jerks in `ForwardJerk*` actually fire; before, the push and the return force cancelled out and the bar just jittered at centre. Interface skins: `Config.UI.skin = "brass"` restyles the HUD and bait menu in riveted brass and gunmetal to match the reel plate; `"default"` looks as before. A server can add its own skin as `ui/skin-<name>.css` without touching any code.
-- **1.2.1** — Runs on frameworks without an `items` table (RSG): the item rows in `sql/install.sql` are skipped there instead of stopping the install, and the script prints one yellow line at start naming the items your framework's item list lacks.
+- **1.3.2**: Poggy Hub support. Every setting has a label and help text in `/poggy`, with two guides. README rewritten; the music key is **D** (it said C).
+- **1.3.1**: Legendary fish are fairer. Their skillchecks no longer appear further off centre than any other fish's, where they could land behind the fishing HUD and be impossible to hit. The great zone is larger and each hit fills more of the bar, so a legendary fight is about one hit shorter on the rod and two on the Pro Rod. Every other tier is unchanged.
+- **1.3.0**: The fish window now means something: a hook hangs from the surface on a line, the fish swims in from the right as interest rises and backs off as it falls, the line reddens and jitters with tension, and on the bite the fish lunges onto the hook and the line jerks before the fight starts. There is no fish until the line is in the water; it then swims in over the random time until the bite (with the Pro Rod it reaches the hook exactly as the fish bites; with the normal rod it arrives where the interest game takes over). Every fill bar (progress, interest, tension, pull tension) carries its water texture across the whole bar and loops without a jump; the wave along the top of the HUD loops cleanly too. The LEFT / FORWARD / RIGHT labels stay sharp while the pull needle moves. Pro Rod: when the fish pulls FORWARD it now shoves the bar steadily off centre (`ForwardPushForce`) and the jerks in `ForwardJerk*` actually fire; before, the push and the return force cancelled out and the bar just jittered at centre. Interface skins: `Config.UI.skin = "brass"` restyles the HUD and bait menu in riveted brass and gunmetal to match the reel plate; `"default"` looks as before. A server can add its own skin as `ui/skin-<name>.css` without touching any code.
+- **1.2.1**: Runs on frameworks without an `items` table (RSG): the item rows in `sql/install.sql` are skipped there instead of stopping the install, and the script prints one yellow line at start naming the items your framework's item list lacks.
