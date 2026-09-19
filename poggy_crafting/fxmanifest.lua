@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_crafting'
 author 'Poggy'
 description 'Crafting benches, campfire cooking and a recipe browser with chains, a shopping list and a gathering tracker.'
-version '2.0.0'
+version '2.0.1'
 poggy_core_min '0.16.0'
 
 dependencies {
@@ -50,6 +50,7 @@ files {
     'ui/app.js',
     'ui/vendor/vue.js',
     'ui/img/placeholder.png',
+    'docs/icon.png',
 }
 
 escrow_ignore {
