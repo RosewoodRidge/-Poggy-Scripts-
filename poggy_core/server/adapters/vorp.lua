@@ -515,7 +515,8 @@ function VORP:invReady()
 end
 
 --- Every item in the items table, the same read vorp_inventory makes at start.
---- sv_core caches the result; this runs once per ItemCacheSeconds at most.
+--- sv_core keeps the result: this runs once at start, and again only after an
+--- install.sql seeded item rows.
 function VORP:itemRegistry()
     local rows, err = Util.DbQuery("SELECT * FROM items", {})
     if not rows then return nil, err end

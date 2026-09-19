@@ -2113,7 +2113,7 @@ end
 -- collections. Empty strings and non-strings (false = none) are skipped.
 -- ---------------------------------------------------------------------------
 
-local REGISTRY_SECONDS = 300        -- how long the item registry is kept
+local REGISTRY_SECONDS = 300        -- how long the registry is kept when poggy_core cannot say it changed
 local REGISTRY_RETRY_SECONDS = 30   -- how soon a registry that could not be read is tried again
 local MAX_CHECK_NAMES = 500         -- itemCheck(names): names per call
 
@@ -2125,11 +2125,24 @@ local iconSeen = {}                 -- resource .. "|" .. rel -> boolean
 --- err }. list and byName are nil when the registry cannot be read (no
 --- framework, or one without an item table): nothing is then called missing.
 function Hub.ItemRegistry(fresh)
+    -- Items cannot change while the server runs, so the registry is kept for
+    -- as long as poggy_core's own copy is (its generation only moves when that
+    -- is dropped). A registry that could not be read is tried again soon.
+    local gen = PoggyCore.ItemCacheGeneration and PoggyCore.ItemCacheGeneration() or nil
     local age = registry.at and (I.now() - registry.at) or nil
-    if not fresh and age and age < (registry.ttl or REGISTRY_SECONDS) then return registry end
+    if not fresh and age then
+        if registry.err then
+            if age < (registry.ttl or REGISTRY_RETRY_SECONDS) then return registry end
+        elseif gen ~= nil and registry.gen == gen then
+            return registry
+        elseif gen == nil and age < (registry.ttl or REGISTRY_SECONDS) then
+            return registry
+        end
+    end
     if fresh and PoggyCore.DropItemCache then pcall(PoggyCore.DropItemCache) end
     local ok, list, err = PoggyCore.Do("inv.items", { limit = 100000 })
-    local r = { at = I.now(), ttl = REGISTRY_SECONDS }
+    local r = { at = I.now(), ttl = REGISTRY_SECONDS,
+        gen = PoggyCore.ItemCacheGeneration and PoggyCore.ItemCacheGeneration() or nil }
     if ok and type(list) == "table" then
         r.list, r.byName, r.byLower = {}, {}, {}
         for _, it in ipairs(list) do

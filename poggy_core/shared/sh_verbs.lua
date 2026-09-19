@@ -104,8 +104,8 @@ PoggyCore.Verbs = {
     -- per-item limit and RSG's and QBR's weight and slots alike.
     ["inv.maxCarry"]    = { side = "server", yields = true, args = {"src", "item"}, optional = {"cap"},                    returns = "number" },
     ["inv.setMeta"]     = { side = "server", yields = true, args = {"src", "itemId", "meta"}, optional = {"amount"},       returns = "true" },
-    -- 0.11.0. The item registry: every item the framework knows, cached for
-    -- PoggyCoreConfig.ItemCacheSeconds. search matches name or label.
+    -- 0.11.0. The item registry: every item the framework knows, read once at
+    -- start and kept (0.18.2). search matches name or label.
     -- checkImages = true adds hasImage (whether the icon file exists).
     ["inv.items"]       = { side = "server", yields = true, args = {}, optional = {"search", "limit", "checkImages"},     returns = "array of { name, label, desc, weight, limit, type, usable, group, image }" },
     ["inv.itemInfo"]    = { side = "server", yields = true, args = {"item"}, optional = {"checkImages"},                  returns = "{ name, label, desc, weight, limit, type, usable, group, image }" },

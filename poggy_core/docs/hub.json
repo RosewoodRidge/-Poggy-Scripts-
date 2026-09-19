@@ -312,17 +312,6 @@
       "tab": "storage",
       "group": "Default container options"
     },
-    "PoggyCoreConfig.ItemCacheSeconds": {
-      "label": "Item list cache",
-      "tooltip": "How long the list of every item in your inventory database is kept before it is read again, in seconds. Items only change when you add them, so there is no need to go low.",
-      "tab": "storage",
-      "group": "Items",
-      "min": 0,
-      "max": 86400,
-      "step": 30,
-      "unit": "seconds",
-      "advanced": true
-    },
     "PoggyCoreConfig.NotifyRenderers": {
       "label": "Notification style order",
       "tooltip": "Where notifications are drawn, tried in order until one works: native (Poggy's own RDR2-style notes), framework (your framework's notifications), chat (a chat line, last resort).",

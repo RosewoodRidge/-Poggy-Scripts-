@@ -231,21 +231,53 @@ end
 -- Item registry cache (inv.items / inv.itemInfo), shared by every consumer
 -- ---------------------------------------------------------------------------
 
-local itemCache  = { at = nil, list = nil, byName = nil }
+-- Items cannot change while a server runs: VORP, RSG and QBR all read their
+-- item table once, when the inventory (QBR: qbr-core) starts, and none of them
+-- can be restarted without restarting the server. So the registry is read once
+-- and kept. It is only read again after something that really changes it: an
+-- install.sql that seeded item rows (sv_sql.lua), the hub's explicit re-read,
+-- or an inventory start.
+local itemCache  = { list = nil, byName = nil, loading = nil, gen = 0 }
 local imageCache = {}   -- item name -> boolean, whether its icon file exists
 
---- The registry, from cache when it is younger than ItemCacheSeconds.
+--- The registry. Callers that ask while it is being read wait for that one
+--- read instead of starting their own (4000+ rows on a big server).
 local function itemRegistry(a)
-    local ttl = (tonumber(PoggyCoreConfig.ItemCacheSeconds) or 300) * 1000
-    if itemCache.list and itemCache.at and (GetGameTimer() - itemCache.at) < ttl then
-        return itemCache.list, itemCache.byName
+    if itemCache.list then return itemCache.list, itemCache.byName end
+    if itemCache.loading then
+        local p = itemCache.loading
+        local res = Citizen.Await(p)
+        if res and res.list then return res.list, res.byName end
+        return nil, nil, res and res.err or Err.FRAMEWORK_ERR
     end
-    local list, err = a:itemRegistry()
-    if type(list) ~= "table" then return nil, nil, err or Err.FRAMEWORK_ERR end
-    local byName = {}
-    for _, it in ipairs(list) do byName[it.name] = it end
-    itemCache.list, itemCache.byName, itemCache.at = list, byName, GetGameTimer()
-    return list, byName
+    local p = promise.new()
+    itemCache.loading = p
+    local gen = itemCache.gen
+    local okCall, list, err = pcall(a.itemRegistry, a)
+    if not okCall then list, err = nil, tostring(list) end
+    local res
+    if type(list) == "table" then
+        local byName = {}
+        for _, it in ipairs(list) do byName[it.name] = it end
+        res = { list = list, byName = byName }
+        -- A drop during the read means the table changed under it: hand this
+        -- answer to the waiting callers, but do not keep it.
+        if itemCache.gen == gen then
+            itemCache.list, itemCache.byName = list, byName
+        end
+    else
+        res = { err = err or Err.FRAMEWORK_ERR }
+    end
+    if itemCache.loading == p then itemCache.loading = nil end
+    p:resolve(res)
+    if res.list then return res.list, res.byName end
+    return nil, nil, res.err
+end
+
+--- Bumped every time the registry is dropped, so a caller that keeps its own
+--- copy (the settings hub) knows when to build it again.
+function PoggyCore.ItemCacheGeneration()
+    return itemCache.gen
 end
 
 --- A copy, so a caller in this Lua state cannot edit the cache.
@@ -264,11 +296,22 @@ end
 --- Forget the registry; the next inv.items reads it again. sv_sql.lua calls
 --- this after an install.sql seeded rows into the framework's item table.
 function PoggyCore.DropItemCache()
-    itemCache.list, itemCache.byName, itemCache.at = nil, nil, nil
+    itemCache.list, itemCache.byName, itemCache.loading = nil, nil, nil
+    itemCache.gen = itemCache.gen + 1
     imageCache = {}
 end
 
--- An inventory restart can mean new items; read the registry again next time.
+-- Read the registry once at start, while nobody is playing yet, so the first
+-- item picker or icon check later on costs nothing.
+AddEventHandler("poggy_core:ready", function()
+    CreateThread(function()
+        local a = guard()
+        if a and a.itemRegistry then itemRegistry(a) end
+    end)
+end)
+
+-- An inventory start means its item table was read again (in practice only at
+-- server start, since none of them can be restarted live); read ours again too.
 -- On QBR the items live in qbr-core itself (QBShared.Items).
 AddEventHandler("onResourceStart", function(resource)
     if resource == "vorp_inventory" or resource == "rsg-inventory" or resource == "qbr-core" then

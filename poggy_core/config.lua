@@ -82,15 +82,6 @@ PoggyCoreConfig.MedicalJobs = {
 }
 
 -- ---------------------------------------------------------------------------
--- Inventory
--- ---------------------------------------------------------------------------
-
---- How long inv.items / inv.itemInfo keep the item registry before reading it
---- again (seconds). Items only change when rows are added to the database, and
---- a vorp_inventory restart clears the cache anyway.
-PoggyCoreConfig.ItemCacheSeconds = 300
-
--- ---------------------------------------------------------------------------
 -- Characters
 -- ---------------------------------------------------------------------------
 
