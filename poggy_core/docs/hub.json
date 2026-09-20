@@ -7,7 +7,8 @@
   "help": [
     {"title": "Using the settings hub", "file": "docs/help/settings-hub.md"},
     {"title": "Roles and job lists", "file": "docs/help/roles.md"},
-    {"title": "Diagnostics commands", "file": "docs/help/diagnostics.md"}
+    {"title": "Diagnostics commands", "file": "docs/help/diagnostics.md"},
+    {"title": "Bans", "file": "docs/help/bans.md"}
   ],
 
   "commands": [
@@ -161,12 +162,34 @@
       "description": "Frees a script that someone is editing in the hub, for example after a crash. Their unsaved changes are lost.",
       "usage": "poggycore settings unlock <id>",
       "examples": ["poggycore settings unlock poggy_markets"]
+    },
+    {
+      "command": "poggycore ban",
+      "who": "Admins",
+      "description": "Bans a player's account, so it follows them across characters, and removes them at once. Give a server id for someone online, or an identifier (license:...) for someone who has left. The word cheat marks a cheating ban; leave it out for a rule break. Console, or chat for players with the ACE command or poggycore, or a framework admin.",
+      "usage": "poggycore ban <server id | identifier> <30m|2h|7d|1w|perm> [cheat] <reason>",
+      "examples": ["poggycore ban 12 7d combat logging", "poggycore ban 12 perm cheat aimbot, clip in ticket 41", "poggycore ban license:1a2b3c perm cheat left before the ban"]
+    },
+    {
+      "command": "poggycore unban",
+      "who": "Admins",
+      "description": "Lifts a ban. The ban stays on record, marked as lifted, with who lifted it and why.",
+      "usage": "poggycore unban <ban number> <reason>",
+      "examples": ["poggycore unban 14 appeal accepted"]
+    },
+    {
+      "command": "poggycore baninfo",
+      "who": "Admins",
+      "description": "With nothing after it, lists the active bans. With a server id, an identifier or a ban number, shows every ban on record for it.",
+      "usage": "poggycore baninfo [server id | identifier | ban number]",
+      "examples": ["poggycore baninfo", "poggycore baninfo 12", "poggycore baninfo license:1a2b3c"]
     }
   ],
 
   "tabs": [
     {"id": "general", "label": "Framework", "icon": "cpu"},
     {"id": "access", "label": "Access & permissions", "icon": "shield"},
+    {"id": "bans", "label": "Bans", "icon": "shield"},
     {"id": "hub", "label": "Settings hub", "icon": "sliders"},
     {"id": "storage", "label": "Storage & items", "icon": "box"},
     {"id": "interface", "label": "Menus & notifications", "icon": "chat"},
@@ -174,7 +197,30 @@
     {"id": "advanced", "label": "Advanced", "icon": "cog"}
   ],
 
+  "panels": [
+    {
+      "id": "bans",
+      "label": "Ban list",
+      "tab": "bans",
+      "export": "HubPanel",
+      "itemLabel": "ban",
+      "tooltip": "Everyone banned from this server. A ban is on the player's account, so it follows them across characters. Lifting a ban keeps it in the list."
+    }
+  ],
+
   "settings": {
+    "PoggyCoreConfig.Bans.Enabled": {
+      "label": "Bans on",
+      "tooltip": "Off: nobody is refused at connect and nothing can be banned. Bans already made stay in the database and work again when this is turned back on.",
+      "tab": "bans",
+      "group": "Bans"
+    },
+    "PoggyCoreConfig.Bans.AppealText": {
+      "label": "Appeal line",
+      "tooltip": "The last line a banned player reads when they are refused. Say where they can appeal, for example your Discord.",
+      "tab": "bans",
+      "group": "Bans"
+    },
     "PoggyCoreConfig.ForceFramework": {
       "label": "Force a framework",
       "tooltip": "Leave on 'Detect automatically'. Only set a framework when two framework cores are running at once (for example mid-migration). A forced framework that is not running leaves every Poggy script without a framework.",

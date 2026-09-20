@@ -178,6 +178,16 @@ RegisterCommand(commandName, function()
     openHub()
 end, false)
 
+--- Another Poggy script takes the player to its own window (poggy_tickets'
+--- Players menu, opened from a hub button). The page hides without asking and
+--- the locks are released, exactly as when the player closes the hub.
+exports("CloseHub", function()
+    if not isOpen then return false end
+    SendNUIMessage({ action = "hub:close" })
+    closeHub(true)
+    return true
+end)
+
 CreateThread(function()
     -- The chat resource may start after us; a short wait makes the suggestion stick.
     Wait(2000)

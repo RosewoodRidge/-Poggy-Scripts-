@@ -56,6 +56,16 @@ Example: `/poggycore do money.get src=me`
 | `poggycore settings set <id> <path> <value>` | Changes one setting, like the hub. Text values in double quotes. |
 | `poggycore settings unlock <id>` | Frees a script someone is stuck editing. |
 
+## Bans
+
+| Command | What it does |
+|---|---|
+| `poggycore ban <id or identifier> <time> [cheat] <reason>` | Bans the account and removes the player. Time: `30m`, `2h`, `7d`, `1w`, `perm`. |
+| `poggycore unban <ban number> <reason>` | Lifts a ban. It stays on record. |
+| `poggycore baninfo [id, identifier or ban number]` | Active bans, or every ban on record for one player. |
+
+More on the **Bans** help page.
+
 ## Common fixes
 
 - **Framework shows as standalone:** run `poggycore detect`. Your framework core may have started after poggy_core, or *Force a framework* is set.

@@ -210,6 +210,21 @@ PoggyCore.Verbs = {
     -- keeps the duplication in one place instead of in every script.
     ["perms.groups"]    = { side = "server", args = {"src"},                                                returns = "array of group names" },
 
+    -- --------------------------------------------------------------- bans --
+    -- 0.19.0. A ban is on the ACCOUNT (every identifier, hashed), so it follows
+    -- the player across characters. These verbs do not check who is asking:
+    -- the calling script decides who may ban. `by` is the staff member's
+    -- server id (or a name); duration is seconds, absent = permanent;
+    -- category is "local" or "cheat". Lifting a ban keeps the row.
+    ["ban.add"]            = { side = "server", yields = true, args = {"reason"}, optional = {"src", "identifiers", "name", "category", "duration", "evidence", "by", "byName", "source", "sourceRef"}, returns = "ban id" },
+    ["ban.remove"]         = { side = "server", yields = true, args = {"id", "reason"}, optional = {"by", "byName"},          returns = "true" },
+    ["ban.check"]          = { side = "server", args = {}, optional = {"src", "identifiers"},                                returns = "{ banned, ban?, network = { count, blocked } }" },
+    ["ban.list"]           = { side = "server", yields = true, args = {}, optional = {"search", "active", "limit", "offset"}, returns = "array of bans, newest first" },
+    ["player.kick"]        = { side = "server", args = {"src"}, optional = {"reason"},                                        returns = "true" },
+    -- Every account identifier of an online player and the hash of each: what a
+    -- report stores so the player can still be banned after they leave.
+    ["player.identifiers"] = { side = "server", args = {"src"},                                                               returns = "{ name, identifiers, hashes }" },
+
     -- --------------------------------------------------------------- core --
     ["core.ready"]      = { side = "both", args = {},                                                       returns = "boolean" },
     ["core.framework"]  = { side = "both", args = {},                                                       returns = "{ id, label }" },

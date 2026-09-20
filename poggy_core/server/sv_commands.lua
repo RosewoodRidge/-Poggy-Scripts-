@@ -410,6 +410,14 @@ RegisterCommand("poggycore", function(src, args)
         CreateThread(function()
             PoggyCore.Hub.Command(src, rest, function(msg) reply(src, msg) end)
         end)
+    elseif sub == "ban" or sub == "unban" or sub == "baninfo" then
+        if not PoggyCore.Bans then
+            reply(src, "bans are not loaded.")
+            return
+        end
+        CreateThread(function()
+            PoggyCore.Bans.Command(src, args, function(msg) reply(src, msg) end)
+        end)
     elseif sub == "scripts" then
         CreateThread(function() scripts(src) end)
     elseif sub == "dependents" then

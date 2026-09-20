@@ -949,6 +949,37 @@ have no such column and cap by weight instead. A script calling them declares
 |---|---|---|---|---|
 | `jobs.list` | server, thread | | array of `{ name, label, grades = { { grade, label } } }`, sorted by name | RSG and QBR: the core's shared jobs table. VORP keeps a job as free text on the character, so it is the distinct jobs and grades in the `characters` table, with the name as the label (best effort; empty without oxmysql). Standalone: `{}`. The settings hub's job picker uses it. |
 
+## Bans (0.19.0)
+
+A ban is on the player's **account**, not the character: every identifier the
+server gives for them (`license`, `license2`, `fivem`, `steam`, `discord`; never
+`ip`) is hashed, and a connecting player is refused when any one of theirs
+matches an active ban. Lifting a ban keeps the row, marked as lifted.
+
+**It fails open.** The connect check reads memory only and never waits on the
+database. No database, a failed load, an error of any kind: nobody is refused.
+A fault in poggy_core never locks players out of a server.
+
+Ban from the console or chat (`poggycore ban / unban / baninfo`), from `/poggy`
+(poggy_core, **Bans**), or from a script through the verbs. Tables `poggy_bans`
+and `poggy_ban_hashes` are created on start. Config: `PoggyCoreConfig.Bans`.
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `ban.add` | server, thread | `reason`, and `src` or `identifiers`; optional `category` (`"local"`, `"cheat"`), `duration` (seconds; absent = permanent), `evidence` (http/https), `name`, `by` (staff server id, or text), `byName`, `source`, `sourceRef` | ban id | Drops everyone online on that account. |
+| `ban.remove` | server, thread | `id`, `reason`; optional `by`, `byName` | `true` | The row stays. |
+| `ban.check` | server | `src` or `identifiers` | `{ banned, ban?, network = { count, blocked } }` | Memory only. `network` is always zero until the shared ban network ships. |
+| `ban.list` | server, thread | optional `search`, `active`, `limit`, `offset` | array of bans, newest first | No raw identifiers, only hashes. |
+| `player.kick` | server | `src`; optional `reason` | `true` | |
+| `player.identifiers` | server | `src` | `{ name, identifiers, hashes }` | What a report stores so a player can be banned after they leave. |
+
+**These verbs do not check who is asking.** The script that calls them decides
+who may ban. The console command and the hub panel check it themselves.
+
+Events (server): `poggy_core:ban:added`, `poggy_core:ban:removed`, each with the ban.
+
+Scripts that use these need `poggy_core_min '0.19.0'`.
+
 ## Fixed in 0.17.1: admins on the user record
 
 `perms.isAdmin` used to read only the character's group. VORP keeps admin on

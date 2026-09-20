@@ -55,6 +55,31 @@ H["sql.check"]   = function(C, p, resource) return PoggyCore.Sql.Verb(resource, 
 
 H["core.register"] = function(C, p, resource) return PoggyCore.Identity.Verb(resource, p) end
 
+-- bans (0.19.0) ---------------------------------------------------------------
+-- server/sv_bans.lua. The calling script checks who asked.
+
+H["ban.add"] = function(_, p)
+    local id, err = PoggyCore.Bans.Add(p)
+    if not id then return false, nil, err end
+    return true, id, nil
+end
+H["ban.remove"] = function(_, p) return did(PoggyCore.Bans.Remove(p)) end
+H["ban.check"]  = function(_, p) return true, PoggyCore.Bans.Check(p), nil end
+H["ban.list"] = function(_, p)
+    local list, err = PoggyCore.Bans.List(p)
+    if not list then return false, nil, err end
+    local out = {}
+    for i, ban in ipairs(list) do out[i] = PoggyCore.Bans.View(ban) end
+    return true, out, nil
+end
+H["player.kick"] = function(_, p) return did(PoggyCore.Bans.Kick(p.src, p.reason)) end
+H["player.identifiers"] = function(_, p)
+    local src = tonumber(p.src)
+    if not src or not GetPlayerName(src) then return false, nil, Err.NOT_FOUND end
+    local ids, hashes = PoggyCore.Bans.IdentifiersOf(src)
+    return true, { name = GetPlayerName(src), identifiers = ids, hashes = hashes }, nil
+end
+
 -- character ------------------------------------------------------------------
 
 H["char.get"]     = function(C, p) return ret(C.GetChar(p.src)) end

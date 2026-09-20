@@ -263,3 +263,16 @@ PoggyCoreConfig.Roles = {
     medics = { label = "Medics", kind = "jobs", list = { "doctor" } },
     staff  = { label = "Staff groups", kind = "groups", list = { "admin", "superadmin", "god" } },
 }
+
+-- ---------------------------------------------------------------------------
+-- Bans (0.19.0)
+-- ---------------------------------------------------------------------------
+--- A ban is on the player's ACCOUNT, so it follows them across characters.
+--- Ban from the console or chat (poggycore ban / unban / baninfo), from
+--- /poggy (poggy_core, Bans), or from a script that uses it (poggy_tickets).
+--- Lifting a ban keeps it on record. If the database cannot be read, nobody
+--- is refused: a fault here never locks players out.
+PoggyCoreConfig.Bans = {
+    Enabled    = true,                        -- false: nobody is refused, and nothing can be banned
+    AppealText = "You can appeal on our Discord.",   -- the last line a banned player reads
+}
