@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_tickets'
 author 'Poggy'
 description 'Player tickets and help requests, with a staff panel: claim, assign, reply, teleport, warn, kick, ban, Discord.'
-version '1.0.0'
+version '1.0.1'
 poggy_core_min '0.19.0'        -- ban.add, ban.remove, ban.list, player.kick, player.identifiers
 
 dependencies {

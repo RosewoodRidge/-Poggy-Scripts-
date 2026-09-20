@@ -1036,18 +1036,52 @@ function I.writeFile(folder, rel, text)
 end
 
 --- Copy a file's current text into poggy_core/update_backups/.
+---
+--- A backup NEVER stops a save (0.20.2). It used to: "backups, all before any
+--- write" refused the save when one could not be written, and a server script
+--- cannot create a folder, so a poggy_core copied in without update_backups/
+--- refused every save there was (Britannia, 21 September 2026: 90 changes, made
+--- twice). The owner's config is the point; the backup is a courtesy. So:
+---   1. update_backups/<name>            the usual place
+---   2. update_backups__<name>           poggy_core's own main folder, which always exists
+---   3. no file at all: the save still goes ahead. History (the log rows) holds
+---      every old value, and the write is read back and checked.
+--- Returns where it went: "folder" | "root" | "none".
 function I.backup(folder, rel, text, stamp)
     local file = (rel:gsub("[/\\]", "_"))
-    local name = ("update_backups/%s__%s__settings__%s"):format(folder, stamp, file)
-    -- Two saves in the same second: the second backup gets -2, -3 ... so the
-    -- first one (the text before either save) is never overwritten.
-    local n = 1
-    while LoadResourceFile(SELF, name) ~= nil and n < 100 do
-        n = n + 1
-        name = ("update_backups/%s__%s-%d__settings__%s"):format(folder, stamp, n, file)
+    local function put(prefix)
+        local name = ("%s%s__%s__settings__%s"):format(prefix, folder, stamp, file)
+        -- Two saves in the same second: the second backup gets -2, -3 ... so the
+        -- first one (the text before either save) is never overwritten.
+        local n = 1
+        while LoadResourceFile(SELF, name) ~= nil and n < 100 do
+            n = n + 1
+            name = ("%s%s__%s-%d__settings__%s"):format(prefix, folder, stamp, n, file)
+        end
+        local okCall, okSave = pcall(SaveResourceFile, SELF, name, text, #text)
+        return okCall and okSave and name or nil
     end
-    if not SaveResourceFile(SELF, name, text, #text) then return false, "could not write " .. name end
-    return true
+    if put("update_backups/") then return "folder" end
+    local name = put("update_backups__")
+    if name then
+        Util.Warn("settings hub: poggy_core/update_backups is missing, so the backup went to poggy_core/%s. Make that folder (no restart needed).", name)
+        return "root"
+    end
+    Util.Warn("settings hub: no backup of %s/%s could be written anywhere. The save goes ahead; History holds the old values.", folder, rel)
+    return "none"
+end
+
+I.BACKUP_FOLDER_HELP = "The folder poggy_core/update_backups is missing on the server. Saving works; until that folder is made "
+    .. "(inside poggy_core, empty is fine, no restart needed) the backup of each file you save goes into poggy_core's main folder instead."
+
+--- Is the backups folder there? Asked when a script opens, so the page can say
+--- so. Nothing is remembered (it is one small write): once the folder is made, the
+--- next look finds it, and if it is deleted, the next look says so.
+function I.backupsWritable()
+    local text = "poggy_core checks here that it can write backups. Safe to delete.\n"
+    local okCall, okSave = pcall(SaveResourceFile, SELF, "update_backups/_writetest.txt", text, #text)
+    if okCall and okSave then return true end
+    return false, I.BACKUP_FOLDER_HELP
 end
 
 -- ---------------------------------------------------------------------------
@@ -1541,11 +1575,12 @@ function Hub.Apply(src, script, changes, opts)
         if texts[file] ~= originals[file] then changedFiles[#changedFiles + 1] = file end
     end
 
-    -- 4. backups, all before any write
+    -- 4. backups, all before any write. A backup never stops the save (see I.backup).
     local stamp = os.date("%Y%m%d-%H%M%S")
+    local backupNote
     for _, file in ipairs(changedFiles) do
-        local ok, why = I.backup(script.folder, file, originals[file], stamp)
-        if not ok then return I.fail("write_failed", "The backup could not be written, so nothing was saved: " .. tostring(why)) end
+        local where = I.backup(script.folder, file, originals[file], stamp)
+        if where == "none" or (where == "root" and backupNote ~= "none") then backupNote = where end
     end
 
     -- 5. write; if one fails, put back the ones already written
@@ -1575,7 +1610,8 @@ function Hub.Apply(src, script, changes, opts)
     local fps = {}
     for _, f in ipairs(fresh.files) do fps[f.file] = f.fingerprint end
     if tonumber(src) and tonumber(src) > 0 then I.remember(src, script.id, fresh.files) end
-    return I.ok({ fingerprints = fps, restart = restart and #changedFiles > 0, applied = #log })
+    -- backupNote: nil (backed up as usual) | "root" (in poggy_core's main folder) | "none"
+    return I.ok({ fingerprints = fps, restart = restart and #changedFiles > 0, applied = #log, backupNote = backupNote })
 end
 
 --- hub:save — id, { fingerprints = { file = fp }, changes = { change... } }
@@ -1872,8 +1908,7 @@ function Hub.SaveRoles(src, roles)
     if not newText then return I.fail("write_failed", "The roles could not be written: " .. tostring(err)) end
     if newText ~= text then
         local stamp = os.date("%Y%m%d-%H%M%S")
-        local okB, whyB = I.backup(SELF, "config.lua", text, stamp)
-        if not okB then return I.fail("write_failed", "The backup could not be written: " .. tostring(whyB)) end
+        I.backup(SELF, "config.lua", text, stamp)   -- never stops the save
         local okW, whyW = I.writeFile(SELF, "config.lua", newText)
         if not okW then
             I.writeFile(SELF, "config.lua", text)
@@ -1952,6 +1987,12 @@ end
 local register = Hub.Register
 
 register("save", function(src, id, payload) return Hub.Save(src, id, payload) end)
+
+-- "Check again" on the page's backups-folder banner.
+register("savecheck", function()
+    local ok, why = I.backupsWritable()
+    return I.ok({ blocked = (not ok) and why or nil })
+end)
 register("undo", function(src, logId) return Hub.Undo(src, logId) end)
 register("restart", function(src, id) return Hub.Restart(src, id, false) end)
 register("start", function(src, id) return Hub.Restart(src, id, true) end)

@@ -1058,6 +1058,18 @@
                 h('button.ph-btn.ph-btn--primary.ph-btn--sm', { type: 'button', onclick: function () { PH.lock.acquire(cur.id, true); } }, [icon('pencil'), 'Start editing']),
             ]));
         }
+        if (cur.data && cur.data.saveBlocked) {
+            host.appendChild(banner('info', 'eye', [h('b', 'The backups folder is missing.'), ' ' + cur.data.saveBlocked], [
+                h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', onclick: function () {
+                    PH.api('savecheck').then(function (r) {
+                        if (!S.cur || S.cur !== cur || !r.ok) return;
+                        cur.data.saveBlocked = (r.value && r.value.blocked) || null;
+                        if (!cur.data.saveBlocked) PH.toast({ kind: 'success', title: 'Backups folder found', text: 'Backups go there from now on.' });
+                        PH.renderBanners();
+                    });
+                } }, [icon('restart'), 'Check again']),
+            ]));
+        }
         if (!c.running) {
             host.appendChild(banner('warn', 'stop', [h('b', 'This script is stopped.'), ' You can change its settings, but saving needs it running: a script writes its own files.'], [
                 h('button.ph-btn.ph-btn--go.ph-btn--sm', { type: 'button', onclick: function () { PH.startScript(cur.id); } }, [icon('play'), 'Start']),

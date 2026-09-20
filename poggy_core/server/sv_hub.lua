@@ -3607,6 +3607,12 @@ function Hub.Script(src, id)
     local mine, holder = I.acquire(src, s.id)
     local l = locks[s.id]
     I.remember(src, s.id, b.files)
+    -- Saving works without the backups folder, but the owner should know it is missing.
+    local saveBlocked
+    if I.backupsWritable then
+        local okB, whyB = I.backupsWritable()
+        if not okB then saveBlocked = whyB end
+    end
     -- §9: item checks and the script's own report. Neither may stop the
     -- script opening: a failure is logged and the answer goes without it.
     local itemCheck, diagnostics, diagnosticsNote
@@ -3630,6 +3636,7 @@ function Hub.Script(src, id)
         end
     end
     return I.ok({
+        saveBlocked = saveBlocked,           -- the backups folder is missing (saving still works), or nil
         panels = panels,                     -- §10
         itemCheck = itemCheck,               -- §9.1
         diagnostics = diagnostics,           -- §9.2

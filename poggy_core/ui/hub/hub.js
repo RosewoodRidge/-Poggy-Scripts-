@@ -149,6 +149,14 @@
 
     // ------------------------------------------------------------ save bar --
 
+    /** "Saving 8 of 19…", or what it is waiting for. */
+    function savingLabel() {
+        var p = PH.saveProgress;
+        if (!p) return 'Saving…';
+        if (p.note) return p.note;
+        return 'Saving ' + Math.min(p.done + 1, p.total) + ' of ' + p.total + '…';
+    }
+
     PH.updateSaveBar = function () {
         var bar = PH.els.savebar;
         PH.clear(bar);
@@ -165,7 +173,7 @@
                 h('span.ph-grow'),
                 h('button.ph-btn.ph-btn--ghost', { type: 'button', onclick: function () { PH.review(); } }, [icon('eye'), 'Review']),
                 h('button.ph-btn.ph-btn--ghost', { type: 'button', onclick: function () { PH.discard(); } }, [icon('reset'), 'Discard']),
-                h('button.ph-btn.ph-btn--primary', { type: 'button', disabled: ro || PH.saving, title: 'Save (Ctrl+S)', onclick: function () { PH.save(false); } }, [icon('save'), PH.saving ? 'Saving…' : 'Save']),
+                h('button.ph-btn.ph-btn--primary', { type: 'button', disabled: ro || PH.saving, title: 'Save (Ctrl+S)', onclick: function () { PH.save(false); } }, [icon('save'), PH.saving ? savingLabel() : 'Save']),
                 isCore ? null : h('button.ph-btn.ph-btn--go', { type: 'button', disabled: ro || PH.saving, title: 'Save, then restart the script so the changes apply', onclick: function () { PH.save(true); } }, [icon('restart'), 'Save & Restart']),
             ]));
             if (ro) bar.firstChild.appendChild(h('span.ph-savebar__ro', [icon('lock'), 'Read only: take the lock to save']));
@@ -264,7 +272,62 @@
 
     PH.saving = false;
 
-    /** Save the queue. Resolves true when it was written. */
+    // A save goes to the server a few changes at a time.
+    //
+    // One call used to carry the whole queue. The server applies changes one by
+    // one, and each of them reads the config file again, so the time a save
+    // takes is (changes x file size). Britannia's recipes.lua reached 458 KB
+    // when 701 furniture recipes went in: 1.2 s a change, 19 changes, and the
+    // call ran past its 30 s limit. The page said "not saved" and an hour of
+    // edits sat in the queue with no way to get them in.
+    //
+    // Now the first call carries a few changes and is timed; every call after it
+    // carries as many as should take about BATCH_TARGET_MS, so a small file still
+    // saves in one or two calls and a huge one in many short ones. Each answer
+    // brings the file's new fingerprint, which the next call sends back.
+    //
+    // What is written leaves the queue at once. If a later batch is refused, the
+    // earlier ones are already in the file and the rest stay queued, with the
+    // reason -- nothing is lost and nothing is sent twice.
+    var BATCH_FIRST = 4;            // changes in the first, timed, call
+    var BATCH_MAX = 25;
+    var BATCH_TARGET_MS = 8000;     // what a call should take; the limit is 30000
+    var LANDED_TRIES = 12;          // after a timeout: look at the file this many times...
+    var LANDED_EVERY_MS = 5000;     // ...this far apart, before giving up
+
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    /** Fingerprints from a `script` answer: { file: fingerprint }. */
+    function fingerprintsOf(value) {
+        var out = {};
+        ((value && value.files) || []).forEach(function (f) { if (f && f.file) out[f.file] = f.fingerprint; });
+        return out;
+    }
+
+    /**
+     * A save call timed out. The server does not stop when the page stops
+     * waiting, so the batch may still land. We hold the edit lock, so nobody
+     * else writes these files: if a fingerprint of a file in the batch changes,
+     * that was our batch. Resolves the new fingerprints, or null.
+     */
+    function landedAfterTimeout(id, batch, before, tries) {
+        if (tries <= 0) return Promise.resolve(null);
+        return wait(LANDED_EVERY_MS).then(function () {
+            if (!S.cur || S.cur.id !== id) return null;
+            return PH.api('script', id).then(function (r) {
+                if (r.ok) {
+                    var now = fingerprintsOf(r.value);
+                    var moved = batch.some(function (c) { return c.file && now[c.file] && now[c.file] !== before[c.file]; });
+                    if (moved) return now;
+                }
+                return landedAfterTimeout(id, batch, before, tries - 1);
+            });
+        });
+    }
+
+    PH.saveProgress = null;
+
+    /** Save the queue. Resolves true when all of it was written. */
     PH.save = function (restartAfter) {
         var cur = S.cur;
         if (!cur || !cur.pending.length) return Promise.resolve(true);
@@ -273,19 +336,52 @@
             PH.toast({ kind: 'warning', title: 'Read only', text: 'You need this script’s edit lock to save. Press “Start editing” first.' });
             return Promise.resolve(false);
         }
-        PH.saving = true;
-        PH.updateSaveBar();
         var id = cur.id;
-        var count = cur.pending.length;
-        return PH.api('save', id, { fingerprints: cur.fingerprints, changes: S.wire() }).then(function (r) {
+        var total = cur.pending.length, done = 0, size = BATCH_FIRST, needRestart = false, noBackup = false;
+        PH.saving = true;
+        PH.saveProgress = { done: 0, total: total };
+        PH.updateSaveBar();
+
+        function here() { return S.cur && S.cur.id === id; }
+
+        function finish(result) {
             PH.saving = false;
-            if (!S.cur || S.cur.id !== id) return false;
-            if (!r.ok) { PH.updateSaveBar(); return handleSaveError(r, restartAfter); }
-            var v = r.value || {};
-            if (v.fingerprints) cur.fingerprints = v.fingerprints;
-            var needRestart = v.restart !== false;
+            PH.saveProgress = null;
+            PH.updateSaveBar();
+            return result;
+        }
+
+        /** A batch is in the file: take it out of the queue and size the next one. */
+        function written(count, value, ms) {
+            if (value && value.fingerprints) S.cur.fingerprints = value.fingerprints;
+            if (!value || value.restart !== false) needRestart = true;
+            if (value && value.backupNote === 'none') noBackup = true;
+            // No rebuild here: the page already shows these values, and the
+            // reload at the end reads the file they are now in.
+            S.cur.pending.splice(0, count);
+            done += count;
+            if (ms > 0) size = Math.max(1, Math.min(BATCH_MAX, Math.floor(BATCH_TARGET_MS / Math.max(1, ms / count))));
+            PH.saveProgress = { done: done, total: total };
+            PH.updateSaveBar();
+        }
+
+        /** A batch was refused. Earlier ones are written, so the page's copy of the file is out of date. */
+        function stopped(r) {
+            finish(false);
+            var tell = function () {
+                if (done > 0) PH.toast({ kind: 'info', title: done + ' of ' + total + ' saved', timeout: 12000,
+                    text: 'Those are in the config file. The rest are still here, unsaved; the reason is shown next.' });
+                return handleSaveError(r, restartAfter);
+            };
+            return done > 0 ? reloadAndReapply(true).then(tell) : tell();
+        }
+
+        function allWritten() {
+            finish(true);
             return reloadAfterWrite(id).then(function () {
-                PH.toast({ kind: 'success', title: 'Saved', text: PH.plural(v.applied || count, 'change') + ' written to the config file.' });
+                PH.toast({ kind: 'success', title: 'Saved', text: PH.plural(done, 'change') + ' written to the config file.' });
+                if (noBackup) PH.toast({ kind: 'warning', title: 'Saved without a backup file', timeout: 12000,
+                    text: 'The server could not write a backup copy. Your changes are saved, and History holds the old values.' });
                 if (restartAfter) {
                     PH.restartScript(id, true);
                 } else if (needRestart) {
@@ -299,7 +395,34 @@
                 }
                 return true;
             });
-        });
+        }
+
+        function step() {
+            if (!here()) return finish(false);
+            if (!S.cur.pending.length) return allWritten();
+            var batch = S.wire().slice(0, size);
+            var before = Object.assign({}, S.cur.fingerprints);
+            var t0 = Date.now();
+            return PH.api('save', id, { fingerprints: S.cur.fingerprints, changes: batch }).then(function (r) {
+                if (!here()) return finish(false);
+                if (r.ok) { written(batch.length, r.value || {}, Date.now() - t0); return step(); }
+                if (r.err !== 'timeout') return stopped(r);
+
+                // Timed out: even this batch was too much for one call. Find
+                // out whether it landed before deciding anything.
+                PH.saveProgress = { done: done, total: total, note: 'Still saving…' };
+                PH.updateSaveBar();
+                return landedAfterTimeout(id, batch, before, LANDED_TRIES).then(function (fps) {
+                    if (!here()) return finish(false);
+                    if (!fps) return stopped(r);
+                    written(batch.length, { fingerprints: fps }, 0);
+                    size = Math.max(1, Math.floor(batch.length / 2));
+                    return step();
+                });
+            });
+        }
+
+        return step();
     };
 
     /** Re-read a script after a write (its nodes, defaults and fingerprints), keeping the tab and the lock. */
@@ -388,8 +511,8 @@
         return Promise.resolve(false);
     }
 
-    /** After a stale save: fetch the script again and put the pending changes back on top. */
-    function reloadAndReapply() {
+    /** After a stale save, or a save that stopped part-way: fetch the script again and put the pending changes back on top. */
+    function reloadAndReapply(quiet) {
         var old = S.cur;
         var id = old.id;
         PH.busy(true, 'Reloading…');
@@ -417,7 +540,7 @@
                     ]),
                     actions: [{ id: 'ok', label: 'OK', kind: 'primary' }],
                 });
-            } else {
+            } else if (!quiet) {
                 PH.toast({ kind: 'success', title: 'Reloaded', text: 'Your ' + PH.plural(fresh.pending.length, 'change') + ' ' + PH.verb(fresh.pending.length, 'is', 'are') + ' back on top of the new files. Save when ready.' });
             }
             return false;

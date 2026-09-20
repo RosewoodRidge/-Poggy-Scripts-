@@ -139,6 +139,7 @@ Translations = {
         ["sp_ban_active"]    = "Active",
         ["sp_ban_lifted"]    = "Lifted",
         ["sp_ban_expired"]   = "Expired",
+        ["sp_ban_left"]      = "%s left",
         ["sp_hire"]          = "Add staff",
         ["sp_hire_search"]   = "Search every character, online or not",
         ["sp_hire_roles"]    = "Roles",
