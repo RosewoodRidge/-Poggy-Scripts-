@@ -79,6 +79,101 @@ function PC.CanCraft(recipe, job, locationId)
     return false, false
 end
 
+--- Why can `job` not craft `recipe` at `locationId`? nil when they can.
+---
+--- Returns reason, detail. The checks run in CanCraft's order, so the reason
+--- is the first one that fails:
+---   'category_job'    the category's Job list       detail = that list
+---   'category_place'  the category's Location list  detail = that list
+---   'recipe_place'    the recipe's Location list    detail = that list
+---   'recipe_job'      the recipe's Job list         detail = that list
+---
+--- The server's refusal and the browser's grey badge both come from this, so
+--- they always agree. Naming the wrong check costs real time: a cafe worker
+--- told "you do not know how to make that" while standing in the wrong place
+--- went looking for a job bug.
+function PC.WhyLocked(recipe, job, locationId)
+    if not recipe then return 'unknown', nil end
+
+    local cat = PC.FindCategory(recipe.Category)
+    if cat then
+        if not PC.Allows(cat.Job, job) then return 'category_job', cat.Job end
+        if not PC.Allows(cat.Location, locationId) then return 'category_place', cat.Location end
+    end
+
+    if not PC.Allows(recipe.Location, locationId) then return 'recipe_place', recipe.Location end
+    if PC.Allows(recipe.Job, job) then return nil, nil end
+
+    local bypass = tonumber(recipe.jobSkillcheck) or 0
+    if bypass > 0 and Config.Skillcheck and Config.Skillcheck.enabled then return nil, nil end
+
+    return 'recipe_job', recipe.Job
+end
+
+--- Place id -> what the player reads: a bench's name, or a prop group's
+--- title. Location lists hold ids; nobody should have to read 'still_lemoyne'.
+function PC.PlaceNameMap()
+    local names = {}
+    for _, loc in ipairs(Config.Locations or {}) do
+        if loc.id then names[loc.id] = loc.name or loc.id end
+    end
+    for _, group in ipairs(Config.CraftingProps or {}) do
+        if group.title then names[group.title:lower()] = group.title end
+    end
+    return names
+end
+
+--- A Location list as readable text: "Blacksmith Anvil, Forge".
+function PC.PlaceNames(list)
+    if type(list) ~= 'table' then return '' end
+    local names, out = PC.PlaceNameMap(), {}
+    for _, id in ipairs(list) do out[#out + 1] = names[id] or tostring(id) end
+    return table.concat(out, ', ')
+end
+
+--- Job and Location fields that can never match anything: a number other
+--- than 0 (Job = 8), or a list holding something that is not a name. Each
+--- one locks its recipe, category or bench for everyone, silently, so the
+--- server names them at start. Returns an array of lines.
+function PC.CheckRestrictions()
+    local problems = {}
+
+    local function check(where, field, v)
+        if v == nil or v == 0 then return end
+        if type(v) == 'number' then
+            problems[#problems + 1] = ('%s: %s = %s matches nothing. Use 0 for "any", or a list of names.')
+                :format(where, field, tostring(v))
+        elseif type(v) ~= 'table' then
+            problems[#problems + 1] = ('%s: %s = %s is not a list.'):format(where, field, tostring(v))
+        else
+            for _, x in pairs(v) do
+                if type(x) ~= 'string' and type(x) ~= 'number' then
+                    problems[#problems + 1] = ('%s: %s holds a %s, not a name.'):format(where, field, type(x))
+                    break
+                end
+            end
+        end
+    end
+
+    check('Config.CampfireJobLock', 'CampfireJobLock', Config.CampfireJobLock)
+    for _, cat in ipairs(Config.Categories or {}) do
+        local where = ('category %q'):format(tostring(cat.ident))
+        check(where, 'Job', cat.Job)
+        check(where, 'Location', cat.Location)
+    end
+    for _, loc in ipairs(Config.Locations or {}) do
+        local where = ('bench %q'):format(tostring(loc.id))
+        check(where, 'Job', loc.Job)
+        check(where, 'Categories', loc.Categories)
+    end
+    for _, recipe in ipairs(Config.Crafting or {}) do
+        local where = ('recipe %q'):format(tostring(recipe.Text))
+        check(where, 'Job', recipe.Job)
+        check(where, 'Location', recipe.Location)
+    end
+    return problems
+end
+
 --- How many rounds, and which difficulty profile, this craft asks for.
 --- Returns reps, profileName ('Normal' | 'JobBypass' | 'Hard'), or 0 when the
 --- recipe uses the ordinary progress bar.

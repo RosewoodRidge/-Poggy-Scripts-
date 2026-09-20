@@ -30,8 +30,8 @@ Two ingredients in, one reward out, anyone, anywhere.
 | `Reward` | What one craft gives. |
 | `Type` | `'item'`, or `'weapon'` for a real weapon with a serial. |
 | `Category` | A category from the **Categories** list (the hub offers a dropdown). |
-| `Job` | `0` for anyone, or a list such as `{ 'blacksmith' }`. |
-| `Location` | `0` for anywhere, or bench ids and prop titles such as `{ 'campfire' }`. |
+| `Job` | **Anyone**, or **Only these jobs** and the job names. In the file: `0` or `{ 'blacksmith' }`. |
+| `Location` | **Anywhere**, or **Only at these places**: bench IDs and prop titles. In the file: `0` or `{ 'campfire' }`. |
 | `Animation` | A key from the **Animations** list (**Advanced** tab). Default `'craft'`. |
 | `CraftTime` | How long it takes, in milliseconds. |
 
@@ -64,4 +64,5 @@ Hovering the ingredient in the browser then shows a badge and one line.
 ## Check it
 
 Restart `poggy_crafting`, then open `/craft`. A recipe you cannot reach shows
-greyed out under **Requires Access**.
+greyed out under **Requires Access**, with the reason on its badge: the job it
+needs, or **Craft at:** and the places where it works.

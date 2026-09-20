@@ -86,6 +86,13 @@ CreateThread(function()
         })
     end
 
+    -- A Job or Location that can never match (Job = 8) locks something for
+    -- everyone without a word. One line per offender, every start, so it is
+    -- found in the console rather than in a support ticket.
+    for _, line in ipairs(PC.CheckRestrictions()) do
+        print(('^3[%s] config:^7 %s'):format(RESOURCE, line))
+    end
+
     -- /campfire places a free campfire, so it is staff only. The server
     -- decides; the client only builds the fire when told to.
     if Config.Commands.campfire then

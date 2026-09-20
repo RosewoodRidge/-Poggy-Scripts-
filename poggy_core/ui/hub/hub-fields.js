@@ -14,6 +14,7 @@
         vector2/3/4                      x/y/z(/w) boxes + "use my position"
         hash                             text (the control name)
         array of strings / numbers       chips; a top-level list can follow a role
+        any + "any" hint                 a switch: one fixed value ("Anyone") or a list of names
         readonly                         the source text and "edit in the file"
 
     The same components are used inside list rows (hub-lists.js), where a
@@ -1686,6 +1687,79 @@
         };
     }
 
+    /**
+     * A value that is either "no restriction" (one fixed value, nearly always
+     * 0) or a list of names: Job = 0, or Job = { 'blacksmith' }. hub.json says
+     * which fields work this way:
+     *
+     *     "Job": { "any": { "value": 0, "label": "Anyone" } }
+     *
+     * Without it, a field holding 0 is a number box, and the only thing a
+     * person can type into a number box is another number -- which matches
+     * no job and locks the recipe for everyone. That is how Britannia ended
+     * up with Job = 8. Here a switch picks the mode, and the list mode is the
+     * ordinary chips control, so the [] picker (job, item) still applies.
+     */
+    function ctlAnyOr(spec, commit, err) {
+        var any = spec.meta.any || {};
+        var anyValue = any.value === undefined ? 0 : any.value;
+        var anyLabel = any.label || 'Any';
+        var someLabel = any.listLabel || 'Only these';
+        var v = PH.clone(spec.value);
+        var disabled = false;
+        var chips = null;
+        var wrap = h('div.ph-anyor');
+        var seg = h('div.ph-seg');
+        var body = h('div.ph-anyor__body');
+        var note = h('div.ph-anyor__note');
+
+        function isAny(x) { return !Array.isArray(x) && (x === anyValue || x === null || x === undefined); }
+        function mode() { return Array.isArray(v) ? 'some' : isAny(v) ? 'any' : 'bad'; }
+
+        var anyBtn = h('button.ph-seg__btn', { type: 'button' }, anyLabel);
+        var someBtn = h('button.ph-seg__btn', { type: 'button' }, someLabel);
+        anyBtn.addEventListener('click', function () {
+            if (disabled || mode() === 'any') return;
+            v = anyValue; commit(anyValue); draw();
+        });
+        someBtn.addEventListener('click', function () {
+            if (disabled || mode() === 'some') return;
+            v = []; commit([]); draw();
+        });
+        seg.appendChild(anyBtn); seg.appendChild(someBtn);
+        wrap.appendChild(seg); wrap.appendChild(body); wrap.appendChild(note);
+
+        function warn(text) { note.appendChild(h('span.ph-anyor__warn', [icon('alert'), h('span', text)])); }
+
+        function draw() {
+            var m = mode();
+            anyBtn.classList.toggle('is-on', m === 'any');
+            someBtn.classList.toggle('is-on', m === 'some');
+            PH.clear(note);
+            if (m === 'some') {
+                // Keep the chips control between draws: recreating it would
+                // close the picker under a person who is still adding names.
+                if (!chips) {
+                    chips = ctlChips(Object.assign({}, spec, { value: v }), function (nv) {
+                        v = PH.clone(nv); commit(nv); draw();
+                    }, err);
+                    body.appendChild(chips.el);
+                }
+                chips.disable(disabled);
+                if (!v.length) warn(any.emptyNote || 'Empty list: nobody matches until you add a name.');
+            } else {
+                if (chips) { PH.clear(body); chips = null; }
+                if (m === 'bad') warn(PH.fmtValue(v) + ' is neither "' + anyLabel + '" nor a list of names. Choose one.');
+            }
+        }
+        draw();
+        return {
+            el: wrap,
+            set: function (nv) { v = PH.clone(nv); if (chips && Array.isArray(v)) chips.set(v); draw(); },
+            disable: function (d) { disabled = d; anyBtn.disabled = d; someBtn.disabled = d; draw(); },
+        };
+    }
+
     /** A short array of numbers ({5, 40}): one box per number. */
     function ctlTuple(spec, commit, err) {
         var arr = PH.clone(spec.value) || [];
@@ -1731,6 +1805,7 @@
         var v = spec.value;
         if (spec.readonly) return ctlReadonly(spec);
         if (PH.isCode(v)) return ctlReadonly(Object.assign({}, spec, { node: Object.assign({}, spec.node || {}, { source: v.source, reason: v.reason || 'It is built from code, so it can only be changed in the file.' }) }));
+        if (m.any && typeof m.any === 'object') return ctlAnyOr(spec, commit, err);
         if (m.ref && (v === null || v === undefined || typeof v !== 'object')) return ctlRef(spec, commit);
         if (Array.isArray(m.options) && m.options.length && (v === null || typeof v !== 'object')) return ctlSelect(spec, commit);
         var t = PH.typeOf(v);

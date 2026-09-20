@@ -150,10 +150,17 @@ Config.CraftingProps = {
     {
         title = 'Oven',
         prop  = {
-            'p_furnace01x', 'p_breadoven01x', 'p_ambstove01x',
+            'p_breadoven01x', 'p_ambstove01x',
             'p_stove01x', 'p_stove04x', 'p_stove05x', 'p_stove06x',
             'p_stove07x', 'p_stove09x', 'p_woodstove01x', 'p_gen_stove01x_tc01',
         },
+    },
+    -- The furnace stands at mines and smelters as well as in shops, so it is
+    -- its own place. A recipe that says Location = { 'oven' } does not work
+    -- at a furnace unless it also names 'forge'.
+    {
+        title = 'Forge',
+        prop  = { 'p_furnace01x' },
     },
 }
 

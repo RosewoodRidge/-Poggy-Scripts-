@@ -270,6 +270,21 @@ RegisterNetEvent('poggy_crafting:craft', function(recipeName, quantity, location
 
     local allowed, needsJobSkillcheck = PC.CanCraft(recipe, jobName, locationId)
     if not allowed then
+        -- Name the check that failed. A missing place and a missing job are
+        -- different problems, and the player can only fix one of them.
+        local why, detail = PC.WhyLocked(recipe, jobName, locationId)
+        if why == 'category_place' or why == 'recipe_place' then
+            -- Each of these lines is newer than the one before it; a
+            -- translations.lua that predates it falls back to the older wording
+            -- rather than showing the key.
+            local L = PC.Locale or {}
+            local places = PC.PlaceNames(detail)
+            local text
+            if places ~= '' and L.not_here_at then text = T('not_here_at', places)
+            elseif L.not_here then text = T('not_here')
+            else text = T('not_job') end
+            return PC.Notify(src, text, 'error')
+        end
         return PC.Notify(src, T('not_job'), 'error')
     end
 

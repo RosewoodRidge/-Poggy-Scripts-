@@ -25,6 +25,7 @@ PoggyCrafting.Locale = {
     -- ── Refusals ────────────────────────────────────────────────────────
     not_job             = 'You do not know how to make that',
     not_here            = 'You cannot craft that here',
+    not_here_at         = 'Craft that at: %s',
     no_permission       = 'Only staff can do that',
     not_enough          = 'You do not have everything you need',
     too_full            = 'You cannot carry any more of that',
@@ -75,7 +76,9 @@ PoggyCrafting.Locale = {
     ui_can_craft        = 'Can Craft',
     ui_no_access        = 'No Access',
     ui_requires         = 'Requires: %s',
+    ui_requires_category = 'Category requires: %s',
     ui_requires_place   = 'Requires location access',
+    ui_craft_at         = 'Craft at: %s',
     ui_unavailable      = 'Unavailable',
     ui_source_unknown   = 'Unknown',
     ui_source_none      = 'Not documented -- ask an admin where this comes from',

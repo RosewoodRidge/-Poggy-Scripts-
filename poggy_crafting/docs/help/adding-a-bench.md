@@ -15,21 +15,18 @@ A bench is a fixed spot where players craft. Benches live in
 | ID | A unique id, for example `smithy_rhodes`. Recipes use it. |
 | Name | Shown on the prompt and the map. |
 | X, Y, Z | The position. |
-| Categories | `0` for every category, or a list such as `{ 'smithing' }`, picked from **Recipes** → **Categories**. |
-| Jobs | `0` for anyone, or a list such as `{ 'blacksmith' }`. |
+| Categories | **Every category**, or **Only these** and pick them from **Recipes** → **Categories**. |
+| Jobs | **Anyone**, or **Only these jobs** and add each job name. |
 | Map blip | Optional. `Show blip` on, and a sprite name such as `blip_shop_blacksmith`. |
 
 4. Save, then restart the script.
 
 ## Lock recipes to the bench
 
-Put the bench's **ID** in a recipe's `Location`, or in a category's `Location`:
-
-```lua
-Location = { 'smithy_rhodes' },
-```
-
-That recipe then only works at that bench.
+Open the category (or one recipe), set **Where** to **Only at these places**,
+and add the bench's **ID**. That category (or recipe) then only works at that
+bench. In the file it is `Location = { 'smithy_rhodes' }`.
+The full walk-through is the help page **Locking crafting to a job or a place**.
 
 ## Campfires, ovens and other props
 

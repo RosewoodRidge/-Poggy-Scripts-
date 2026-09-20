@@ -173,6 +173,25 @@
     }
     L.blankOf = blankOf;
 
+    /**
+     * Bring a blank row inside its fields' hub.json limits. A blank number is
+     * 0, and a field with "min": 1 refuses 0 -- so the insert of a new
+     * ingredient was refused on save ("count: below the minimum") before the
+     * amount typed after it was ever applied. pattern is the row-relative
+     * position of the row ('' for a top-level row, "Items[]" for an entry).
+     */
+    function fitToLimits(row, listMeta, pattern) {
+        if (!PH.isPlainObj(row)) return row;
+        var fields = (listMeta && listMeta.fields) || {};
+        Object.keys(row).forEach(function (k) {
+            var fm = fields[pattern ? pattern + '.' + k : k];
+            if (!fm || typeof row[k] !== 'number') return;
+            if (typeof fm.min === 'number' && row[k] < fm.min) row[k] = fm.min;
+            if (typeof fm.max === 'number' && row[k] > fm.max) row[k] = fm.max;
+        });
+        return row;
+    }
+
     /** A reference value in a table cell: the target row's name, or red when it does not exist. */
     function refCell(v, colMeta) {
         var target = colMeta.ref;
@@ -641,7 +660,7 @@
                 if (sel) return PH.clone(sel.value);
             }
             if (meta.template !== undefined) return PH.clone(meta.template);
-            if (rows.length) return blankOf(rows[rows.length - 1].value);
+            if (rows.length) return fitToLimits(blankOf(rows[rows.length - 1].value), meta, '');
             return {};
         }
 
@@ -1128,7 +1147,8 @@
     function leaf(ctx) {
         var fm = fieldMeta(ctx.listMeta, ctx.pattern);
         // A list of names whose entries have a picker (AltNames[] = item, Job[] = job): the chips use it.
-        if (Array.isArray(ctx.value) && !fm.picker) {
+        // Also for a field that is 0 now but becomes a list with the "any" switch.
+        if ((Array.isArray(ctx.value) || fm.any) && !fm.picker) {
             var em = fieldMeta(ctx.listMeta, ctx.pattern + '[]');
             if (em.picker) fm = Object.assign({}, fm, { picker: em.picker });
         }
@@ -1281,7 +1301,7 @@
                 var add = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button' }, [icon('plus'), entries.length ? 'Add' : 'Add the first entry']);
                 add.addEventListener('click', function () {
                     var fm = fieldMeta(ctx.listMeta, pattern + '[]');
-                    var tmpl = fm.template !== undefined ? PH.clone(fm.template) : entries.length ? blankOf(entries[entries.length - 1].value) : templateFromFields(ctx.listMeta, pattern);
+                    var tmpl = fm.template !== undefined ? PH.clone(fm.template) : entries.length ? fitToLimits(blankOf(entries[entries.length - 1].value), ctx.listMeta, pattern + '[]') : templateFromFields(ctx.listMeta, pattern);
                     if (isMap || PH.isPlainObj(v)) {
                         PH.prompt({ title: 'Add to ' + ctx.label, text: 'The key for the new entry.', icon: 'tag',
                             validate: function (k) { k = k.trim(); if (!k) return 'Give it a key.'; if (v && Object.prototype.hasOwnProperty.call(v, k)) return 'Already used.'; if (v && v.__int_keys && !/^-?\d+$/.test(k)) return 'Whole numbers only.'; return null; } })

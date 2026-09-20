@@ -556,9 +556,30 @@ checkFields = function(fields, v, segs)
     return nil
 end
 
+--- Is v a list of names (strings or numbers), possibly empty?
+local function isNameList(v)
+    if not isArray(v) then return false end
+    for _, x in ipairs(v) do
+        if type(x) ~= "string" and type(x) ~= "number" then return false end
+    end
+    return true
+end
+
 --- The value must fit the node it replaces (§3 kinds and types). kind is
---- the effective kind (hub.json may force list or map).
-local function checkShape(node, kind, v)
+--- the effective kind (hub.json may force list or map). meta is the node's
+--- hub.json entry, for hints that widen what fits.
+local function checkShape(node, kind, v, meta)
+    -- hub.json "any" (§8): the setting is either one fixed value, nearly
+    -- always 0 meaning "no restriction", or a list of names -- Job = 0 or
+    -- Job = { 'blacksmith' } -- and may switch between the two. Without this
+    -- a number node could only ever become another number.
+    local any = meta and type(meta.any) == "table" and meta.any or nil
+    if any and (kind == "value" or kind == "strings") then
+        local anyValue = any.value
+        if anyValue == nil then anyValue = 0 end
+        if v == anyValue or isNameList(v) then return nil end
+        return ("expects %s or a list of names"):format(tostring(any.label or anyValue))
+    end
     if kind == "value" then
         local want, got = node.type, I.typeOf(v)
         if want and want ~= "table" and got ~= want then
@@ -1304,7 +1325,7 @@ function Hub.Apply(src, script, changes, opts)
                 -- types included (false or "vorp"): a listed value is never
                 -- refused for its type.
                 local kind = effectiveKind(target, meta)
-                if not inOptions(value, meta) then why = checkShape(target, kind, value) end
+                if not inOptions(value, meta) then why = checkShape(target, kind, value, meta) end
                 why = why or checkLimits(value, meta)
                 old = target.value
             else
@@ -1317,10 +1338,14 @@ function Hub.Apply(src, script, changes, opts)
             if not newText then return invalid(path, err or "could not be written") end
             texts[file] = newText
             log[#log + 1] = { file = file, path = path, op = opts.logOp or op, old = old, new = value }
-            if target and not loc.whole and (target.kind == "value" or target.kind == "strings") then
+            if target and not loc.whole and (target.kind == "value" or target.kind == "strings")
+                and I.typeOf(value) == I.typeOf(old) then
                 -- Structure unchanged: keep the model, note the new value.
                 target.value = value
             else
+                -- A new shape (an "any" setting switching between 0 and a
+                -- list) is re-read from the text, so later changes in the
+                -- same save see the node as it now is.
                 models[file] = nil
             end
             if liveMeta.live ~= true then restart = true end

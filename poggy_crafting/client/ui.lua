@@ -18,6 +18,7 @@ PC.uiOpen = false
 
 local itemData = nil   -- labels, limits and imageBase, fetched once per session
 local hiddenFetched = false   -- has the hidden-recipe set been asked for yet?
+local recipesSent = false     -- has the page been given the recipe list yet?
 
 --- Call a poggy_core server callback and unpack its answer.
 local function ask(name, args)
@@ -67,9 +68,18 @@ function PC.OpenUI(location)
         PC.ForceRestScenario(true)
     end
 
+    -- The recipe list goes to the page once per session. It is by far the
+    -- largest thing this script sends -- hundreds of kilobytes on a server with
+    -- hundreds of recipes -- and it cannot change until the resource restarts,
+    -- which reloads the page as well. Every later open sends only what can
+    -- change: the place, the job, the inventory.
+    if not recipesSent then
+        SendNUIMessage({ type = 'recipes', craftables = PC.VisibleRecipes() })
+        recipesSent = true
+    end
+
     SendNUIMessage({
         type        = 'open',
-        craftables  = PC.VisibleRecipes(),
         categories  = categoriesFor(location),
         location    = location,
         job         = job,
@@ -81,6 +91,7 @@ function PC.OpenUI(location)
         imageBase   = itemData.imageBase or '',
         inventory   = inventory,
         itemSources = Config.ItemSources or {},
+        placeNames  = PC.PlaceNameMap(),
         shoppingList = Config.ShoppingList and Config.ShoppingList.enabled or false,
     })
 

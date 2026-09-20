@@ -26,6 +26,10 @@
     {
       "title": "Hidden recipes",
       "file": "docs/help/hidden-recipes.md"
+    },
+    {
+      "title": "Locking crafting to a job or a place",
+      "file": "docs/help/locking-crafting.md"
     }
   ],
   "commands": [
@@ -295,9 +299,10 @@
     },
     "Config.CampfireJobLock": {
       "label": "Prop job lock",
-      "tooltip": "Jobs allowed to craft at props and campfires. 0 = anyone; otherwise a list of job names.",
+      "tooltip": "Jobs allowed to craft at props and campfires. Anyone, or only the jobs listed.",
       "tab": "locations",
       "group": "Campfires and props",
+      "any": { "value": 0, "label": "Anyone", "listLabel": "Only these jobs" },
       "picker": "job"
     },
     "Config.CampfireItem": {
@@ -806,11 +811,13 @@
         },
         "Categories": {
           "label": "Categories",
-          "tooltip": "0 = every category; otherwise a list of categories (from Recipes → Categories) this bench offers."
+          "tooltip": "Every category, or only the ones listed (from Recipes → Categories). A recipe whose category this bench does not offer is greyed out here.",
+          "any": { "value": 0, "label": "Every category", "listLabel": "Only these" }
         },
         "Job": {
           "label": "Jobs",
-          "tooltip": "Who sees this bench's prompt. 0 = anyone; otherwise a list of job names."
+          "tooltip": "Who sees this bench's prompt. Anyone, or only the jobs listed.",
+          "any": { "value": 0, "label": "Anyone", "listLabel": "Only these jobs" }
         },
         "Job[]": {
           "picker": "job"
@@ -933,6 +940,9 @@
           "label": "Ingredients",
           "tooltip": "What one craft uses up."
         },
+        "Items[]": {
+          "template": { "name": "", "count": 1 }
+        },
         "Items[].name": {
           "label": "Item",
           "tooltip": "Inventory item name.",
@@ -966,6 +976,9 @@
         "Reward": {
           "label": "Rewards",
           "tooltip": "What one craft gives. In currency mode, an entry with no item is money: negative = the player pays."
+        },
+        "Reward[]": {
+          "template": { "name": "", "count": 1 }
         },
         "Reward[].name": {
           "label": "Item",
@@ -1004,14 +1017,16 @@
         },
         "Job": {
           "label": "Jobs",
-          "tooltip": "Who can craft it. 0 = anyone; otherwise a list of job names."
+          "tooltip": "Who can craft it. Anyone, or only the jobs listed. A player without the job can still try it if the recipe has a job skillcheck.",
+          "any": { "value": 0, "label": "Anyone", "listLabel": "Only these jobs" }
         },
         "Job[]": {
           "picker": "job"
         },
         "Location": {
           "label": "Where",
-          "tooltip": "0 = anywhere; otherwise bench ids and lower-cased prop titles, e.g. 'campfire'."
+          "tooltip": "Anywhere, or only at the places listed: bench IDs from Locations → Benches, and prop titles in lower case, e.g. campfire, oven, forge.",
+          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: this can be crafted nowhere until you add a place." }
         },
         "Animation": {
           "label": "Animation",
@@ -1142,11 +1157,13 @@
         },
         "Location": {
           "label": "Where",
-          "tooltip": "0 = anywhere; otherwise a list of bench ids and lower-cased prop titles."
+          "tooltip": "Anywhere, or only at the places listed: bench IDs from Locations → Benches, and prop titles in lower case, e.g. campfire. Every recipe in the category follows this.",
+          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: nothing in this category can be crafted until you add a place." }
         },
         "Job": {
           "label": "Jobs",
-          "tooltip": "Who can craft in this category. 0 = anyone; otherwise a list of job names. A locked category still shows, greyed out."
+          "tooltip": "Who can craft in this category. Anyone, or only the jobs listed. A locked category still shows, greyed out.",
+          "any": { "value": 0, "label": "Anyone", "listLabel": "Only these jobs" }
         },
         "Job[]": {
           "picker": "job"

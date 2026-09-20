@@ -102,7 +102,7 @@
           <span class="craft-grid-title">{{ selectedCategory === 'all' ? t('ui_all_recipes') : (categories.find(c=>c.ident===selectedCategory) || {}).text || selectedCategory }}</span>
           <span class="craft-grid-count">{{ filteredCraftables.length }} {{ filteredCraftables.length === 1 ? t('ui_recipe_one') : t('ui_recipe_many') }}</span>
         </div>
-        <div class="craft-view">
+        <div class="craft-view" @scroll.passive="onGridScroll">
           <div v-if="filteredCraftables.length === 0" class="craft-empty">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
@@ -111,10 +111,10 @@
           </div>
           <div class="craft-recipe-grid" v-else>
             <div class="recipe-node"
-                 v-for="(item, idx) in filteredCraftables"
+                 v-for="(item, idx) in visibleCraftables"
                  :key="item.Text"
                  :class="{locked: item._locked}"
-                 :style="{'--node-color': getCatColor(item.Category), '--node-bg': getCatBg(item.Category), '--i': idx}"
+                 :style="{'--node-color': getCatColor(item.Category), '--node-bg': getCatBg(item.Category), '--i': Math.min(idx % pageSize, 14)}"
                  @click="openDetail(item)">
               <div class="recipe-node-body">
                 <div class="recipe-node-header">

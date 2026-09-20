@@ -198,7 +198,8 @@ that a player is standing at one.)
 |---|---|
 | "That recipe needs poggy_skillcheck" | Start poggy_skillcheck, or set `Config.Skillcheck.enabled = false`. |
 | No prompt at a campfire | `Config.CraftingPropsEnabled` is on, the prop is in `Config.CraftingProps`, and `Config.CampfireJobLock` allows your job. |
-| A recipe is greyed out | Its category or recipe `Job`, or its `Location`, does not match. `/craft` never reaches recipes that need a place. |
+| A recipe is greyed out | The badge says why: **Requires:** a job, or **Craft at:** the places where it works. `/craft` never reaches recipes that need a place; go to the bench or prop. |
+| The console prints `config: recipe "X": Job = 8 matches nothing` | A `Job`, `Location` or `Categories` field holds a number other than 0. It must be `0` (anyone / anywhere) or a list of names. In `/poggy` the field shows a warning; pick **Anyone** or **Only these**. |
 | An ingredient shows its raw name | The item has no label in your inventory. Add it to `Config.ItemLabelOverrides`. |
 | An ingredient says "Unknown" | Add it to `config/item_sources.lua`. |
 | Shopping list entries vanished | A recipe's `Text` was renamed. `Text` is the recipe's id. |

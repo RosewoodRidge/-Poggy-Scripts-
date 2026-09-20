@@ -276,6 +276,16 @@ const app = createApp({
             itemLabels: {},
             itemLimits: {},
             itemSources: {},
+            placeNames: {},             // location id -> readable name, for the badges
+
+            // ── Scale ──
+            // The recipe list arrives once per session (message "recipes"), not
+            // with every open. Cards are drawn a page at a time: a server with
+            // 800 recipes used to build 800 cards and ~3000 images in one go.
+            recipeSource: null,
+            pageSize: 60,
+            shown: 60,
+            producedBy: {},             // item name -> true when some recipe makes it
             categoryColorMap: {},
 
             // ── Image cache (persists across menu opens) ──
@@ -285,6 +295,9 @@ const app = createApp({
             // ── Progress bar (drawn here, so there is no bar resource) ──
             progress: { shown: false, label: "", duration: 0, position: "bottom", fill: 0 },
             progressTimers: [],
+            // Its own timer: the progress bar clears progressTimers when it
+            // starts, which used to cancel this one and leave the page empty.
+            busyTimer: null,
 
             // ── Tooltip ──
             hoveredIng: null,
@@ -370,6 +383,26 @@ const app = createApp({
     /* ── Computed ───────────────────────────────────────────────── */
 
     computed: {
+        // The cards actually in the page. Scrolling near the end asks for more.
+        visibleCraftables() {
+            return this.filteredCraftables.slice(0, this.shown);
+        },
+
+        // How many of each recipe the player can make, worked out once per
+        // inventory change instead of three times per card per redraw.
+        maxCraftMap() {
+            const map = {};
+            for (const r of this.allCraftablesUnfiltered) map[r.Text] = this.computeMaxCraftable(r);
+            return map;
+        },
+
+        // Recipes per category, counted once rather than once per sidebar chip per redraw.
+        catCounts() {
+            const counts = {};
+            for (const r of this.allCraftablesUnfiltered) counts[r.Category] = (counts[r.Category] || 0) + 1;
+            return counts;
+        },
+
         filteredCraftables() {
             let list = this.allCraftablesUnfiltered;
 
@@ -458,6 +491,19 @@ const app = createApp({
         }
     },
 
+    /* ── Watchers ──────────────────────────────────────────────── */
+
+    watch: {
+        // A new search or filter starts again from the first page.
+        searchText()       { this.resetPaging(); },
+        selectedCategory() { this.resetPaging(); },
+        filterOwned()      { this.resetPaging(); },
+        filterAccessible() { this.resetPaging(); },
+
+        // Probe icons for what is on screen, as it comes on screen.
+        visibleCraftables(list) { this.preloadAllItemImages(list); }
+    },
+
     /* ── Methods ───────────────────────────────────────────────── */
 
     methods: {
@@ -466,6 +512,10 @@ const app = createApp({
 
         onMessage(event) {
             switch (event.data.type) {
+                case "recipes":
+                    this.recipeSource = event.data.craftables || [];
+                    break;
+
                 case "open":
                     this.setData(event.data);
                     this.isVisible = true;
@@ -474,6 +524,8 @@ const app = createApp({
                     break;
 
                 case "close":
+                    clearTimeout(this.busyTimer);
+                    this.busyTimer = null;
                     this.hoveredIng = null;
                     this.isVisible = false;
                     this.view = "grid";
@@ -552,19 +604,49 @@ const app = createApp({
         },
 
         getCatCount(ident) {
-            return this.allCraftablesUnfiltered.filter(r => r.Category === ident).length;
+            return this.catCounts[ident] || 0;
         },
 
+        // What the grey badge says. It names the check that fails, in the
+        // order the server checks them (PC.WhyLocked in shared/recipes.lua),
+        // so a player standing in the wrong place is told where to go, not
+        // that they lack a job they have.
         getRecipeJobLabel(recipe) {
             if (!recipe) return "";
-            if (recipe.Job && recipe.Job !== 0) {
-                return this.t("ui_requires",
-                    Array.isArray(recipe.Job) ? recipe.Job.join(", ") : String(recipe.Job));
-            }
-            if (recipe.Location && recipe.Location !== 0) {
+            const why = this.whyLocked(recipe);
+            if (why.reason === "place") {
+                const names = why.detail.map(id => this.placeNames[id] || id);
+                // ui_craft_at arrived in 2.0.3. A translations.lua from before
+                // then has no such line, and a raw key on a badge is worse than
+                // the older wording -- Britannia saw "ui_craft_at" on screen.
+                if (names.length && this.language.ui_craft_at) return this.t("ui_craft_at", names.join(", "));
                 return this.t("ui_requires_place");
             }
+            if (why.reason === "job") {
+                if (!why.detail.length) return this.t("ui_unavailable");
+                // The category's lock, not the recipe's: say so, or a recipe
+                // locked to one job under a category locked to another reads
+                // as the wrong job on the recipe. Key from 2.0.5; older
+                // translations fall back to the plain wording.
+                if (why.category && this.language.ui_requires_category) return this.t("ui_requires_category", why.detail.join(", "));
+                return this.t("ui_requires", why.detail.join(", "));
+            }
             return this.t("ui_unavailable");
+        },
+
+        whyLocked(recipe) {
+            const job = this.job;
+            const here = this.location ? this.location.id : undefined;
+            const allows = (list, v) => list === 0 || list === null || list === undefined
+                || (Array.isArray(list) && list.includes(v));
+            const asList = list => Array.isArray(list) ? list : [];
+            const cat = this.categories.find(c => c.ident === recipe.Category);
+            if (!cat) return { reason: "place", detail: [] };   // this bench does not offer the category
+            if (!allows(cat.Job, job)) return { reason: "job", detail: asList(cat.Job), category: true };
+            if (!allows(cat.Location, here)) return { reason: "place", detail: asList(cat.Location) };
+            if (!allows(recipe.Location, here)) return { reason: "place", detail: asList(recipe.Location) };
+            if (allows(recipe.Job, job) || recipe.jobSkillcheck > 0) return { reason: null, detail: [] };
+            return { reason: "job", detail: asList(recipe.Job) };
         },
 
         selectCategory(ident) {
@@ -589,7 +671,11 @@ const app = createApp({
         // Returns the currently visible name (rotates through primary + alts)
         // If this exact ingredient is being hovered, returns the frozen/cycled index instead
         getIngDisplayName(ing) {
-            const names = [ing.name, ...(ing.AltNames || [])];
+            // Reading altRotationIndex makes a card depend on the 1.5 s ticker.
+            // Only an ingredient that HAS alternatives may read it, or every
+            // card in the grid redraws every tick for nothing.
+            if (!ing.AltNames || !ing.AltNames.length) return ing.name;
+            const names = [ing.name, ...ing.AltNames];
             if (this.hoveredAltIng === ing) {
                 return names[this.hoveredAltIndex % names.length];
             }
@@ -641,6 +727,12 @@ const app = createApp({
         },
 
         getMaxCraftable(recipe) {
+            if (!recipe) return 999;
+            const known = this.maxCraftMap[recipe.Text];
+            return known === undefined ? this.computeMaxCraftable(recipe) : known;
+        },
+
+        computeMaxCraftable(recipe) {
             if (!recipe || !recipe.Items || !recipe.Items.length) return 999;
 
             let maxCrafts = 999;
@@ -673,13 +765,26 @@ const app = createApp({
             return this.getMaxCraftable(recipe) > 0;
         },
 
+        // Was: for every card, for every ingredient, scan every recipe. With
+        // 800 recipes that is about two million checks per redraw. producedBy
+        // is built once when the recipes arrive.
         hasSubChain(recipe) {
             if (!recipe || !recipe.Items) return false;
-            return recipe.Items.some(ing =>
-                this.allCraftablesUnfiltered.some(
-                    r => r.Reward && r.Reward.some(rw => rw.name === ing.name)
-                )
-            );
+            return recipe.Items.some(ing => this.producedBy[ing.name] === true);
+        },
+
+        /* ·· Paging ········································ */
+
+        onGridScroll(event) {
+            const el = event.target;
+            if (this.shown >= this.filteredCraftables.length) return;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 600) this.shown += this.pageSize;
+        },
+
+        resetPaging() {
+            this.shown = this.pageSize;
+            const view = document.querySelector(".craft-view");
+            if (view) view.scrollTop = 0;
         },
 
         /* ·· Detail view ··································· */
@@ -979,6 +1084,8 @@ const app = createApp({
         /* ·· Menu open / close ····························· */
 
         closeMenu() {
+            clearTimeout(this.busyTimer);
+            this.busyTimer = null;
             this.hoveredIng = null;
             this.isVisible = false;
             this.view = "grid";
@@ -995,9 +1102,11 @@ const app = createApp({
         animationPlaying(duration) {
             const ms = Number(duration) || this.crafttime;
             this.isVisible = false;
-            this.progressTimers.push(setTimeout(() => {
+            clearTimeout(this.busyTimer);
+            this.busyTimer = setTimeout(() => {
+                this.busyTimer = null;
                 this.isVisible = true;
-            }, ms));
+            }, ms);
         },
 
         /* ·· Progress bar ·································· */
@@ -1190,7 +1299,7 @@ const app = createApp({
 
         async setData(payload) {
             const {
-                craftables  = [],
+                craftables  = this.recipeSource || [],
                 categories  = [],
                 crafttime   = 15000,
                 style       = { fontSize: "m" },
@@ -1202,8 +1311,11 @@ const app = createApp({
                 inventory   = {},
                 itemSources = {},
                 imageBase   = "",
+                placeNames  = {},
                 shoppingList = true
             } = payload;
+
+            this.placeNames = placeNames || {};
 
             if (imageBase) this.imageBase = imageBase;
             this.shoppingListEnabled = shoppingList !== false;
@@ -1262,6 +1374,11 @@ const app = createApp({
                     if (a._accessible !== b._accessible) return a._accessible ? -1 : 1;
                     return (a.text || "").localeCompare(b.text || "");
                 });
+            const producedBy = {};
+            craftables.forEach(r => (r.Reward || []).forEach(rw => { if (rw.name) producedBy[rw.name] = true; }));
+            this.producedBy = producedBy;
+            this.shown = this.pageSize;
+
             this.allCraftables = accessibleRecipes;
             this.allCraftablesUnfiltered = craftables;
             this.categoryColorMap = colorMap;
@@ -1272,8 +1389,8 @@ const app = createApp({
             this.style = style;
             this.crafttime = crafttime;
 
-            // Preload images (cache persists across menu opens)
-            await this.preloadAllItemImages(craftables);
+            // Icons are probed for the cards on screen only (see the
+            // visibleCraftables watcher), not for every item in every recipe.
         }
     }
 });

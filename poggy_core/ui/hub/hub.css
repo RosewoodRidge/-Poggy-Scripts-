@@ -402,6 +402,12 @@ html { font-size: clamp(13.5px, calc(8.8px + 0.42vw), 21px); }
 }
 .ph-seg__btn:hover { color: var(--ph-tan); }
 .ph-seg__btn.is-on { background: rgba(242, 205, 160, 0.14); color: var(--ph-tan); }
+.ph-anyor { display: flex; flex-direction: column; gap: .55rem; align-items: flex-start; }
+.ph-anyor__body { width: 100%; }
+.ph-anyor__body:empty { display: none; }
+.ph-anyor__note:empty { display: none; }
+.ph-anyor__warn { display: inline-flex; align-items: center; gap: .4em; font-size: .78rem; color: var(--ph-warn, #e0a850); }
+.ph-anyor__warn svg { width: 1em; height: 1em; }
 .ph-fchip {
     display: inline-flex; align-items: center; gap: .45em;
     font-size: .7rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
