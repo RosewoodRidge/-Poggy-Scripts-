@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_admin_blips'
 author 'Poggy'
 description 'Admin blips for tracking players on the map.'
-version '1.2.2'
+version '1.3.0'
 poggy_core_min '0.13.0'
 
 dependencies {

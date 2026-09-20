@@ -59,7 +59,7 @@ yourself, set `PoggyCoreConfig.Sql.AutoInstall = false` in
 A healthy start prints:
 
 ```
-✅ [Poggy] poggy_character_storage  v1.5.1  ready · poggy_core v0.14.0 · <framework>
+✅ [Poggy] poggy_character_storage  v1.5.2  ready · poggy_core v0.14.0 · <framework>
 ```
 
 ### Upgrading from `character_storage`
@@ -218,6 +218,11 @@ the group poggy_core reports for the character. The default `admin`,
 
 ## Version history
 
+- **1.5.2**: Fixed **Add player** failing with `menu error: ... bad argument #2
+  to 'format'` on VORP whenever somebody on the server was still at character
+  select. They are left out of the list now, and a value that does not fit a
+  message's placeholder (text or a decimal price in `%d`) is shown as text
+  instead of closing the menu.
 - **1.5.1**: The **Storages** panel in `/poggy` (see above). `/movestorage`
   and `/deletestorage` now share their code with it, and say so when the
   database refuses a move.

@@ -1,3 +1,7 @@
+<1.5.2>
+- Fixed Add player failing with "menu error: bad argument #2 to 'format'" on VORP whenever someone on the server was still at character select; they are left out of the list
+- A value that does not fit a message's placeholder (text, or a decimal price, in %d) is now shown as text instead of closing the menu
+
 <1.5.1>
 - The Storages panel in /poggy (poggy_core's settings hub, data panels): every player and job storage in one table with owner, location, slots, upgrades, access and jobs
 - Rename and resize player storages from the table; Move to my position, Change owner and Delete on each row; each storage's access list (give, change level, remove); the hub's Contents viewer on every storage (container character_storage_<id>)

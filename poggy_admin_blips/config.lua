@@ -11,8 +11,31 @@ Config.DEBUG = false
 --       SERVER CONFIGURATION     --
 --================================--
 
--- Update interval: How often to send blip updates to admins (milliseconds)
-Config.UPDATE_INTERVAL_MS = 500
+-- How the blips work.
+--   "hybrid"  A player in range is followed through their ped: the blip is
+--             attached to it and the game moves it every frame, at no network
+--             cost. A player out of range has no ped on your machine (the
+--             server only streams what is near you), so they get a coordinate
+--             blip from the server instead. The default.
+--   "coords"  Every blip is a coordinate blip moved by the server. How this
+--             script worked before 1.3.0.
+Config.METHOD = "hybrid"
+
+-- How often positions are sent to admins (milliseconds). With "hybrid" they
+-- are only used for players who are out of range, and the blip glides between
+-- updates, so 2000 is plenty. With "coords" it is every blip: 500 is smoother.
+Config.UPDATE_INTERVAL_MS = 2000
+
+-- Glide an out-of-range blip from one position to the next instead of jumping.
+Config.GLIDE = true
+
+-- Staff command for checking the blips without a restart:
+--   /abtest status          what each blip really is (attached to a ped, or fed
+--                           by coordinates) and how far away. Details print to F8.
+--   /abtest hybrid|coords   switch method, for everyone, until the next restart
+--   /abtest rate <ms>       /abtest glide on|off
+-- Set to false to remove the command.
+Config.TEST_COMMAND = "abtest"
 
 -- Pending player retry interval (milliseconds)
 Config.PENDING_RETRY_INTERVAL = 5000

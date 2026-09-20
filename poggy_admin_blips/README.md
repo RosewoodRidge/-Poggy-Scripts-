@@ -45,6 +45,7 @@ No database tables. Nothing to import.
 | Command | Who | What it does |
 |---|---|---|
 | `/ahb` | Admins | Shows or hides the player blips on your own map. Blips start visible when you join. |
+| `/abtest` | Admins, server console | Shows what each blip really is, and can switch the method live. See **Blip methods**. Name set by `Config.TEST_COMMAND`; `false` removes it. |
 
 "Admins" means a player in one of the **Admin groups** (`Config.ADMIN_GROUPS`).
 
@@ -63,7 +64,10 @@ Every setting can be changed in game with **`/poggy`** (the Poggy settings hub).
 | `Config.BLIP_STYLE` | `"BLIP_STYLE_ENEMY"` | The style the blip is created with. Rarely changed. |
 | `Config.BLIP_NAME_FORMAT` | `"{id} \| {name}"` | The blip label. `{id}` = server ID, `{name}` = character name. |
 | `Config.HIDE_OWN_BLIP` | `true` | Hide your own blip from yourself. |
-| `Config.UPDATE_INTERVAL_MS` | `500` | How often positions are sent to admins, in milliseconds. Lower is smoother but costs more. |
+| `Config.METHOD` | `"hybrid"` | How the blips work. See **Blip methods** below. |
+| `Config.UPDATE_INTERVAL_MS` | `2000` | How often positions are sent to admins, in milliseconds. With `hybrid` they are only used for players out of range. |
+| `Config.GLIDE` | `true` | An out-of-range blip glides from one position to the next instead of jumping. |
+| `Config.TEST_COMMAND` | `"abtest"` | The staff command that shows what each blip really is and can switch method live. `false` removes it. |
 | `Config.INIT_WAIT_TIME` | `5000` | How long to wait after a player joins before the admin check, in milliseconds. |
 | `Config.PENDING_RETRY_INTERVAL` | `5000` | How often players still loading are checked again, in milliseconds. |
 | `Config.DEBUG` | `false` | Print debug lines to the server console. |
@@ -129,7 +133,7 @@ There are no ACE permissions to set.
 5. If no groups are found, your character may load slowly. Raise `Config.INIT_WAIT_TIME`.
 
 **Blips move in jumps.**
-Lower `Config.UPDATE_INTERVAL_MS`. This sends more network traffic.
+Only an out-of-range blip can: a player in range is attached to their ped and moves every frame. Check `Config.GLIDE` is on, or lower `Config.UPDATE_INTERVAL_MS` (more network traffic). With the `coords` method every blip moves at that rate.
 
 **`/ahb` says I have no permission.**
 Your group is not in `Config.ADMIN_GROUPS`.
@@ -139,8 +143,45 @@ Players only get a blip once their character has loaded and they have spawned. U
 
 ---
 
+## Blip methods
+
+A blip can only be attached to a player's ped while that ped exists on the
+admin's machine, and the server only streams the peds near you (about 424 units).
+Blips are not shared between players either: each admin's game draws its own. So
+the default method is a hybrid:
+
+| Method | What it does |
+|---|---|
+| `hybrid` | In range: the blip is attached to the ped, the game moves it every frame, and it costs no network traffic. Out of range: a coordinate blip from the server, gliding between updates. **Recommended.** |
+| `coords` | Every blip is a coordinate blip moved by the server. How the script worked before 1.3.0. |
+
+A twice-a-second check swaps a blip from one kind to the other as a player comes
+into range, leaves it, or respawns.
+
+### Checking it: `/abtest`
+
+Staff only (and the server console).
+
+```
+/abtest status          what each blip really is, and how far away
+/abtest coords          switch method: hybrid or coords
+/abtest rate 500        how often positions are sent, in milliseconds
+/abtest glide off       jump instead of glide
+```
+
+`status` counts blips **attached to a ped** against blips **fed by
+coordinates**, gives the distance of the farthest attached one, and how many
+updates the server sent in the last minute. The full list prints to your F8
+console.
+
+Changes made with `/abtest` last until the script restarts, and apply to every
+admin. To keep one, set it in the config.
+
+---
+
 ## Changelog
 
+- **1.3.0**: Blips attach to the player's ped when they are in range, so they move with the game instead of being moved by the server (`Config.METHOD = "hybrid"`, the new default). Players out of range still get a coordinate blip, now gliding between updates (`Config.GLIDE`), and the shipped update interval is 2000 ms because only those players need it. `/abtest` (`Config.TEST_COMMAND`) shows what each blip really is and switches method live. `Config.METHOD = "coords"` with `Config.UPDATE_INTERVAL_MS = 500` is the old behaviour exactly.
 - **1.2.2**: Every setting in `config.lua` is now read by the script (before, only the admin groups and allowed names were; the rest used fixed values). The shipped update interval is 500 ms, the value the script actually used. Hub page and in-game settings support (`/poggy`).
 - **1.2.1**: Net events renamed from `vorp_admin_blips:*` to `poggy_admin_blips:*`; nothing framework-specific is left in the resource. Admin groups and character names come from poggy_core (`perms.groups`, `char.get`), so it runs on any framework poggy_core supports.
 
