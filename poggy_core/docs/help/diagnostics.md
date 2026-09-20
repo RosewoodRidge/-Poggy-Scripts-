@@ -63,6 +63,8 @@ Example: `/poggycore do money.get src=me`
 | `poggycore ban <id or identifier> <time> [cheat] <reason>` | Bans the account and removes the player. Time: `30m`, `2h`, `7d`, `1w`, `perm`. |
 | `poggycore unban <ban number> <reason>` | Lifts a ban. It stays on record. |
 | `poggycore baninfo [id, identifier or ban number]` | Active bans, or every ban on record for one player. |
+| `poggycore bannet [refresh]` | The ban network's status on this server. |
+| `poggycore banallow <identifier> <reason>` | Let one network-blocked player into your server. |
 
 More on the **Bans** help page.
 

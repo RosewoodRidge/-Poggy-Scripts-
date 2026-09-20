@@ -183,6 +183,20 @@
       "description": "With nothing after it, lists the active bans. With a server id, an identifier or a ban number, shows every ban on record for it.",
       "usage": "poggycore baninfo [server id | identifier | ban number]",
       "examples": ["poggycore baninfo", "poggycore baninfo 12", "poggycore baninfo license:1a2b3c"]
+    },
+    {
+      "command": "poggycore bannet",
+      "who": "Admins",
+      "description": "The ban network's status on this server: whether it refuses and shares, how many players the network knows, when the list was last read, and whether this server is registered and its votes count yet (a new server's votes wait 14 days). Add refresh to read the list now.",
+      "usage": "poggycore bannet [refresh]",
+      "examples": ["poggycore bannet", "poggycore bannet refresh"]
+    },
+    {
+      "command": "poggycore banallow",
+      "who": "Admins",
+      "description": "A second chance: lets one player the network has blocked into YOUR server, and counts your server as one voice for them on the network. Needs their identifier (the console prints it when they are refused) and a reason. With nothing after it, lists who you have allowed. remove puts them back under the network.",
+      "usage": "poggycore banallow <identifier> <reason>  |  poggycore banallow remove <identifier>",
+      "examples": ["poggycore banallow", "poggycore banallow license:1a2b3c cleared on appeal", "poggycore banallow remove license:1a2b3c"]
     }
   ],
 
@@ -214,6 +228,50 @@
       "tooltip": "Off: nobody is refused at connect and nothing can be banned. Bans already made stay in the database and work again when this is turned back on.",
       "tab": "bans",
       "group": "Bans"
+    },
+    "PoggyCoreConfig.Bans.Network.Enforce": {
+      "label": "Refuse network-banned players",
+      "tooltip": "On: a player banned for CHEATING on 3 or more servers running poggy_core is refused here too. Off: nobody is refused because of the network. Your own bans always work. If the network cannot be reached, nobody is refused by it.",
+      "tab": "bans",
+      "group": "Ban network"
+    },
+    "PoggyCoreConfig.Bans.Network.Submit": {
+      "label": "Share my cheating bans",
+      "tooltip": "On: a ban you mark as Cheating counts as one vote on the network. Only scrambled identifiers and your player count are sent: never a name or a reason. Rule-break (Local) bans never leave your server. Lifting a ban takes your vote back.",
+      "tab": "bans",
+      "group": "Ban network"
+    },
+    "PoggyCoreConfig.Bans.Network.BlockAt": {
+      "label": "Votes needed to refuse someone",
+      "tooltip": "How many servers must have banned a player for cheating before YOUR server refuses them. The network's own number is 3; you can ask for more, never fewer.",
+      "tab": "bans",
+      "group": "Ban network",
+      "min": 3,
+      "max": 20
+    },
+    "PoggyCoreConfig.Bans.Network.FlagStaff": {
+      "label": "Tell staff about flagged players",
+      "tooltip": "When someone joins who is banned for cheating on 1 or 2 other servers (not enough to be refused), say so in the console and, with Poggy Tickets, in a pop-up to mods and admins.",
+      "tab": "bans",
+      "group": "Ban network"
+    },
+    "PoggyCoreConfig.Bans.Network.ServerName": {
+      "label": "Your server's name on the appeal page",
+      "tooltip": "A player you banned for cheating can see which servers banned them, so they know where to appeal. Blank uses your server's project name.",
+      "tab": "bans",
+      "group": "Ban network"
+    },
+    "PoggyCoreConfig.Bans.Network.AppealLink": {
+      "label": "Where players appeal to you",
+      "tooltip": "Shown beside your server's name on the appeal page, for example your Discord invite.",
+      "tab": "bans",
+      "group": "Ban network"
+    },
+    "PoggyCoreConfig.Bans.Network.HideName": {
+      "label": "Hide my server's name",
+      "tooltip": "On: your vote still counts, but banned players are shown 'a server that prefers not to be named' instead of your name.",
+      "tab": "bans",
+      "group": "Ban network"
     },
     "PoggyCoreConfig.Bans.AppealText": {
       "label": "Appeal line",

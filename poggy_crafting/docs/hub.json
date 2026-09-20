@@ -1026,7 +1026,12 @@
         "Location": {
           "label": "Where",
           "tooltip": "Anywhere, or only at the places listed: bench IDs from Locations → Benches, and prop titles in lower case, e.g. campfire, oven, forge.",
-          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: this can be crafted nowhere until you add a place." }
+          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: this can be crafted nowhere until you add a place." },
+          "suggest": [
+            { "from": "Config.Locations", "field": "id", "label": "name", "group": "Bench", "icon": "map" },
+            { "from": "Config.CraftingProps", "field": "title", "lower": true, "group": "Prop", "icon": "link" }
+          ],
+          "suggestNote": "Not a bench ID or a prop title. Check the spelling, or add the bench under Locations."
         },
         "Animation": {
           "label": "Animation",
@@ -1158,7 +1163,12 @@
         "Location": {
           "label": "Where",
           "tooltip": "Anywhere, or only at the places listed: bench IDs from Locations → Benches, and prop titles in lower case, e.g. campfire. Every recipe in the category follows this.",
-          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: nothing in this category can be crafted until you add a place." }
+          "any": { "value": 0, "label": "Anywhere", "listLabel": "Only at these places", "emptyNote": "Empty list: nothing in this category can be crafted until you add a place." },
+          "suggest": [
+            { "from": "Config.Locations", "field": "id", "label": "name", "group": "Bench", "icon": "map" },
+            { "from": "Config.CraftingProps", "field": "title", "lower": true, "group": "Prop", "icon": "link" }
+          ],
+          "suggestNote": "Not a bench ID or a prop title. Check the spelling, or add the bench under Locations."
         },
         "Job": {
           "label": "Jobs",

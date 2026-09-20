@@ -980,6 +980,20 @@ Events (server): `poggy_core:ban:added`, `poggy_core:ban:removed`, each with the
 
 Scripts that use these need `poggy_core_min '0.19.0'`.
 
+### The ban network (0.20.0)
+
+On by default, opt-out (`PoggyCoreConfig.Bans.Network.Enforce` / `.Submit`). A
+**cheating** ban is one vote; a player with votes from 3 counting servers is
+refused wherever the network is enforced. Local bans never leave the server.
+Only hashes and a player count are sent. The list is a public file of
+`hash → count`, read every ten minutes and held in memory, so a connect never
+waits on the internet; a failed read keeps the last list, and with no list
+nobody is refused. `poggycore bannet` shows the status; `poggycore banallow
+<identifier> <reason>` lets one blocked player in and counts as a voice for
+them. `ban.check` now fills `network = { count, blocked }`. Server event
+`poggy_core:ban:networkFlag` (`{ src, name, count, blockAt }`) fires when
+someone with 1+ votes, not blocked, joins.
+
 ## Fixed in 0.17.1: admins on the user record
 
 `perms.isAdmin` used to read only the character's group. VORP keeps admin on

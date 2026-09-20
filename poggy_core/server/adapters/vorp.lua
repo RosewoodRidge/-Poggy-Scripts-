@@ -142,7 +142,9 @@ function VORP:raw(src)
     if not user then return nil, nil end
     -- A VALUE, not a call. This is the single most common mistake against VORP.
     local char = user.getUsedCharacter
-    if not char then return user, nil end
+    -- At character select VORP answers with an empty table, not nil. Without
+    -- this a player with no character came back as a character with id "nil".
+    if not char or char.charIdentifier == nil then return user, nil end
     return user, char
 end
 

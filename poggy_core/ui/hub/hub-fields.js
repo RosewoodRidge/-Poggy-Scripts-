@@ -1540,6 +1540,32 @@
                 return { value: k, label: t || k, sub: t ? k : '', icon: 'link' };
             }));
         }
+        // Names offered from other lists of this script, several at once and
+        // without being a strict reference (hub.json `suggest`): crafting's
+        // Where takes bench ids and prop titles. Typing by hand stays possible.
+        var sugg = Array.isArray(spec.meta.suggest) && spec.meta.suggest.length ? spec.meta.suggest : null;
+        function suggestions() {
+            var out = [], seen = {};
+            sugg.forEach(function (src) {
+                if (!src || !src.from) return;
+                var rows = S.get(src.from);
+                rows = Array.isArray(rows) ? rows : PH.isPlainObj(rows) ? Object.keys(rows).filter(function (k) { return k !== '__int_keys'; }).map(function (k) { return rows[k]; }) : [];
+                rows.forEach(function (row) {
+                    var val = src.field ? (PH.isPlainObj(row) ? row[src.field] : undefined) : row;
+                    if (val === undefined || val === null || val === '' || typeof val === 'object') return;
+                    val = String(val);
+                    if (src.lower) val = val.toLowerCase();
+                    if (seen[val]) return;
+                    seen[val] = true;
+                    var name = src.label && PH.isPlainObj(row) && typeof row[src.label] === 'string' ? row[src.label] : '';
+                    out.push({ value: val, label: name && name !== val ? name : val, sub: [src.group, name && name !== val ? val : ''].filter(Boolean).join(' · '), icon: src.icon || 'link' });
+                });
+            });
+            return out;
+        }
+        function suggestFetch(q) {
+            return Promise.resolve(suggestions().filter(function (o) { return arr.indexOf(o.value) === -1 && PH.matches(q, [o.value, o.label]); }));
+        }
 
         function draw() {
             PH.clear(chipsEl);
@@ -1552,6 +1578,7 @@
                 var st = itemMode ? IC.status(typeof x === 'string' ? x : String(x)) : null;
                 var warn = false;
                 var title = bad ? 'No such ' + R.itemLabel(refT) + ' in ' + R.label(refT) : null;
+                if (sugg && !suggestions().some(function (o) { return o.value === String(x); })) { warn = true; title = spec.meta.suggestNote || 'Not one of the known names. Check the spelling.'; }
                 if (st && st.state === 'missing') { bad = true; title = 'Item does not exist' + (st.suggest ? ': did you mean ' + st.suggest + '?' : ''); }
                 else if (st && st.state === 'noicon') { warn = true; title = 'No icon: add ' + IC.iconFile(st.name); }
                 var chip = h('span.ph-chip' + (bad ? '.is-bad' : warn ? '.is-warn' : ''), { title: title },
@@ -1602,31 +1629,38 @@
                     // A redraw that waited for the box to lose focus.
                     tin.addEventListener('blur', function () { setTimeout(function () { if (deferred && !chipsEl.contains(document.activeElement)) { deferred = false; draw(); } }, 150); });
                     chipsEl.appendChild(tin);
-                } else if (refT || (picker && F.fetchers[picker])) {
+                } else if (refT || sugg || (picker && F.fetchers[picker])) {
                     var addBtn = h('button.ph-chip.ph-chip--add', { type: 'button' }, [icon('plus'), 'Add']);
                     addBtn.addEventListener('click', function () {
-                        F.pick({ anchor: addBtn, fetch: refT ? refFetch : F.fetchers[picker], allowFree: true, freeLabel: 'Add',
+                        F.pick({ anchor: addBtn, fetch: refT ? refFetch : sugg ? suggestFetch : F.fetchers[picker], allowFree: true, freeLabel: 'Add',
                             onPick: function (v) { if (arr.indexOf(v) === -1) { arr.push(v); draw(); commit(PH.clone(arr)); } } });
                     });
                     chipsEl.appendChild(addBtn);
                 } else {
                     var input = h('input.ph-chips__input', { type: 'text', placeholder: numeric ? 'Add a number…' : 'Add…', spellcheck: 'false' });
+                    // Returns true when the typed text became a chip.
+                    var addTyped = function () {
+                        var t = input.value.trim();
+                        if (!t) return false;
+                        var val = t;
+                        if (numeric) {
+                            val = numberParse(t);
+                            if (val === null) { err('Numbers only in this list.'); return false; }
+                        }
+                        err('');
+                        if (arr.indexOf(val) === -1) arr.push(val);
+                        input.value = '';
+                        draw();
+                        commit(PH.clone(arr));
+                        return true;
+                    };
+                    // Text left in the box is an entry too: without this, typing a
+                    // name and pressing Done saved an empty list.
+                    input.addEventListener('blur', function () { addTyped(); });
                     input.addEventListener('keydown', function (e) {
                         if (e.key === 'Enter' || e.key === ',') {
                             e.preventDefault();
-                            var t = input.value.trim();
-                            if (!t) return;
-                            var val = t;
-                            if (numeric) {
-                                val = numberParse(t);
-                                if (val === null) { err('Numbers only in this list.'); return; }
-                            }
-                            err('');
-                            if (arr.indexOf(val) === -1) arr.push(val);
-                            input.value = '';
-                            draw();
-                            commit(PH.clone(arr));
-                            chipsEl.querySelector('.ph-chips__input').focus();
+                            if (addTyped()) chipsEl.querySelector('.ph-chips__input').focus();
                         } else if (e.key === 'Backspace' && !input.value && arr.length) {
                             arr.pop(); draw(); commit(PH.clone(arr));
                             chipsEl.querySelector('.ph-chips__input').focus();

@@ -24,7 +24,8 @@ A bench is a fixed spot where players craft. Benches live in
 ## Lock recipes to the bench
 
 Open the category (or one recipe), set **Where** to **Only at these places**,
-and add the bench's **ID**. That category (or recipe) then only works at that
+press **Add** and pick the bench (it is listed by name, with its **ID**
+underneath). That category (or recipe) then only works at that
 bench. In the file it is `Location = { 'smithy_rhodes' }`.
 The full walk-through is the help page **Locking crafting to a job or a place**.
 

@@ -12,7 +12,10 @@ Open any recipe, category or bench in `/poggy` and you will see:
   job name with the job picker.
 - **Where**: **Anywhere** / **Only at these places**. Choose the second and
   add the places: a bench's **ID** (from **Locations** → **Benches**) or a prop
-  group's title in lower case (`campfire`, `oven`, `forge`).
+  group's title in lower case (`campfire`, `oven`, `forge`). **Add** lists
+  every bench and prop place you have (poggy_core 0.20.0 or newer); a bench you
+  have just added shows up straight away, before you save. A place the list
+  does not know is marked with a warning.
 
 A category's locks apply to every recipe in it. A recipe's own locks are
 checked as well, so a recipe can be stricter than its category, never looser.
@@ -38,8 +41,8 @@ the blacksmith recipes work only at the shop.
      category is already locked to the job).
 5. Open the **Recipes** tab, then **Categories**, and open the blacksmith
    category.
-6. Set **Where** to **Only at these places** and add `smithy`, the ID from
-   step 4.
+6. Set **Where** to **Only at these places**, press **Add** and pick the
+   bench from step 4 (its ID is `smithy`).
 7. **Save**, then **Save & Restart** (or `restart poggy_crafting`).
 
 Now every blacksmith recipe works at that anvil and nowhere else. At the

@@ -64,6 +64,9 @@ function PoggyCore.Updates.NetTest(say, opts)
         { "GitHub API (worked before)",    "https://api.github.com/zen" },
         { "Cloudflare (https, ECDSA)",     "https://www.cloudflare.com/cdn-cgi/trace" },
         { "Let's Encrypt (https)",         "https://letsencrypt.org/robots.txt" },
+        -- The ban network lives on a *.workers.dev address: is that TLD reachable?
+        { "a .dev site (https)",           "https://web.dev/robots.txt" },
+        { "workers.dev (https)",           "https://workers.dev/" },
     }
 
     say("network test from the server (nothing is written)")

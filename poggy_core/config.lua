@@ -275,4 +275,26 @@ PoggyCoreConfig.Roles = {
 PoggyCoreConfig.Bans = {
     Enabled    = true,                        -- false: nobody is refused, and nothing can be banned
     AppealText = "You can appeal on our Discord.",   -- the last line a banned player reads
+
+    --- THE POGGY BAN NETWORK (0.20.0). ON BY DEFAULT: read this.
+    ---
+    --- A ban you mark as CHEATING is shared, as a vote, with every server
+    --- running poggy_core. A player with votes from 3 or more servers is refused
+    --- on every server that enforces the network, yours included. A rule-break
+    --- ("local") ban never leaves your server. Lifting a ban takes your vote back.
+    ---
+    --- What is shared: scrambled (hashed) identifiers and your player count.
+    --- Never a name, never a reason. If the network cannot be reached, nobody is
+    --- refused because of it.
+    ---
+    --- Let one blocked player into YOUR server:  poggycore banallow <identifier> <reason>
+    Network = {
+        Enforce    = true,    -- refuse players the network has voted out. false: nobody is refused by it.
+        Submit     = true,    -- share your CHEATING bans as votes. false: your bans stay on your server.
+        BlockAt    = 3,       -- votes needed before YOU refuse someone. You can raise it; below the network's 3 has no effect.
+        FlagStaff  = true,    -- tell staff when someone joins who has 1 or more votes but is not blocked
+        ServerName = "",      -- shown to a player you banned, on the appeal page. Blank: your server's project name.
+        AppealLink = "",      -- where they can appeal to you, for example your Discord invite
+        HideName   = false,   -- true: your vote counts, but banned players are not shown your server's name
+    },
 }

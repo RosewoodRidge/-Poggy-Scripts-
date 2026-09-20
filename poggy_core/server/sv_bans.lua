@@ -376,6 +376,7 @@ local function view(ban)
         expiresAt = ban.expires_at, revokedAt = ban.revoked_at, revokedBy = ban.revoked_by,
         revokeReason = ban.revoke_reason, source = ban.source, sourceRef = ban.source_ref,
         active = isActive(ban), remaining = Bans.Remaining(ban), hashes = ban.hashes,
+        playersOnline = ban.players_online,
     }
 end
 Bans.View = view
@@ -385,10 +386,12 @@ function Bans.Check(p)
     local hashes
     if p.src then _, hashes = Bans.IdentifiersOf(p.src) else _, hashes = Bans.Clean(p.identifiers) end
     local ban = Bans.Match(hashes)
+    local Net = PoggyCore.BanNet
+    local count = (Net and Net.State.ready and Net.Live()) and Net.Count(hashes) or 0
     return {
         banned = ban ~= nil,
         ban = ban and view(ban) or nil,
-        network = { count = 0, blocked = false },     -- the shared network is a later version
+        network = { count = count, blocked = count > 0 and count >= Net.BlockAt() },
     }
 end
 
@@ -590,7 +593,11 @@ function Bans.OnConnecting(src)
     if not enabled() or not DB.ready then return nil end
     local _, hashes = Bans.IdentifiersOf(src)
     local ban = Bans.Match(hashes)
-    return ban and Bans.Message(ban) or nil
+    if ban then return Bans.Message(ban) end
+    -- The shared network (sv_bannet.lua): memory only, like the check above.
+    local Net = PoggyCore.BanNet
+    if Net and Net.Blocked then return (Net.Blocked(hashes)) end
+    return nil
 end
 
 AddEventHandler("playerConnecting", function(name, setKickReason)
@@ -606,7 +613,10 @@ AddEventHandler("playerConnecting", function(name, setKickReason)
     if msg then
         if setKickReason then pcall(setKickReason, msg) end
         CancelEvent()
-        Util.Log("bans: refused %s (banned).", tostring(name))
+        -- The identifier is printed so an owner can let a network-blocked player in:
+        --     poggycore banallow <identifier> <reason>
+        local ids = Bans.IdentifiersOf(src)
+        Util.Log("bans: refused %s (%s).", tostring(name), tostring(ids[1] or "no identifier"))
     end
 end)
 

@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.19.0"
+version "0.20.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -55,6 +55,7 @@ server_scripts {
     "server/sv_hub.lua",             -- the settings hub, server side (0.18.0); after sv_settings_model.lua
     "server/sv_hub_save.lua",        -- the hub's saving, history, roles, restarts; after sv_hub.lua
     "server/sv_bans.lua",            -- account bans and the connect check (0.19.0); after sv_sql.lua and sv_util.lua
+    "server/sv_bannet.lua",          -- the shared ban network (0.20.0); after sv_bans.lua
     "server/sv_nettest.lua",
     "server/sv_commands.lua",
 }
