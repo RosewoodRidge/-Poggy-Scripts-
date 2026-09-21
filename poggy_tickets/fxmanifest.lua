@@ -5,8 +5,8 @@ lua54 'yes'
 
 poggy_id 'poggy_tickets'
 author 'Poggy'
-description 'Player tickets and help requests, with a staff panel: claim, assign, reply, teleport, warn, kick, ban, Discord.'
-version '1.0.1'
+description 'Player tickets and help requests, with a staff panel: your own staff roles, staff chat, claim, escalate, reply, teleport, warn, kick, ban, Discord.'
+version '1.1.0'
 poggy_core_min '0.19.0'        -- ban.add, ban.remove, ban.list, player.kick, player.identifiers
 
 dependencies {
@@ -29,10 +29,14 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/sv_database.lua',
+    'server/sv_roles.lua',
     'server/sv_staff.lua',
     'server/sv_discord.lua',
+    'server/sv_chat.lua',
+    'server/sv_canned.lua',
     'server/sv_tickets.lua',
     'server/sv_moderation.lua',
+    'server/sv_web.lua',
     'server/sv_hubpanel.lua',
     'server/sv_callbacks.lua',
 }

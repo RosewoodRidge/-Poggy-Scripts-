@@ -11,19 +11,19 @@ Anyone your framework counts as an admin is already an **Admin** here.
 
 A role is on the **account**, so it covers every character that person plays. One person can have several roles.
 
-| Role | Sees | Can |
+These four are only what a new server starts with. See **Roles, staff chat and ready-made replies** to change them or make your own.
+
+| Starts as | Sees | Can |
 |---|---|---|
-| Admin | everything | everything, and ban, lift bans, add staff, read the audit |
-| Mod | Cheater, Player report, Help, Stuck, Other | claim, assign, reply, close, teleport, warn, kick |
-| Helper | Help, Stuck | claim, reply, close, teleport |
-| Developer | Bug, Other | claim, reply, close, teleport |
+| Admin | everything | everything |
+| Mod | Cheater, Player report, Help, Stuck, Other | claim, assign, escalate, reply, close, teleport, mark the answer, warn, kick, staff notes |
+| Helper | Help, Stuck | claim, escalate, reply, close, teleport |
+| Developer | Bug, Other | claim, escalate, reply, close, teleport, mark the answer |
 
 ## 2. Change who sees what
 
-`/poggy` → Tickets → **Kinds & routing**.
-
-- **Kinds of ticket**: add, rename or remove kinds. Never change a kind's **id** once tickets exist.
-- **Who sees which kind**: for each kind id, the roles that see it.
+- **Kinds of ticket**: `/poggy` → Tickets → **Kinds & routing**. Add, rename or remove kinds. Never change a kind's **id** once tickets exist.
+- **Who sees which kind** is part of each **role** now: staff panel → **Staff** → **Roles** → Edit, or `/poggy` → Tickets → **Roles, chat & replies**. Made a new kind? Tick it on the roles that should see it, or only admins will.
 
 ## 3. Discord
 
@@ -37,7 +37,7 @@ Want bugs in their own channel? Add `bug` and that channel's webhook under **Web
 
 ## 4. Keys
 
-Page Up opens the form; Page Down opens the staff panel. Change them in `/poggy` → Tickets → **Opening & keys**. Players cannot rebind them, so pick keys nothing else uses. `0` turns a key off.
+Page Up opens the form; Home opens the staff panel. Change them in `/poggy` → Tickets → **Opening & keys**. Players cannot rebind them, so pick keys nothing else uses. `0` turns a key off.
 
 ## Bans
 

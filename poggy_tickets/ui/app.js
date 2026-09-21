@@ -21,12 +21,26 @@
 
     var S = {
         strings: {}, categories: [], priorities: [], closeReasons: [], allRoles: [], limits: {}, volume: 0.4, command: 'ticket',
-        me: { staff: false, roles: [], powers: {}, duty: true, mayHelp: false },
+        me: { staff: false, roles: [], powers: {}, duty: true, mayHelp: false, canDelete: false },
+        roleDefs: [], powerList: [], answers: true, full: false, canned: [], web: null,
         view: null,
-        player: { tab: 'new', step: 'choose', players: [], cooldown: 0, tickets: [], cur: null, form: null, msg: null },
+        player: { tab: 'new', step: 'choose', players: [], cooldown: 0, tickets: [], cur: null, form: null, msg: null,
+                  waits: {}, similar: [], answers: [], answersQ: '', answer: null },
         staff: { tab: 'tickets', status: 'open', category: null, priority: null, online: false, q: '', sort: 'age',
-                 tickets: [], closed: [], helps: [], curId: null, detail: null, canReturn: false, draft: '' }
+                 tickets: [], closed: [], archived: [], helps: [], curId: null, detail: null, canReturn: false, draft: '',
+                 note: false, sub: 'roster' }
     };
+
+    // Roles are data (an owner can add "Staff Manager"), so their names and
+    // colours come from the server, not from the translations.
+    function roleOf(id) { for (var i = 0; i < S.roleDefs.length; i++) if (S.roleDefs[i].id === id) return S.roleDefs[i]; return null; }
+    function roleLabel(id) { var r = roleOf(id); return r ? r.label : id; }
+    function roleColor(id) { var r = roleOf(id); return (r && r.color) || '#8fb8f0'; }
+    function roleOpts() { return S.roleDefs.map(function (r) { return { value: r.id, label: r.label, color: r.color }; }); }
+
+    // Full screen is each staff member's own choice, remembered on their machine.
+    function loadFull(fallback) { try { var v = window.localStorage.getItem('pt-full'); return v === null ? !!fallback : v === '1'; } catch (e) { return !!fallback; } }
+    function saveFull(on) { try { window.localStorage.setItem('pt-full', on ? '1' : '0'); } catch (e) { /* private mode */ } }
 
     // ---------------------------------------------------------------- helpers
 
@@ -98,9 +112,23 @@
                 if (on) { chip.style.background = tint(o.color, 0.18); chip.style.borderColor = o.color; chip.style.color = o.color; }
             }
             chip.appendChild(document.createTextNode(o.label));
+            // A bubble: how many tickets are waiting behind this chip.
+            if (o.count) chip.appendChild(h('span.pt-chip__n', { text: String(o.count) }));
             row.appendChild(chip);
         });
         return row;
+    }
+    /** Tick any number. picked is an object used as a set; onChange runs after each tick. */
+    function multiChips(opts, picked, onChange, small) {
+        var holder = h('div');
+        var draw = function () {
+            clear(holder);
+            holder.appendChild(chips(opts.map(function (o) { return { value: o.value, label: o.label, color: o.color, on: !!picked[o.value] }; }), null, function (v) {
+                picked[v] = !picked[v]; draw(); if (onChange) onChange();
+            }, small));
+        };
+        draw();
+        return holder;
     }
     function priorityOpts() { return S.priorities.map(function (p) { return { value: p, label: t('priority_' + p), color: PRI_COLORS[p] }; }); }
     function categoryOpts() { return S.categories.map(function (c) { return { value: c.id, label: c.label, color: catColor(c.id) }; }); }
@@ -144,24 +172,37 @@
 
     function shell(kind, title, tabs, currentTab, onTab, extra) {
         clear(win);
-        win.className = 'pt-window pt-window--' + kind;
+        win.className = 'pt-window pt-window--' + kind + (kind === 'staff' && S.full ? ' pt-window--full' : '');
         var tabRow = h('div.pt-tabs');
         tabs.forEach(function (tb) {
             tabRow.appendChild(h('button.pt-tab', { type: 'button', 'class': tb.id === currentTab ? 'is-on' : '', onclick: function () { onTab(tb.id); } },
-                [tb.label, tb.dot ? h('span.pt-tab__dot') : null]));
+                [tb.label, tb.dot ? h('span.pt-tab__dot') : null, tb.count ? h('span.pt-chip__n', { text: String(tb.count) }) : null]));
         });
+        // The community's one web ID, for everyone: in the staff window's header, and
+        // as a line of its own under the player window's (which is too narrow for it).
         win.appendChild(h('div.pt-head', null, [
-            h('div.pt-head__title', { text: title }), tabRow, h('div.pt-head__spacer'), extra || null,
+            h('div.pt-head__title', { text: title }), tabRow, h('div.pt-head__spacer'), kind === 'staff' ? webId(false) : null, extra || null,
             h('button.pt-x', { type: 'button', text: '×', onclick: closeWindow })
         ]));
+        if (kind !== 'staff' && S.web) win.appendChild(webId(true));
         $('shade').classList.remove('hidden');
         win.classList.remove('hidden');
     }
 
+    function webId(asLine) {
+        if (!S.web) return null;
+        var code = h('span.pt-webid__code', { text: S.web.code });
+        var said = h('span.pt-webid__copy', { text: t('sp_copy') });
+        var el = h('button.pt-webid' + (asLine ? '.pt-webid--line' : ''), { type: 'button', title: t('web_id_tip', S.web.site), onclick: function () {
+            copyText(S.web.code); said.textContent = t('sp_copied');
+        } }, [h('span.pt-webid__k', { text: t('web_id_short') }), code, asLine ? h('span.pt-webid__site', { text: S.web.site }) : null, said]);
+        return el;
+    }
+
     function dialog(title, build, confirmLabel, onConfirm, danger) {
         var msg = h('div.pt-msg.is-bad');
-        var body = h('div');
         var okBtn = h('button.pt-btn' + (danger ? '.pt-btn--danger' : '.pt-btn--go'), { type: 'button', text: confirmLabel || t('sp_confirm') });
+        var body = h('div.pt-dialog__body');
         var shade = h('div.pt-dialog-shade', null, [h('div.pt-dialog', null, [
             h('div.pt-dialog__title', { text: title }), body, msg,
             h('div.pt-dialog__foot', null, [h('button.pt-btn', { type: 'button', text: t('sp_cancel'), onclick: close }), okBtn])
@@ -180,19 +221,34 @@
         win.appendChild(shade);
     }
 
-    /** A chat. The reader's own side is on the right, the other side on the left. */
-    function conversation(ticket, readerIsStaff) {
+    /** The answer staff marked: pinned above the chat, for staff and player alike. */
+    function resolutionBlock(ticket) {
+        if (!ticket.resolution) return null;
+        return h('div.pt-answer', null, [
+            h('div.pt-answer__k', null, [t('ui_answer'), ticket.resolutionBy ? h('small', { text: ' · ' + ticket.resolutionBy }) : null]),
+            h('div.pt-answer__v', { text: ticket.resolution })
+        ]);
+    }
+
+    /** A chat. The reader's own side is on the right, the other side on the left.
+        onMark(index, isMarked): staff who may mark the answer get a link on each message. */
+    function conversation(ticket, readerIsStaff, onMark) {
         var box = h('div.pt-convo');
         var list = ticket.conversation || [];
         if (!list.length) box.appendChild(h('div.pt-convo__empty', { text: t('ui_no_messages') }));
-        list.forEach(function (m) {
+        list.forEach(function (m, i) {
             var me = !!m.staff === !!readerIsStaff;
             var who = m.staff ? t('ui_staff') + ' · ' + m.name : m.name;
-            if (me && !readerIsStaff) who = t('ui_you');
-            box.appendChild(h('div.pt-bub' + (me ? '.is-me' : '') + (m.staff ? '.is-staff' : ''), null, [
-                h('div.pt-bub__who', null, [who, h('time', { text: clock(m.at) })]),
-                h('div.pt-bub__text', { text: m.text })
-            ]));
+            if (m.system) who = m.name;
+            else if (me && !readerIsStaff) who = t('ui_you');
+            if (m.internal) who = t('sp_internal') + ' · ' + m.name;
+            var head = h('div.pt-bub__who', null, [who, h('time', { text: clock(m.at) })]);
+            if (onMark && !m.internal && !m.system) {
+                head.appendChild(h('button.pt-bub__mark', { type: 'button', text: t(m.resolution ? 'sp_unmark_answer' : 'sp_mark_answer'),
+                    onclick: function () { onMark(i + 1, !!m.resolution); } }));
+            }
+            box.appendChild(h('div.pt-bub' + (me ? '.is-me' : '') + (m.staff ? '.is-staff' : '') + (m.internal ? '.is-note' : '') +
+                (m.system ? '.is-system' : '') + (m.resolution ? '.is-answer' : ''), null, [head, h('div.pt-bub__text', { text: m.text })]));
         });
         setTimeout(function () { box.scrollTop = box.scrollHeight; }, 0);
         return box;
@@ -200,22 +256,73 @@
 
     // ------------------------------------------------------- player: the form
 
+    var similarTimer = null;
+    function formKinds() { return categoryOpts().filter(function (o) { return !(categoryOf(o.value) || {}).webOnly; }); }
     function freshForm() {
-        var first = S.categories[0] || {};
+        var first = S.categories.filter(function (c) { return !c.webOnly; })[0] || {};
         return { category: first.id, priority: first.priority || 'medium', description: '', reported: null, clip: '', presence: true };
     }
 
     function renderPlayer() {
         var P = S.player;
         var unseen = P.tickets.some(function (x) { return x.unseen; });
-        shell('player', t('ui_title'), [{ id: 'new', label: t('ui_tab_new') }, { id: 'mine', label: t('ui_tab_mine'), dot: unseen }], P.tab, function (id) {
-            P.tab = id; P.cur = null; P.step = 'choose';
-            if (id === 'mine') loadMine(); else renderPlayer();
+        var tabs = [{ id: 'new', label: t('ui_tab_new') }, { id: 'mine', label: t('ui_tab_mine'), dot: unseen }];
+        if (S.answers) tabs.push({ id: 'answers', label: t('ui_tab_answers') });
+        if (S.web) tabs.push({ id: 'web', label: t('web_tab'), dot: !S.web.linked });
+        if (P.tab === 'web' && !S.web) P.tab = 'new';
+        shell('player', t('ui_title'), tabs, P.tab, function (id) {
+            P.tab = id; P.cur = null; P.step = 'choose'; P.answer = null;
+            if (id === 'mine') loadMine(); else if (id === 'answers') loadAnswers(); else renderPlayer();
+            if (id === 'web') watchWeb();
         });
         var body = h('div.pt-body');
         win.appendChild(body);
         if (P.tab === 'new') { if (P.step === 'form') renderForm(body); else renderChoice(body); }
+        else if (P.tab === 'answers') renderAnswers(body);
+        else if (P.tab === 'web') renderWebMine(body);
         else if (P.cur) renderMineDetail(body); else renderMineList(body);
+    }
+
+    // Solved questions: tickets staff chose to share, every name hidden.
+    function loadAnswers() {
+        ask('player', 'answers', { search: S.player.answersQ }).then(function (r) { S.player.answers = r.rows || []; if (S.view === 'player' && S.player.tab === 'answers') renderPlayer(); });
+    }
+    function openAnswer(id) {
+        ask('player', 'answer', { id: id }).then(function (r) {
+            if (!r.ok) { toast(r.message); return; }
+            S.player.tab = 'answers'; S.player.answer = r.ticket; renderPlayer();
+        });
+    }
+    function answerCard(a) {
+        var card = h('div.pt-mine', { onclick: function () { openAnswer(a.id); } }, [
+            h('div.pt-mine__top', null, [h('span.pt-mine__cat', null, [pill(a.categoryLabel, catColor(a.category))])]),
+            h('div.pt-mine__text', { text: a.description }),
+            a.resolution ? h('div.pt-mine__answer', { text: a.resolution }) : null
+        ]);
+        card.style.borderLeftColor = catColor(a.category);
+        return card;
+    }
+    function renderAnswers(body) {
+        var P = S.player, a = P.answer;
+        if (a) {
+            var wrap = h('div.pt-minedetail'); body.appendChild(wrap);
+            var back = h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: '‹ ' + t('ui_back'), onclick: function () { P.answer = null; renderPlayer(); } });
+            back.style.alignSelf = 'flex-start'; back.style.marginBottom = '0.8rem';
+            wrap.appendChild(back);
+            wrap.appendChild(h('div.pt-d-head', null, [h('span.pt-d-head__cat', { text: a.categoryLabel })]));
+            var desc = h('div.pt-desc', { text: a.description }); desc.style.borderLeftColor = catColor(a.category);
+            wrap.appendChild(desc);
+            var pinned = resolutionBlock({ resolution: a.resolution }); if (pinned) wrap.appendChild(pinned);
+            wrap.appendChild(h('div.pt-label', { text: t('sp_conversation') }));
+            wrap.appendChild(conversation(a, false));
+            return;
+        }
+        body.appendChild(h('div.pt-hint', { text: t('ui_answers_hint') }));
+        var search = h('input.pt-input', { type: 'text', placeholder: t('ui_answers_search'), value: P.answersQ });
+        search.addEventListener('keydown', function (e) { if (e.key === 'Enter') { P.answersQ = search.value; loadAnswers(); } });
+        body.appendChild(search);
+        if (!P.answers.length) { body.appendChild(h('div.pt-empty', { text: t('ui_answers_none') })); return; }
+        P.answers.forEach(function (x) { body.appendChild(answerCard(x)); });
     }
 
     /** First thing a player sees: two big buttons, so the choice is obvious. */
@@ -239,9 +346,11 @@
 
         body.appendChild(h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: '‹ ' + t('ui_back'), onclick: function () { P.step = 'choose'; renderPlayer(); } }));
         body.appendChild(h('div.pt-label', { text: t('ui_category') }));
-        body.appendChild(chips(categoryOpts(), F.category, function (v) {
+        body.appendChild(chips(formKinds(), F.category, function (v) {
             F.category = v; F.priority = (categoryOf(v) || {}).priority || F.priority; F.reported = null; renderPlayer();
         }));
+
+        if (P.waits && P.waits[F.category]) body.appendChild(h('div.pt-hint.pt-wait', { text: t('ui_wait', P.waits[F.category]) }));
 
         body.appendChild(h('div.pt-label', { text: t('ui_priority') }));
         body.appendChild(chips(priorityOpts(), F.priority, function (v) { F.priority = v; renderPlayer(); }));
@@ -250,8 +359,25 @@
         body.appendChild(h('div.pt-hint', { text: t('ui_description_hint') }));
         var max = S.limits.description || 1000;
         var count = h('div.pt-count', { text: F.description.length + ' / ' + max });
-        var ta = h('textarea.pt-text', { maxlength: max, value: F.description, oninput: function () { F.description = ta.value; count.textContent = ta.value.length + ' / ' + max; } });
-        body.appendChild(ta); body.appendChild(count);
+        var similarBox = h('div.pt-similar');
+        // Drawn on its own, so the player keeps typing while answers come and go.
+        var drawSimilar = function () {
+            clear(similarBox);
+            if (!P.similar.length) return;
+            similarBox.appendChild(h('div.pt-label', { text: t('ui_similar_title') }));
+            similarBox.appendChild(h('div.pt-hint', { text: t('ui_similar_hint') }));
+            P.similar.forEach(function (a) { similarBox.appendChild(answerCard(a)); });
+        };
+        var ta = h('textarea.pt-text', { maxlength: max, value: F.description, oninput: function () {
+            F.description = ta.value; count.textContent = ta.value.length + ' / ' + max;
+            if (!S.answers) return;
+            clearTimeout(similarTimer);
+            similarTimer = setTimeout(function () {
+                if (ta.value.trim().length < 12) { P.similar = []; drawSimilar(); return; }
+                ask('player', 'similar', { text: ta.value, category: F.category }).then(function (r) { P.similar = r.rows || []; drawSimilar(); });
+            }, 700);
+        } });
+        body.appendChild(ta); body.appendChild(count); body.appendChild(similarBox); drawSimilar();
 
         if (cat.reportsPlayer) {
             body.appendChild(h('div.pt-label', { text: t('ui_reported') }));
@@ -326,6 +452,7 @@
         if (x.closeNote) wrap.appendChild(h('div.pt-hint', { text: x.closeNote }));
         var desc = h('div.pt-desc', { text: x.description }); desc.style.borderLeftColor = catColor(x.category);
         wrap.appendChild(desc);
+        var pinned = resolutionBlock(x); if (pinned) wrap.appendChild(pinned);
         wrap.appendChild(h('div.pt-label', { text: t('sp_conversation') }));
         wrap.appendChild(conversation(x, false));
         if (x.status !== 'closed') {
@@ -344,11 +471,14 @@
     // ------------------------------------------------------------ staff panel
 
     function staffTabs() {
-        var tabs = [{ id: 'tickets', label: t('sp_tab_tickets') }];
+        var waiting = S.staff.tickets.filter(function (x) { return x.status === 'open'; }).length;
+        var tabs = [{ id: 'tickets', label: t('sp_tab_tickets'), count: waiting }];
+        tabs.push({ id: 'chat', label: t('sp_tab_chat'), count: chatUnreadTotal() });
         if (S.me.powers.warn || S.me.powers.kick || S.me.powers.ban) tabs.push({ id: 'players', label: t('sp_tab_players') });
         if (S.me.powers.unban) tabs.push({ id: 'bans', label: t('sp_tab_bans') });
-        if (S.me.powers.hire) tabs.push({ id: 'staff', label: t('sp_tab_staff') });
+        if (S.me.powers.hire || S.me.powers.manage) tabs.push({ id: 'staff', label: t('sp_tab_staff') });
         if (S.me.powers.audit) tabs.push({ id: 'audit', label: t('sp_tab_audit') });
+        if (S.web) tabs.push({ id: 'web', label: t('web_tab'), dot: !S.web.linked });
         return tabs;
     }
 
@@ -360,18 +490,22 @@
         duty.style.marginTop = '0';
         var back = A.canReturn ? h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_return'), onclick: function () { ask('staff', 'return'); } }) : null;
         if (back) back.style.margin = '0 0.8rem 0 0';
-        var extra = h('div', null, [back, duty]); extra.style.display = 'flex'; extra.style.alignItems = 'center';
+        var full = h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: t(S.full ? 'sp_windowed' : 'sp_fullscreen'), onclick: function () { S.full = !S.full; saveFull(S.full); renderStaff(); } });
+        full.style.margin = '0 0.8rem 0 0';
+        var extra = h('div', null, [back, full, duty]); extra.style.display = 'flex'; extra.style.alignItems = 'center';
 
         shell('staff', t('sp_title'), staffTabs(), A.tab, function (id) {
             A.tab = id;
             renderStaff();
-            if (id === 'bans') loadBans(); else if (id === 'staff') loadStaff(); else if (id === 'audit') loadAudit(); else if (id === 'players') loadPlayers();
+            if (id === 'bans') loadBans(); else if (id === 'staff') loadStaffTab(); else if (id === 'audit') loadAudit(); else if (id === 'players') loadPlayers(); else if (id === 'chat') loadChat(); else if (id === 'web') watchWeb();
         }, extra);
 
         if (A.tab === 'tickets') renderTickets();
+        else if (A.tab === 'chat') renderChat();
         else if (A.tab === 'players') renderPlayers();
         else if (A.tab === 'bans') renderBans();
         else if (A.tab === 'staff') renderStaffTab();
+        else if (A.tab === 'web' && S.web) { var wp = h('div.pt-page'); renderWebMine(wp); win.appendChild(wp); }
         else renderAudit();
     }
 
@@ -383,13 +517,14 @@
     }
 
     function visibleTickets() {
-        var A = S.staff, src = A.status === 'closed' ? A.closed : A.tickets, q = A.q.trim().toLowerCase();
+        var A = S.staff, src = A.status === 'closed' ? A.closed : (A.status === 'archived' ? A.archived : A.tickets), q = A.q.trim().toLowerCase();
         var rank = {}; S.priorities.forEach(function (p, i) { rank[p] = i; });
         var out = src.filter(function (x) {
             if (A.status === 'open' && x.status !== 'open') return false;
             if (A.status === 'claimed' && x.status !== 'claimed') return false;
             if (A.status === 'mine' && !(x.status === 'claimed' && x.mine)) return false;
             if (A.status === 'closed' && x.status !== 'closed') return false;
+            if (A.status === 'archived' && !x.archivedAt) return false;
             if (A.category && x.category !== A.category) return false;
             if (A.priority && x.priority !== A.priority) return false;
             if (A.online && !x.reporterOnline) return false;
@@ -400,6 +535,7 @@
             return true;
         });
         out.sort(function (a, b) {
+            if (A.status === 'archived') return (b.archivedAt || 0) - (a.archivedAt || 0);
             if (A.status === 'closed') return (b.closedAt || 0) - (a.closedAt || 0);
             if (A.sort === 'priority' && rank[a.priority] !== rank[b.priority]) return rank[a.priority] - rank[b.priority];
             return a.createdAt - b.createdAt;
@@ -428,18 +564,26 @@
         var filters = h('div.pt-filters');
         var search = h('input.pt-input', { type: 'text', placeholder: t('sp_search'), value: A.q, oninput: function () { A.q = search.value; drawList(); } });
         filters.appendChild(search);
-        filters.appendChild(chips([
-            { value: 'open', label: t('sp_filter_open'), color: STATUS_COLORS.open }, { value: 'claimed', label: t('sp_filter_claimed'), color: STATUS_COLORS.claimed },
-            { value: 'mine', label: t('sp_filter_mine'), color: '#b9a8f0' }, { value: 'closed', label: t('sp_filter_closed'), color: STATUS_COLORS.closed }
-        ], A.status, function (v) {
+        // The bubbles: what is still waiting behind each chip. Closed tickets never count.
+        function tally(test) { return A.tickets.filter(test).length; }
+        var states = [
+            { value: 'open', label: t('sp_filter_open'), color: STATUS_COLORS.open, count: tally(function (x) { return x.status === 'open'; }) },
+            { value: 'claimed', label: t('sp_filter_claimed'), color: STATUS_COLORS.claimed, count: tally(function (x) { return x.status === 'claimed'; }) },
+            { value: 'mine', label: t('sp_filter_mine'), color: '#b9a8f0', count: tally(function (x) { return x.status === 'claimed' && x.mine; }) },
+            { value: 'closed', label: t('sp_filter_closed'), color: STATUS_COLORS.closed }];
+        if (S.me.powers.archive) states.push({ value: 'archived', label: t('sp_filter_archived'), color: '#9aa8ba' });
+        filters.appendChild(chips(states, A.status, function (v) {
             A.status = v;
-            if (v === 'closed') ask('staff', 'list', { closed: true }).then(function (r) { A.closed = (r.tickets || []).map(markMine); renderStaff(); });
+            if (v === 'closed') ask('staff', 'list', { mode: 'closed' }).then(function (r) { A.closed = (r.tickets || []).map(markMine); renderStaff(); });
+            else if (v === 'archived') ask('staff', 'list', { mode: 'archived' }).then(function (r) { A.archived = (r.tickets || []).map(markMine); renderStaff(); });
             else renderStaff();
         }, true));
         filters.appendChild(h('div.pt-filters__label', { text: t('sp_filter_kind') }));
-        filters.appendChild(chips(categoryOpts(), A.category, function (v) { A.category = A.category === v ? null : v; renderStaff(); }, true));
+        filters.appendChild(chips(categoryOpts().map(function (o) { o.count = tally(function (x) { return x.category === o.value && x.status === 'open'; }); return o; }),
+            A.category, function (v) { A.category = A.category === v ? null : v; renderStaff(); }, true));
         filters.appendChild(h('div.pt-filters__label', { text: t('sp_filter_priority') }));
-        filters.appendChild(chips(priorityOpts(), A.priority, function (v) { A.priority = A.priority === v ? null : v; renderStaff(); }, true));
+        filters.appendChild(chips(priorityOpts().map(function (o) { o.count = tally(function (x) { return x.priority === o.value && x.status === 'open'; }); return o; }),
+            A.priority, function (v) { A.priority = A.priority === v ? null : v; renderStaff(); }, true));
         var count = h('div.pt-filters__count');
         filters.appendChild(h('div.pt-filters__foot', null, [count,
             chips([{ value: 'online', label: t('sp_filter_online'), on: A.online }, { value: 'sort', label: t(A.sort === 'age' ? 'sp_sort_age' : 'sp_sort_priority') }], null, function (v) {
@@ -460,7 +604,8 @@
                 var state = x.status === 'claimed' ? (x.claimedByName || '') + (x.claimerOnline ? '' : ' · ' + t('sp_staff_offline')) : t('status_' + x.status);
                 var row = h('div.pt-row' + (x.id === A.curId ? '.is-cur' : '') + (x.reporterOnline ? '' : '.is-off'), { onclick: function () { openDetail(x.id); } }, [
                     h('div.pt-row__main', null, [
-                        h('div.pt-row__top', null, [h('span.pt-row__id', { text: '#' + x.id }), pill(x.categoryLabel, catColor(x.category)), pill(t('priority_' + x.priority), PRI_COLORS[x.priority])]),
+                        h('div.pt-row__top', null, [h('span.pt-row__id', { text: '#' + x.id }), pill(x.categoryLabel, catColor(x.category)), pill(t('priority_' + x.priority), PRI_COLORS[x.priority]),
+                            (x.escalatedTo && x.escalatedTo.length) ? pill('↑ ' + x.escalatedTo.map(roleLabel).join(', '), roleColor(x.escalatedTo[0])) : null]),
                         h('div.pt-row__who', null, [h('span.pt-name' + (x.reporterOnline ? '' : '.is-off'), { text: x.reporterName || '?' })])
                     ]),
                     h('div.pt-row__side', null, [
@@ -478,8 +623,9 @@
 
     function openDetail(id) {
         var A = S.staff;
-        A.curId = id; A.detail = null; A.draft = '';
+        A.curId = id; A.detail = null; A.draft = ''; A.note = false;
         renderStaff();
+        if (!S.canned.length && S.me.powers.reply) ask('staff', 'canned').then(function (r) { S.canned = r.rows || []; if (A.curId === id && S.view === 'staff') renderStaff(); });
         ask('staff', 'detail', { id: id }).then(function (r) {
             if (A.curId !== id) return;
             if (!r.ok) { A.curId = null; toast(r.message); renderStaff(); return; }
@@ -520,6 +666,13 @@
         var statusText = x.status === 'claimed' ? t('ui_claimed_by', x.claimedByName || '?') : (x.status === 'closed' ? t('ui_closed_as', t('close_' + (x.closeReason || 'resolved'))) : t('status_open'));
         var pills = h('span.pt-d-head__pills', null, [pill(t('priority_' + x.priority), PRI_COLORS[x.priority]), pill(statusText, STATUS_COLORS[x.status])]);
         if (x.wantPresence) pills.appendChild(pill(t('sp_wants_presence'), '#e6a8d7'));
+        (x.escalatedTo || []).forEach(function (rid) {
+            var el = pill('↑ ' + roleLabel(rid) + (open && P.escalate ? '  ×' : ''), roleColor(rid));
+            if (open && P.escalate) { el.style.cursor = 'pointer'; el.addEventListener('click', function () { act('unescalate', { id: x.id, role: rid }); }); }
+            pills.appendChild(el);
+        });
+        if (x.isPublic) pills.appendChild(pill(t('sp_public'), '#8fd3a8'));
+        if (x.archivedAt) pills.appendChild(pill(t('sp_filter_archived') + (x.archivedByName ? ' · ' + x.archivedByName : ''), '#9aa8ba'));
         var catEl = h('span.pt-d-head__cat', { text: x.categoryLabel }); catEl.style.color = catColor(x.category);
         top.appendChild(h('div.pt-d-head', null, [h('span.pt-d-head__id', { text: '#' + x.id }), catEl, pills,
             open ? h('span.pt-d-head__age', { 'data-since': x.createdAt, text: age(x.createdAt) }) : h('span.pt-d-head__age', { text: age(x.createdAt, x.closedAt) })]));
@@ -549,16 +702,39 @@
         right.appendChild(top);
 
         // --- middle: the chat takes whatever height is left and scrolls inside
-        var chat = h('div.pt-d-chat', null, [h('div.pt-label', { text: t('sp_conversation') }), conversation(x, true)]);
+        var onMark = P.resolve ? function (index, marked) { act('resolve', { id: x.id, index: marked ? 0 : index }).then(function (r) { if (!r.ok) toast(r.message); }); } : null;
+        var chat = h('div.pt-d-chat', null, [h('div.pt-label', { text: t('sp_conversation') }), resolutionBlock(x), conversation(x, true, onMark)]);
         if (open && P.reply) {
-            var input = h('input.pt-input', { type: 'text', maxlength: S.limits.message || 500, placeholder: t('ui_reply'), value: A.draft, oninput: function () { A.draft = input.value; } });
+            var input = h('input.pt-input' + (A.note ? '.is-note' : ''), { type: 'text', maxlength: S.limits.message || 500, placeholder: A.note ? t('sp_internal_hint') : t('ui_reply'), value: A.draft, oninput: function () { A.draft = input.value; } });
             var go = function () {
                 if (!input.value.trim()) return;
                 var text = input.value; input.value = ''; A.draft = '';
-                act('reply', { id: x.id, text: text }).then(function (r) { if (!r.ok) toast(r.message); });
+                act(A.note ? 'note' : 'reply', { id: x.id, text: text }).then(function (r) { if (!r.ok) toast(r.message); });
             };
             input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
-            chat.appendChild(h('div.pt-replyrow', null, [input, h('button.pt-btn.pt-btn--act', { type: 'button', text: t('ui_send'), onclick: go })]));
+
+            // Ready-made replies: the ones whose keywords the player used come first.
+            var fill = function (c) {
+                A.draft = c.body.replace(/\{player\}/g, (x.reporterName || '').split(' ')[0]).replace(/\{staff\}/g, S.me.name || '').replace(/\{id\}/g, String(x.id));
+                A.note = false; renderStaff();
+            };
+            var offered = suggestCanned(x);
+            if (S.canned.length && !A.note) {
+                var cannedRow = h('div.pt-canned');
+                offered.forEach(function (c) { cannedRow.appendChild(h('button.pt-chip.pt-chip--small', { type: 'button', text: c.label, title: c.body, onclick: function () { fill(c); } })); });
+                cannedRow.appendChild(h('button.pt-chip.pt-chip--small.pt-chip--more', { type: 'button', text: t('sp_replies') + ' …', onclick: function () {
+                    dialog(t('sp_replies_all'), function (body) {
+                        S.canned.forEach(function (c) {
+                            body.appendChild(h('div.pt-result', { onclick: function () { var open2 = win.querySelector('.pt-dialog-shade'); if (open2) open2.parentNode.removeChild(open2); fill(c); } },
+                                [h('b', { text: c.label }), h('div.pt-hint', { text: c.body })]));
+                        });
+                    }, t('sp_cancel'), function () { return true; });
+                } }));
+                chat.appendChild(cannedRow);
+            }
+            var noteToggle = h('div.pt-toggle.pt-toggle--note' + (A.note ? '.is-on' : ''), { onclick: function () { A.note = !A.note; renderStaff(); } }, [h('div.pt-toggle__box'), h('div', { text: t('sp_internal') })]);
+            noteToggle.style.marginTop = '0';
+            chat.appendChild(h('div.pt-replyrow', null, [noteToggle, input, h('button.pt-btn' + (A.note ? '.pt-btn--note' : '.pt-btn--act'), { type: 'button', text: t('ui_send'), onclick: go })]));
         }
         right.appendChild(chat);
 
@@ -584,7 +760,37 @@
             }));
             if (P.category) row1.appendChild(btn(t('sp_category'), '', function () { pickDialog(t('sp_category'), categoryOpts(), x.category, t('sp_confirm'), function (v) { return act('category', { id: x.id, category: v }); }); }));
             if (P.priority) row1.appendChild(btn(t('sp_priority'), '', function () { pickDialog(t('sp_priority'), priorityOpts(), x.priority, t('sp_confirm'), function (v) { return act('priority', { id: x.id, priority: v }); }); }));
+            if (P.escalate) row1.appendChild(btn(t('sp_escalate'), '.pt-btn--note', function () {
+                var pick = null, why;
+                var options = roleOpts().filter(function (o) { return (x.escalatedTo || []).indexOf(o.value) === -1; });
+                dialog(t('sp_escalate') + ' · #' + x.id, function (body) {
+                    var box = h('div');
+                    var draw = function () { clear(box); box.appendChild(chips(options, pick, function (v) { pick = v; draw(); })); };
+                    body.appendChild(h('div.pt-label', { text: t('sp_escalate_to') })); body.appendChild(box); draw();
+                    body.appendChild(h('div.pt-label', { text: t('sp_escalate_note') }));
+                    why = h('textarea.pt-text.pt-text--short.is-note', { maxlength: S.limits.message || 500 }); body.appendChild(why);
+                }, t('sp_escalate'), function () { return pick ? act('escalate', { id: x.id, role: pick, note: why.value }).then(function (r) { if (r.ok && r.message) toast(r.message); return r; }) : false; });
+            }));
         }
+        // Public, archive and delete work on a closed ticket too.
+        if (P.resolve && x.publishable && x.status === 'closed' && x.resolution && !x.archivedAt) {
+            if (x.isPublic) row1.appendChild(btn(t('sp_unpublish'), '', simple('setPublic', { id: x.id, on: false })));
+            else row1.appendChild(btn(t('sp_publish'), '', function () {
+                dialog(t('sp_publish') + ' · #' + x.id, function (body) { body.appendChild(h('div.pt-hint', { text: t('sp_publish_warn') })); },
+                    t('sp_publish'), function () { return act('setPublic', { id: x.id, on: true }).then(function (r) { if (r.message) toast(r.message); return r; }); });
+            }));
+        }
+        if (P.archive) {
+            if (x.archivedAt) row1.appendChild(btn(t('sp_unarchive'), '', function () { ask('staff', 'unarchive', { id: x.id }).then(function (r) { toast(r.message); }); }));
+            else row1.appendChild(btn(t('sp_archive'), '.pt-btn--ghost', function () {
+                dialog(t('sp_archive') + ' · #' + x.id, function (body) { body.appendChild(h('div.pt-hint', { text: t('sp_archive_warn') })); },
+                    t('sp_archive'), function () { return ask('staff', 'archive', { id: x.id }).then(function (r) { if (r.message) toast(r.message); return r; }); });
+            }));
+        }
+        if (S.me.canDelete && x.archivedAt) row1.appendChild(btn(t('sp_delete'), '.pt-btn--danger', function () {
+            dialog(t('sp_delete') + ' · #' + x.id, function (body) { body.appendChild(h('div.pt-hint', { text: t('sp_delete_warn') })); },
+                t('sp_delete'), function () { return ask('staff', 'delete', { id: x.id }).then(function (r) { if (r.message) toast(r.message); return r; }); }, true);
+        }));
         row1.appendChild(h('div.pt-d-bar__spacer'));
         if (P.audit) row1.appendChild(btn(t('sp_history_btn'), '.pt-btn--ghost', function () { audit.ticket = x.id; audit.account = ''; audit.group = ''; audit.q = ''; A.tab = 'audit'; renderStaff(); loadAudit(); }));
         if (open && P.close) row1.appendChild(btn(t('sp_close_ticket'), '.pt-btn--go', function () {
@@ -652,6 +858,12 @@
         });
     }
     function sameAsCur(p) { return !!(people.card && people.card.account === p.account); }
+    /** "ban:7d" -> "a ban (7 days)". */
+    function ladderText(action) {
+        var m = /^ban:(.+)$/.exec(action || '');
+        if (m) return t('lad_ban', t('sp_len_' + m[1]));
+        return t(action === 'kick' ? 'lad_kick' : 'lad_warn');
+    }
 
     function modDialog(title, action, who, withLength) {
         var ta, extra = { length: 'perm', cheat: false };
@@ -696,7 +908,8 @@
             var who = p.src ? { src: p.src } : { account: p.account, name: p.name };
             var row = h('div.pt-row' + (sameAsCur(p) ? '.is-cur' : '') + (p.online === false ? '.is-off' : ''), { onclick: function () { openPlayer(who); } }, [
                 h('div.pt-row__main', null, [
-                    h('div.pt-row__top', null, [p.src ? h('span.pt-row__id', { text: String(p.src) }) : null, h('span.pt-name' + (p.online === false ? '.is-off' : ''), { text: p.name }), p.staff ? pill(t('pl_staff'), '#b9a8f0') : null]),
+                    h('div.pt-row__top', null, [p.src ? h('span.pt-row__id', { text: String(p.src) }) : null, h('span.pt-name' + (p.online === false ? '.is-off' : ''), { text: p.name }), p.staff ? pill(t('pl_staff'), '#b9a8f0') : null,
+                        p.watched ? pill(t('pl_watching'), '#e6a8d7') : null]),
                     (p.warnings || p.reports) ? h('div.pt-row__who', null, [h('small', { text: t('pl_counts', p.warnings || 0, p.reports || 0) })]) : null
                 ])
             ]);
@@ -723,7 +936,9 @@
         var top = h('div.pt-d-top');
         top.appendChild(h('div.pt-d-head', null, [c.src ? h('span.pt-d-head__id', { text: String(c.src) }) : null, h('span.pt-d-head__cat', { text: c.name || c.account }),
             h('span.pt-d-head__pills', null, [pill(t(c.online ? 'sp_online' : 'sp_offline'), c.online ? '#8fd3a8' : '#9aa8ba'),
-                pill(t('pl_warnings') + ' ' + c.warnings.length, c.warnings.length ? '#f2b880' : null), pill(t('pl_bans') + ' ' + c.bans.length, c.bans.length ? '#f08a8a' : null)])]));
+                pill(t('pl_warnings') + ' ' + c.warnings.length, c.warnings.length ? '#f2b880' : null), pill(t('pl_bans') + ' ' + c.bans.length, c.bans.length ? '#f08a8a' : null),
+                c.watch ? pill(t('pl_watching') + (c.watch.reason ? ' · ' + c.watch.reason : ''), '#e6a8d7') : null])]));
+        if (c.suggest) top.appendChild(h('div.pt-hint.pt-ladder', { text: t('pl_suggest', c.suggest.offence, ladderText(c.suggest.action)) }));
         right.appendChild(top);
 
         var rec = h('div.pt-record');
@@ -733,8 +948,20 @@
             rows.forEach(function (r) { rec.appendChild(draw(r)); });
         }
         section(t('pl_warnings'), c.warnings, function (w) {
-            return h('div.pt-rec', null, [h('div.pt-rec__when', { text: clock(w.created_at) }), h('div.pt-rec__text', null, [w.reason, h('span', { text: '  —  ' + (w.warned_by_name || '?') + (w.acknowledged_at ? '' : ' · ' + t('pl_unread')) })])]);
+            return h('div.pt-rec' + (w.decayed ? '.is-dim' : ''), null, [h('div.pt-rec__when', { text: clock(w.created_at) }), h('div.pt-rec__text', null, [w.reason,
+                h('span', { text: '  —  ' + (w.warned_by_name || '?') + (w.acknowledged_at ? '' : ' · ' + t('pl_unread')) + (w.decayed ? ' · ' + t('pl_decayed') : '') })])]);
         });
+        if (c.canNote) {
+            rec.appendChild(h('div.pt-label', { text: t('pl_notes') + ' · ' + (c.notes || []).length }));
+            (c.notes || []).forEach(function (n) {
+                rec.appendChild(h('div.pt-rec.is-note', null, [h('div.pt-rec__when', { text: clock(n.created_at) }), h('div.pt-rec__text', null, [n.note, h('span', { text: '  —  ' + (n.by_name || '?') })]),
+                    h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: '×', onclick: function () { ask('staff', 'noteDelete', { id: n.id }).then(function () { openPlayer(who); }); } })]));
+            });
+            var noteIn = h('input.pt-input.is-note', { type: 'text', maxlength: S.limits.note || 500, placeholder: t('pl_note_hint') });
+            var addNote = function () { if (!noteIn.value.trim()) return; ask('staff', 'noteAdd', { player: who, note: noteIn.value }).then(function (r) { if (!r.ok) toast(r.message); openPlayer(who); }); };
+            noteIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') addNote(); });
+            rec.appendChild(h('div.pt-replyrow', null, [noteIn, h('button.pt-btn.pt-btn--note', { type: 'button', text: t('pl_note_add'), onclick: addNote })]));
+        }
         section(t('pl_bans'), c.bans, function (b) {
             var state = b.active ? t('sp_ban_active') + ' · ' + b.remaining : (b.revokedAt ? t('sp_ban_lifted') : t('sp_ban_expired'));
             return h('div.pt-rec', null, [h('div.pt-rec__when', { text: clock(b.createdAt) }), h('div.pt-rec__text', null, [pill(state, b.active ? '#f08a8a' : '#8fd3a8'), b.reason, h('span', { text: '  —  ' + (b.by || '?') })])]);
@@ -752,6 +979,14 @@
         function btn(label, cls, fn, disabled) { return h('button.pt-btn' + (cls || ''), { type: 'button', text: label, onclick: fn, disabled: disabled }); }
         if (P.teleport) row.appendChild(btn(t('sp_goto'), '', function () { ask('staff', 'goTo', { player: who }).then(function (r) { if (!r.ok) toast(r.message); }); }, !c.online));
         if (S.staff.canReturn) row.appendChild(btn(t('sp_return'), '.pt-btn--ghost', function () { ask('staff', 'return'); }));
+        if (c.canNote) {
+            if (c.watch) row.appendChild(btn(t('pl_unwatch'), '.pt-btn--ghost', function () { ask('staff', 'watch', { player: who, on: false }).then(function () { loadPlayers(); openPlayer(who); }); }));
+            else row.appendChild(btn(t('pl_watch'), '.pt-btn--ghost', function () {
+                var why;
+                dialog(t('pl_watch') + ' · ' + (c.name || c.account), function (body) { body.appendChild(h('div.pt-label', { text: t('pl_watch_reason') })); why = h('textarea.pt-text.pt-text--short.is-note', { maxlength: 300 }); body.appendChild(why); },
+                    t('pl_watch'), function () { return ask('staff', 'watch', { player: who, on: true, reason: why.value }).then(function (r) { if (r.ok) { toast(r.message); loadPlayers(); openPlayer(who); } return r; }); });
+            }));
+        }
         row.appendChild(h('div.pt-d-bar__spacer'));
         var title = ' · ' + (c.name || c.account);
         if (P.warn) row.appendChild(btn(t('sp_warn'), '.pt-btn--danger', function () { modDialog(t('sp_warn') + title, 'modWarn', who, false); }));
@@ -792,9 +1027,28 @@
 
     var roster = { rows: [], results: [], q: '', pick: null, roles: {} };
     function loadStaff() { ask('staff', 'staffList').then(function (r) { roster.rows = r.staff || []; if (S.view === 'staff' && S.staff.tab === 'staff') renderStaff(); }); }
-    function hireRoles() { return S.allRoles; }
+    function hireRoles() { return S.roleDefs.map(function (r) { return r.id; }); }
+    function loadStaffTab() {
+        var A = S.staff;
+        if (A.sub === 'roster' && !S.me.powers.hire) A.sub = 'roles';
+        if (A.sub !== 'roster' && !S.me.powers.manage) A.sub = 'roster';
+        if (A.sub === 'roster') loadStaff(); else if (A.sub === 'roles') loadRoles(); else if (A.sub === 'web') loadWeb(); else loadCannedAdmin();
+    }
     function renderStaffTab() {
+        var A = S.staff;
         var page = h('div.pt-page');
+        var subs = [];
+        if (S.me.powers.hire) subs.push({ value: 'roster', label: t('sp_sub_roster') });
+        if (S.me.powers.manage) { subs.push({ value: 'roles', label: t('sp_sub_roles') }); subs.push({ value: 'replies', label: t('sp_sub_replies') }); subs.push({ value: 'web', label: t('sp_sub_web') }); }
+        if (!subs.some(function (o) { return o.value === A.sub; })) A.sub = subs.length ? subs[0].value : 'roster';
+        if (subs.length > 1) {
+            var sub = chips(subs, A.sub, function (v) { A.sub = v; renderStaff(); loadStaffTab(); });
+            sub.style.marginBottom = '1rem';
+            page.appendChild(sub);
+        }
+        if (A.sub === 'roles') { renderRoles(page); win.appendChild(page); return; }
+        if (A.sub === 'replies') { renderCannedAdmin(page); win.appendChild(page); return; }
+        if (A.sub === 'web') { renderWeb(page); win.appendChild(page); return; }
         page.appendChild(h('div.pt-label', { text: t('sp_hire') }));
         var search = h('input.pt-input', { type: 'text', placeholder: t('sp_hire_search'), value: roster.q });
         var find = function () { roster.q = search.value; ask('staff', 'search', { text: roster.q }).then(function (r) { roster.results = r.rows || []; roster.pick = null; renderStaff(); }); };
@@ -813,7 +1067,7 @@
             page.appendChild(h('div.pt-label', { text: t('sp_hire_roles') + ' · ' + c.name }));
             var row = h('div.pt-chips');
             hireRoles().forEach(function (role) {
-                row.appendChild(h('button.pt-chip' + (roster.roles[role] ? '.is-on' : ''), { type: 'button', text: t('role_' + role), onclick: function () { roster.roles[role] = !roster.roles[role]; renderStaff(); } }));
+                row.appendChild(h('button.pt-chip' + (roster.roles[role] ? '.is-on' : ''), { type: 'button', text: roleLabel(role), onclick: function () { roster.roles[role] = !roster.roles[role]; renderStaff(); } }));
             });
             page.appendChild(row);
             page.appendChild(h('button.pt-btn.pt-btn--go', { type: 'button', text: t('sp_save'), onclick: function () {
@@ -827,12 +1081,12 @@
         var table = h('table.pt-table', null, [h('tr', null, [t('sp_player'), t('sp_hire_roles'), ''].map(function (x) { return h('th', { text: x }); }))]);
         roster.rows.forEach(function (m) {
             var rolesCell = h('td');
-            if (m.framework) rolesCell.appendChild(h('span', { text: t('role_admin') + ' (' + t('sp_framework_admin') + ')' }));
+            if (m.framework) rolesCell.appendChild(h('span', { text: roleLabel('admin') + ' (' + t('sp_framework_admin') + ')' }));
             else {
                 var chipsRow = h('div.pt-chips');
                 hireRoles().forEach(function (role) {
                     var on = m.roles.indexOf(role) !== -1;
-                    chipsRow.appendChild(h('button.pt-chip.pt-chip--small' + (on ? '.is-on' : ''), { type: 'button', text: t('role_' + role), onclick: function () {
+                    chipsRow.appendChild(h('button.pt-chip.pt-chip--small' + (on ? '.is-on' : ''), { type: 'button', text: roleLabel(role), onclick: function () {
                         var next = m.roles.filter(function (r) { return r !== role; }); if (!on) next.push(role);
                         ask('staff', 'setRoles', { account: m.account, name: m.name, roles: next }).then(loadStaff);
                     } }));
@@ -853,7 +1107,10 @@
     var audit = { rows: [], account: '', group: '', ticket: null, q: '' };
     var AUDIT_GROUPS = { tickets: '#8fb8f0', moderation: '#f08a8a', movement: '#7fd1c7', staff: '#b9a8f0' };
     var AUDIT_GROUP_OF = { claim: 'tickets', release: 'tickets', assign: 'tickets', reply: 'tickets', category: 'tickets', priority: 'tickets', close: 'tickets',
-        warn: 'moderation', kick: 'moderation', ban: 'moderation', unban: 'moderation',
+        note: 'tickets', escalate: 'tickets', unescalate: 'tickets', resolve: 'tickets', publish: 'tickets', unpublish: 'tickets', autoclose: 'tickets',
+        archive: 'tickets', unarchive: 'tickets', 'delete': 'tickets',
+        warn: 'moderation', kick: 'moderation', ban: 'moderation', unban: 'moderation', pnote: 'moderation', pnote_delete: 'moderation', watch: 'moderation', unwatch: 'moderation',
+        role_save: 'staff', role_delete: 'staff', chat_save: 'staff', chat_delete: 'staff', canned_save: 'staff', canned_delete: 'staff',
         teleport: 'movement', 'return': 'movement', invis_on: 'movement', invis_off: 'movement',
         duty: 'staff', staff_hire: 'staff', staff_roles: 'staff', staff_remove: 'staff', help_respond: 'staff' };
 
@@ -912,6 +1169,323 @@
         });
     }
 
+    // ------------------------------------------------- ready-made replies (1.1.0)
+
+    /** Up to three replies whose keywords appear in what the player wrote. Plain word matching. */
+    function suggestCanned(x) {
+        var said = (x.description || '');
+        (x.conversation || []).forEach(function (m) { if (!m.staff) said += ' ' + m.text; });
+        said = ' ' + said.toLowerCase() + ' ';
+        var scored = [];
+        S.canned.forEach(function (c) {
+            var n = 0;
+            (c.keywords || '').split(',').forEach(function (k) { k = k.trim().toLowerCase(); if (k && said.indexOf(k) !== -1) n++; });
+            if (n > 0) scored.push({ n: n, c: c });
+        });
+        scored.sort(function (a, b) { return b.n - a.n; });
+        return scored.slice(0, 3).map(function (k) { return k.c; });
+    }
+
+    function field(body, label, el, hint) {
+        body.appendChild(h('div.pt-label', { text: label }));
+        if (hint) body.appendChild(h('div.pt-hint', { text: hint }));
+        body.appendChild(el);
+        return el;
+    }
+
+    function loadCannedAdmin() { ask('staff', 'canned').then(function (r) { S.canned = r.rows || []; if (S.view === 'staff' && S.staff.tab === 'staff') renderStaff(); }); }
+    function cannedDialog(c) {
+        var label, text, keys;
+        dialog(t(c ? 'ca_edit' : 'ca_new'), function (body) {
+            label = field(body, t('ca_label'), h('input.pt-input', { type: 'text', maxlength: 64, value: c ? c.label : '' }));
+            text = field(body, t('ca_body'), h('textarea.pt-text.pt-text--short', { maxlength: 500, value: c ? c.body : '' }), t('ca_body_hint'));
+            keys = field(body, t('ca_keywords'), h('input.pt-input', { type: 'text', maxlength: 300, value: c ? c.keywords : '' }));
+        }, t('sp_save'), function () {
+            return ask('staff', 'cannedSave', { id: c ? c.id : null, label: label.value, body: text.value, keywords: keys.value }).then(function (r) { if (r.ok) loadCannedAdmin(); return r; });
+        });
+    }
+    function renderCannedAdmin(page) {
+        page.appendChild(h('div.pt-page__bar', null, [h('div.pt-hint', { text: t('ca_body_hint') }), h('button.pt-btn.pt-btn--go', { type: 'button', text: t('ca_new'), onclick: function () { cannedDialog(null); } })]));
+        if (!S.canned.length) { page.appendChild(h('div.pt-empty', { text: t('ca_none') })); return; }
+        var table = h('table.pt-table', null, [h('tr', null, [t('ca_label'), t('ca_body'), t('ca_keywords'), ''].map(function (x) { return h('th', { text: x }); }))]);
+        S.canned.forEach(function (c) {
+            table.appendChild(h('tr', null, [h('td', null, [h('b', { text: c.label })]), h('td', { text: c.body }), h('td.pt-mono', { text: c.keywords || '' }),
+                h('td', null, [h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_edit'), onclick: function () { cannedDialog(c); } }),
+                    h('button.pt-btn.pt-btn--small.pt-btn--danger', { type: 'button', text: t('sp_delete_short'), onclick: function () { ask('staff', 'cannedDelete', { id: c.id }).then(loadCannedAdmin); } })])]));
+        });
+        page.appendChild(table);
+    }
+
+    // --------------------------------------------------------- the web panel (1.1.0)
+    // Only its status: it is switched on in /poggy, because turning it on sends ticket text off the server.
+
+    var webInfo = null;
+    function loadWeb() { ask('staff', 'web').then(function (r) { webInfo = r.web || null; if (S.view === 'staff' && S.staff.tab === 'staff') renderStaff(); }); }
+    // ------------------------------------------------ the Website tab (everyone)
+    //
+    // One community ID for the whole server. A player whose game named a Cfx.re
+    // account is linked already; anyone else gets a link code here and confirms it
+    // on the website while signed in with Cfx.re.
+    var webMine = { code: null, until: 0, msg: null, busy: false };
+    function onWebTab() { return (S.view === 'player' && S.player.tab === 'web') || (S.view === 'staff' && S.staff.tab === 'web'); }
+    function redrawWeb() { if (S.view === 'player') renderPlayer(); else if (S.view === 'staff') renderStaff(); }
+    function takeWeb(w) {
+        var was = S.web && S.web.linked;
+        S.web = (w && w.code) ? w : null;
+        if (S.web && S.web.linked && !was) { webMine.code = null; webMine.msg = null; }
+    }
+    var webTimer = null;
+    function watchWeb() {
+        if (webTimer) return;
+        webTimer = setInterval(function () {
+            if (!onWebTab()) { clearInterval(webTimer); webTimer = null; return; }
+            if (webMine.code && Date.now() > webMine.until) { webMine.code = null; redrawWeb(); return; }
+            if (S.web && S.web.linked) return;
+            ask('player', 'web').then(function (r) {
+                var was = S.web && S.web.linked;
+                if (r && r.ok) takeWeb(r.web);
+                if (onWebTab() && S.web && S.web.linked !== was) redrawWeb();
+            });
+        }, 3000);
+    }
+    function renderWebMine(page) {
+        var w = S.web;
+        if (!w) { page.appendChild(h('div.pt-hint', { text: t('web_off_short') })); return; }
+        page.appendChild(h('div.pt-web__intro', { text: t('web_intro') }));
+        if (w.linked) {
+            page.appendChild(h('div.pt-web__state.is-on', { text: '\u2713 ' + t('web_you_linked', w.cfx || '') }));
+            page.appendChild(h('div.pt-hint', { text: t('web_you_linked_how', w.site) }));
+        } else {
+            page.appendChild(h('div.pt-web__state', { text: t('web_not_linked') + (w.why && w.why !== 'unlinked' ? ' ' + t('web_why_' + w.why) : '') }));
+        }
+        var copy = h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_copy'), onclick: function () { copyText(w.code); copy.textContent = t('sp_copied'); } });
+        var steps = h('div.pt-web__steps');
+        // A game window cannot open a browser, so the address is there to be copied.
+        function copyBtn(text) { var b = h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_copy'), onclick: function () { copyText(text); b.textContent = t('sp_copied'); } }); return b; }
+        var words = t('web_step1', '').split('');
+        steps.appendChild(h('div.pt-web__step', null, [h('span.pt-web__n', { text: '1' }), h('div', null, [
+            h('div', null, [words[0] || '', h('span.pt-web__url', { text: w.site, title: t('sp_copy'), onclick: function () { copyText('https://' + w.site); } }), words[1] || '']),
+            h('div.pt-page__bar', null, [h('div.pt-web__urlbig', { text: 'https://' + w.site }), copyBtn('https://' + w.site)])])]));
+        steps.appendChild(h('div.pt-web__step', null, [h('span.pt-web__n', { text: '2' }), h('div', null, [h('div', { text: t('web_step2') }),
+            h('div.pt-page__bar', null, [h('div.pt-webcode', { text: w.code }), copy])])]));
+        // Not linked: the code links them. Linked STAFF: the same code confirms a new browser for the staff desk.
+        if (!w.linked || w.devices) {
+            var three = h('div', null, [h('div', { text: t(w.linked ? 'web_step3_device' : 'web_step3') })]);
+            if (webMine.code) {
+                var left = Math.max(1, Math.ceil((webMine.until - Date.now()) / 60000));
+                var newCode = h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: t('web_new_code'), onclick: getWebCode });
+                newCode.style.marginLeft = '0.5rem';
+                three.appendChild(h('div.pt-page__bar', null, [h('div.pt-webcode.pt-webcode--pair', { text: webMine.code }), copyBtn(webMine.code), newCode]));
+                three.appendChild(h('div.pt-hint', { text: t('web_code_for', left) }));
+                three.appendChild(h('div.pt-msg.is-bad', { text: t('web_code_warn') }));
+            } else {
+                var get = h('button.pt-btn.pt-btn--go', { type: 'button', text: t('web_get_code'), onclick: getWebCode });
+                get.style.marginTop = '0.5rem';
+                three.appendChild(get);
+            }
+            steps.appendChild(h('div.pt-web__step', null, [h('span.pt-web__n', { text: '3' }), three]));
+        }
+        page.appendChild(steps);
+        if (webMine.msg) page.appendChild(h('div.pt-msg.is-bad', { text: webMine.msg }));
+        if (w.linked) {
+            var un = h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: t('web_unlink'), onclick: function () {
+                dialog(t('web_unlink'), function (body) { body.appendChild(h('div.pt-hint', { text: t('web_unlink_ask') })); }, t('web_unlink'), function () {
+                    return ask('player', 'webUnlink').then(function (r) { if (r && r.ok) { takeWeb(r.web); redrawWeb(); } return r; });
+                }, true);
+            } });
+            un.style.marginTop = '1.2rem';
+            page.appendChild(un);
+            if (w.devices) {
+                var out = h('button.pt-btn.pt-btn--small.pt-btn--ghost', { type: 'button', text: t('web_signout'), onclick: function () {
+                    dialog(t('web_signout'), function (body) { body.appendChild(h('div.pt-hint', { text: t('web_signout_ask') })); }, t('web_signout'), function () {
+                        return ask('player', 'webSignOut').then(function (r) { if (r && r.ok) toast(t('web_signout_done')); return r; });
+                    }, true);
+                } });
+                out.style.margin = '1.2rem 0 0 0.6rem';
+                page.appendChild(out);
+            }
+        }
+    }
+    function getWebCode() {
+        if (webMine.busy) return;
+        webMine.busy = true;
+        ask('player', 'webCode').then(function (r) {
+            webMine.busy = false;
+            if (r && r.ok) { webMine.code = r.code; webMine.until = Date.now() + (r.seconds || 600) * 1000; webMine.msg = null; takeWeb(r.web); watchWeb(); }
+            else webMine.msg = (r && r.message) || '…';
+            redrawWeb();
+        });
+    }
+
+    function renderWeb(page) {
+        var w = webInfo;
+        if (!w) { page.appendChild(h('div.pt-empty', { text: '…' })); return; }
+        if (!w.enabled) { page.appendChild(h('div.pt-hint', { text: t('web_off') })); page.appendChild(h('div.pt-hint', { text: t('web_cannot') })); return; }
+        page.appendChild(h('div.pt-label', { text: t('web_id') }));
+        var code = h('div.pt-webcode', { text: w.code || '…' });
+        var copy = h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_copy'), onclick: function () { copyText(w.code || ''); copy.textContent = t('sp_copied'); } });
+        page.appendChild(h('div.pt-page__bar', null, [code, copy]));
+        page.appendChild(h('div.pt-hint', { text: t('web_site') + ' ' + w.site }));
+        page.appendChild(h('div.pt-hint', { text: t('web_how') }));
+        page.appendChild(h('div.pt-hint', { text: t('web_cannot') }));
+        var facts = h('div.pt-facts');
+        facts.appendChild(h('div.pt-fact', null, [h('div.pt-fact__k', { text: t('sp_tab_staff') }), h('div.pt-fact__v', { text: t('web_linked', w.linked || 0, w.players || 0) })]));
+        facts.appendChild(h('div.pt-fact', null, [h('div.pt-fact__k', { text: 'Sync' }), h('div.pt-fact__v', { text: w.lastSync ? t('web_synced', age(w.lastSync)) : t('web_never') })]));
+        facts.appendChild(h('div.pt-fact.pt-fact--wide', null, [h('div.pt-fact__k', { text: t('kind_appeal') }), h('div.pt-fact__v', { text: w.appeals ? t('web_appeals_on', w.publicName || '…') : t('web_appeals_off') })]));
+        page.appendChild(facts);
+        if (w.error) page.appendChild(h('div.pt-msg.is-bad', { text: w.error }));
+    }
+
+    // ------------------------------------------------------------- roles (1.1.0)
+
+    var ROLE_COLORS = ['#f08a8a', '#f2b880', '#e3c98a', '#8fd3a8', '#7fd1c7', '#8fb8f0', '#b9a8f0', '#e6a8d7', '#a9b4c4'];
+    var roleAdmin = { rows: [] };
+    function loadRoles() { ask('staff', 'roles').then(function (r) { roleAdmin.rows = r.roles || []; if (S.view === 'staff' && S.staff.tab === 'staff') renderStaff(); }); }
+
+    /** A webhook is only ever written: the page is told that one is set, never what it is. */
+    function webhookField(body, has) {
+        var state = { remove: false };
+        state.input = field(body, t('ch_webhook'), h('input.pt-input', { type: 'text', maxlength: 300, placeholder: 'https://discord.com/api/webhooks/…' }), t('ch_webhook_hint') + (has ? ' ' + t('ch_webhook_set') : ''));
+        if (has) {
+            var tg = h('div.pt-toggle', { onclick: function () { state.remove = !state.remove; tg.classList.toggle('is-on', state.remove); } }, [h('div.pt-toggle__box'), h('div', { text: t('ch_webhook_remove') })]);
+            body.appendChild(tg);
+        }
+        state.value = function () { if (state.remove) return ''; return state.input.value.trim() ? state.input.value.trim() : undefined; };
+        return state;
+    }
+    function setOf(list) { var o = {}; (list || []).forEach(function (k) { o[k] = true; }); return o; }
+    function listOf(set) { return Object.keys(set).filter(function (k) { return set[k]; }); }
+
+    function roleDialog(r) {
+        var name, rank, hook, color = r ? r.color : ROLE_COLORS[5];
+        var powers = setOf(r ? r.powers : ['claim', 'reply', 'close', 'teleport']), kinds = setOf(r ? r.kinds : []), chats = setOf(r ? r.chats : []);
+        var helps = r ? !!r.helps : false, locked = !!(r && r.locked);
+        dialog(t(r ? 'ro_edit' : 'ro_new') + (r ? ' · ' + r.label : ''), function (body) {
+            name = field(body, t('ro_name'), h('input.pt-input', { type: 'text', maxlength: 64, value: r ? r.label : '' }));
+            var colorBox = h('div');
+            var drawColor = function () { clear(colorBox); colorBox.appendChild(chips(ROLE_COLORS.map(function (c) { return { value: c, label: ' ', color: c }; }), color, function (v) { color = v; drawColor(); }, true)); };
+            body.appendChild(h('div.pt-label', { text: t('ro_color') })); body.appendChild(colorBox); drawColor();
+            if (locked) { body.appendChild(h('div.pt-hint', { text: t('ro_locked') })); hook = webhookField(body, r.hasWebhook); return; }
+            rank = field(body, t('ro_rank'), h('input.pt-input', { type: 'text', maxlength: 2, value: String(r ? r.rank : 10) }));
+            body.appendChild(h('div.pt-label', { text: t('ro_powers') }));
+            body.appendChild(multiChips(S.powerList.map(function (pw) { return { value: pw, label: t('pw_' + pw) }; }), powers, null, true));
+            body.appendChild(h('div.pt-label', { text: t('ro_kinds') }));
+            body.appendChild(multiChips(categoryOpts(), kinds, null, true));
+            body.appendChild(h('div.pt-label', { text: t('ro_chats') }));
+            body.appendChild(multiChips(roleOpts().filter(function (o) { return !r || o.value !== r.id; }), chats, null, true));
+            var ht = h('div.pt-toggle' + (helps ? '.is-on' : ''), { onclick: function () { helps = !helps; ht.classList.toggle('is-on', helps); } }, [h('div.pt-toggle__box'), h('div', { text: t('ro_helps') })]);
+            body.appendChild(ht);
+            hook = webhookField(body, r && r.hasWebhook);
+        }, t('sp_save'), function () {
+            var payload = { id: r ? r.id : null, label: name.value, color: color, webhook: hook.value() };
+            if (!locked) { payload.rank = rank.value; payload.powers = listOf(powers); payload.kinds = listOf(kinds); payload.chats = listOf(chats); payload.helps = helps; }
+            return ask('staff', 'roleSave', payload).then(function (res) { if (res.ok) { loadRoles(); post('ask', { channel: 'player', action: 'hello' }); } return res; });
+        });
+        widenDialog();
+    }
+    function widenDialog() { var d = win.querySelector('.pt-dialog'); if (d) d.classList.add('pt-dialog--wide'); }
+    function renderRoles(page) {
+        page.appendChild(h('div.pt-page__bar', null, [h('div.pt-hint', { text: t('ro_locked') }), h('button.pt-btn.pt-btn--go', { type: 'button', text: t('ro_new'), onclick: function () { roleDialog(null); } })]));
+        var table = h('table.pt-table', null, [h('tr', null, [t('ro_name'), t('ro_powers'), t('ro_kinds'), ''].map(function (x) { return h('th', { text: x }); }))]);
+        roleAdmin.rows.forEach(function (r) {
+            var every = r.powers.indexOf('*') !== -1;
+            var does = h('td'), sees = h('td');
+            if (every) does.appendChild(pill(t('ro_everything'), r.color));
+            else r.powers.forEach(function (pw) { does.appendChild(pill(t('pw_' + pw).split(',')[0], null)); });
+            if (r.kinds.indexOf('*') !== -1) sees.appendChild(pill(t('ro_everything'), r.color));
+            else r.kinds.forEach(function (k) { var c = categoryOf(k); sees.appendChild(pill(c ? c.label : k, catColor(k))); });
+            table.appendChild(h('tr', null, [h('td', null, [pill(r.label, r.color), h('small.pt-mono', { text: '  ' + r.rank })]), does, sees,
+                h('td', null, [h('button.pt-btn.pt-btn--small', { type: 'button', text: t('sp_edit'), onclick: function () { roleDialog(r); } }),
+                    r.locked ? null : h('button.pt-btn.pt-btn--small.pt-btn--danger', { type: 'button', text: t('sp_delete_short'), onclick: function () {
+                        dialog(t('ro_delete') + ' · ' + r.label, function (body) { body.appendChild(h('div.pt-hint', { text: t('ro_delete_warn') })); }, t('ro_delete'),
+                            function () { return ask('staff', 'roleDelete', { id: r.id }).then(function (res) { if (res.ok) loadRoles(); return res; }); }, true);
+                    } })])]));
+        });
+        page.appendChild(table);
+    }
+
+    // -------------------------------------------------------- staff chat (1.1.0)
+    // Rooms by role, plus the ones an admin made. Nothing here is ever saved.
+
+    var chat = { rooms: [], cur: null, logs: {}, unread: {}, draft: '' };
+    function chatUnreadTotal() { var n = 0; Object.keys(chat.unread).forEach(function (k) { n += chat.unread[k] || 0; }); return n; }
+    function loadChat() {
+        return ask('staff', 'chatRooms').then(function (r) {
+            chat.rooms = r.rooms || [];
+            if (chat.cur && !chat.rooms.some(function (x) { return x.key === chat.cur; })) chat.cur = null;
+            // Only open a room when the tab is showing: opening one marks it read.
+            if (S.staff.tab === 'chat' && !chat.cur && chat.rooms.length) openRoom(chat.rooms[0].key); else if (S.view === 'staff') renderStaff();
+        });
+    }
+    function openRoom(key) {
+        chat.cur = key; chat.unread[key] = 0;
+        if (S.view === 'staff' && S.staff.tab === 'chat') renderStaff();
+        ask('staff', 'chatHistory', { key: key }).then(function (r) { if (r.ok) { chat.logs[key] = r.messages || []; if (chat.cur === key && S.view === 'staff' && S.staff.tab === 'chat') renderStaff(); } });
+    }
+    function roomDialog(room) {
+        var name, hook, roles = setOf(room ? room.roles : []);
+        dialog(t(room ? 'ch_edit_room' : 'ch_new_room'), function (body) {
+            name = field(body, t('ch_room_name'), h('input.pt-input', { type: 'text', maxlength: 64, value: room ? room.label : '' }));
+            body.appendChild(h('div.pt-label', { text: t('ch_room_roles') }));
+            body.appendChild(multiChips(roleOpts(), roles, null, true));
+            hook = webhookField(body, room && room.hasWebhook);
+        }, t('sp_save'), function () {
+            return ask('staff', 'chatSaveRoom', { id: room ? Number(room.key.split(':')[1]) : null, label: name.value, roles: listOf(roles), webhook: hook.value() }).then(function (r) { if (r.ok) loadChat(); return r; });
+        });
+    }
+    function renderChat() {
+        var left = h('div.pt-left'), right = h('div.pt-right');
+        win.appendChild(h('div.pt-staff', null, [left, right]));
+        var listEl = h('div.pt-list');
+        if (S.me.powers.manage) {
+            var bar = h('div.pt-filters'); bar.appendChild(h('button.pt-btn.pt-btn--go', { type: 'button', text: t('ch_new_room'), onclick: function () { roomDialog(null); } }));
+            left.appendChild(bar);
+        }
+        left.appendChild(listEl);
+        chat.rooms.forEach(function (room) {
+            var n = chat.unread[room.key] || 0;
+            var row = h('div.pt-row' + (room.key === chat.cur ? '.is-cur' : ''), { onclick: function () { openRoom(room.key); } }, [
+                h('div.pt-row__main', null, [h('div.pt-row__top', null, [h('span.pt-room', { text: room.label }), room.hasWebhook ? pill('Discord', '#8fb8f0') : null])]),
+                h('div.pt-row__side', null, [n ? h('span.pt-chip__n', { text: String(n) }) : null])]);
+            row.style.borderLeftColor = room.color || '#a9b4c4';
+            listEl.appendChild(row);
+        });
+
+        var room = chat.rooms.filter(function (x) { return x.key === chat.cur; })[0];
+        if (!room) { right.appendChild(h('div.pt-empty', { text: t('ch_pick') })); return; }
+        var head = h('div.pt-d-top', null, [h('div.pt-d-head', null, [h('span.pt-d-head__cat', { text: room.label }), h('span.pt-d-head__pills')])]);
+        head.appendChild(h('div.pt-hint', { text: t('ch_note') }));
+        if (S.me.powers.manage) {
+            if (room.kind === 'room') {
+                var tools = h('div.pt-page__bar', null, [
+                    h('button.pt-btn.pt-btn--small', { type: 'button', text: t('ch_edit_room'), onclick: function () { roomDialog(room); } }),
+                    h('button.pt-btn.pt-btn--small.pt-btn--danger', { type: 'button', text: t('ch_delete_room'), onclick: function () { ask('staff', 'chatDeleteRoom', { id: Number(room.key.split(':')[1]) }).then(loadChat); } })]);
+                head.appendChild(tools);
+            } else head.appendChild(h('div.pt-hint', { text: t('ch_role_room') }));
+        }
+        right.appendChild(head);
+
+        var log = chat.logs[room.key] || [];
+        var box = h('div.pt-convo');
+        if (!log.length) box.appendChild(h('div.pt-convo__empty', { text: t('ch_empty') }));
+        log.forEach(function (m) {
+            var me = m.account === S.me.account;
+            box.appendChild(h('div.pt-bub.is-staff' + (me ? '.is-me' : ''), null, [h('div.pt-bub__who', null, [me ? t('ui_you') : m.name, h('time', { text: clock(m.at) })]), h('div.pt-bub__text', { text: m.text })]));
+        });
+        setTimeout(function () { box.scrollTop = box.scrollHeight; }, 0);
+        var wrap = h('div.pt-d-chat', null, [box]);
+        var input = h('input.pt-input', { type: 'text', maxlength: S.limits.chat || 500, placeholder: t('ch_placeholder', room.label), value: chat.draft, oninput: function () { chat.draft = input.value; } });
+        var go = function () {
+            if (!input.value.trim()) return;
+            var text = input.value; input.value = ''; chat.draft = '';
+            ask('staff', 'chatSend', { key: room.key, text: text }).then(function (r) { if (!r.ok) toast(r.message); });
+        };
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+        wrap.appendChild(h('div.pt-replyrow', null, [input, h('button.pt-btn.pt-btn--act', { type: 'button', text: t('ui_send'), onclick: go })]));
+        right.appendChild(wrap);
+        setTimeout(function () { input.focus(); }, 30);
+    }
+
     // ------------------------------------------------------ the server tells us
 
     function upsert(list, x) {
@@ -924,16 +1498,35 @@
         var A = S.staff;
         if (kind === 'toast') { toast(d.toast || d.text, d.sound); return; }
         if (kind === 'badge') { setBadge(d.count); return; }
+        if (kind === 'chat') {
+            // A room you are looking at needs no pop-up and no bubble.
+            var watching = S.view === 'staff' && A.tab === 'chat' && chat.cur === d.key;
+            if (chat.logs[d.key]) chat.logs[d.key].push(d.message);
+            var mine = d.message && d.message.account === S.me.account;
+            if (!watching && !mine) { chat.unread[d.key] = (chat.unread[d.key] || 0) + 1; if (d.toast) toast(d.toast, false); }
+            if (S.view === 'staff') renderStaff();
+            return;
+        }
+        if (kind === 'chatRooms') { if (S.view === 'staff') loadChat(); return; }
+        if (kind === 'mineGone') {
+            S.player.tickets = S.player.tickets.filter(function (k) { return k.id !== d.id; });
+            if (S.player.cur === d.id) S.player.cur = null;
+            if (S.view === 'player' && S.player.tab === 'mine') renderPlayer();
+            return;
+        }
         if (d.toast) toast(d.toast, d.sound);
 
         if (kind === 'ticket' && d.ticket) {
             var x = markMine(d.ticket);
-            if (x.status === 'closed') { A.tickets = A.tickets.filter(function (k) { return k.id !== x.id; }); upsert(A.closed, x); }
+            if (x.archivedAt) { upsert(A.archived, x); }
+            else if (x.status === 'closed') { A.tickets = A.tickets.filter(function (k) { return k.id !== x.id; }); upsert(A.closed, x); }
             else upsert(A.tickets, x);
             if (A.detail && A.curId === x.id) A.detail.ticket = x;
             if (S.view === 'staff' && A.tab === 'tickets') renderStaff();
         } else if (kind === 'gone') {
             A.tickets = A.tickets.filter(function (k) { return k.id !== d.id; });
+            A.closed = A.closed.filter(function (k) { return k.id !== d.id; });
+            A.archived = A.archived.filter(function (k) { return k.id !== d.id; });
             if (A.curId === d.id) { A.curId = null; A.detail = null; }
             if (S.view === 'staff' && A.tab === 'tickets') renderStaff();
         } else if (kind === 'mine' && d.ticket) {
@@ -975,18 +1568,29 @@
             S.strings = m.strings || {}; S.categories = m.categories || []; S.priorities = m.priorities || [];
             S.closeReasons = m.closeReasons || []; S.allRoles = m.allRoles || []; S.limits = m.limits || {};
             S.volume = typeof m.volume === 'number' ? m.volume : 0.4; S.command = m.command || 'ticket';
+            S.powerList = m.powerList || []; S.answers = m.answers !== false; S.full = loadFull(m.fullscreen);
         } else if (m.type === 'me') {
-            S.me = { staff: !!m.staff, roles: m.roles || [], powers: m.powers || {}, duty: m.duty !== false, mayHelp: !!m.mayHelp, account: m.account };
+            S.me = { staff: !!m.staff, roles: m.roles || [], powers: m.powers || {}, duty: m.duty !== false, mayHelp: !!m.mayHelp, account: m.account,
+                     name: m.name || '', canDelete: !!m.canDelete };
+            var wasLinked = S.web && S.web.linked;
+            takeWeb(m.web);
+            if (onWebTab() && S.web && S.web.linked !== wasLinked) redrawWeb();
+            // An older server (or the mock) sends no role list: fall back to the four everyone had.
+            S.roleDefs = (m.roleDefs && m.roleDefs.length) ? m.roleDefs : (S.roleDefs.length ? S.roleDefs : S.allRoles.map(function (id) { return { id: id, label: t('role_' + id) }; }));
             setBadge(m.badge);
         } else if (m.type === 'open') {
             S.view = m.view;
             if (m.view === 'player') {
                 S.player.players = m.players || []; S.player.cooldown = m.cooldown || 0; S.player.msg = null; S.player.cur = null; S.player.tab = 'new'; S.player.step = 'choose';
+                S.player.waits = m.waits || {}; S.player.similar = []; S.player.answer = null;
                 renderPlayer(); loadMine();
             } else {
                 S.staff.canReturn = !!m.canReturn;
-                S.staff.tab = m.tab === 'players' ? 'players' : 'tickets';
+                S.staff.tab = (m.tab === 'players' || m.tab === 'staff' || m.tab === 'chat' || (m.tab === 'web' && S.web)) ? m.tab : 'tickets';
+                if (S.staff.tab === 'web') watchWeb();
                 renderStaff(); loadTickets();
+                // Know the rooms from the start, so the Staff chat tab can show its bubble.
+                loadChat().then(function () { if (S.staff.tab === 'staff') loadStaffTab(); });
                 if (m.tab === 'players') { people.cur = null; people.card = null; people.found = []; people.q = ''; loadPlayers().then(function () { if (m.focus) openPlayer({ src: m.focus }); }); }
             }
         } else if (m.type === 'close') {

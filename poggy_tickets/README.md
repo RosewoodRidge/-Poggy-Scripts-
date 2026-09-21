@@ -28,8 +28,8 @@ Players ask for help. Staff claim it. Works on VORP, RSG Core and QBCore RedM th
 | Command | Who | What |
 |---|---|---|
 | `/ticket` | Everyone | Opens the ticket form: send a ticket, call for help, read and answer your tickets. Page Up does the same. |
-| `/tickets` | Staff | Opens the staff panel. Page Down does the same. |
-| `/mod [id]` | Mods, admins | Opens the **Players menu**: everyone online with their record, and Warn, Kick, Ban. No ticket needed. |
+| `/tickets` | Staff | Opens the staff panel. Home does the same. |
+| `/mod [id]` | Staff whose role may warn, kick or ban | Opens the **Players menu**: everyone online with their record, and Warn, Kick, Ban. No ticket needed. |
 | `/invis` | Staff | Turns your invisibility on or off. You cannot be hurt while invisible. Logged. |
 | `/staffduty` | Staff | Off duty, or back on. Always on again after a relog. |
 
@@ -46,19 +46,64 @@ Every command name and both keys can be changed in `config.lua` or in `/poggy`.
 
 ## For staff
 
-| Role | Sees | Can |
-|---|---|---|
-| Admin | everything | everything, and ban, lift bans, add staff, read the audit trail |
-| Mod | Cheater, Player report, Help, Stuck, Other | claim, assign, reply, close, teleport, warn, kick |
-| Helper | Help, Stuck | claim, reply, close, teleport |
-| Developer | Bug, Other | claim, reply, close, teleport |
+### Roles are yours
 
-- A role is on the **account**, so it covers every character. One person can hold several roles.
-- **Claim** makes a ticket yours so only one person works it. If you log off, it frees itself after 15 minutes.
-- **Go to player** and **Go to location** take one press. You arrive behind the player, invisible and unable to be hurt. **Return** takes you back.
-- **Duty**: on by default. Off duty means no sounds, pop-ups or badge. It is never saved: a relog puts you back on duty.
-- **Warn** shows the player a full-screen warning they must acknowledge (they cannot be hurt while it shows). **Kick** and **Ban** need a reason. The reported player is never told who reported them.
-- The **audit trail** records every staff action. Only admins read it.
+A new server starts with Admin, Mod, Helper and Developer, but they are only rows you can change. Make *Staff Manager* or *Event Team*, name and colour it, and tick:
+
+- what it **may do** (18 powers, from *claim* to *manage roles*),
+- which **kinds of ticket** it sees,
+- whose **staff chat** it reads,
+- whether it hears **help requests**.
+
+Edit roles in the panel (**Staff → Roles**) or in `/poggy` (**Roles, chat & replies**). No restart. One person can hold several roles. **Admin is locked**: it cannot be deleted or stripped, so nobody can lock the team out, and anyone your framework counts as an admin holds it.
+
+| Starts as | Sees | Can |
+|---|---|---|
+| Admin | everything | everything |
+| Mod | Cheater, Player report, Help, Stuck, Other | claim, assign, escalate, reply, close, teleport, mark the answer, warn, kick, staff notes |
+| Helper | Help, Stuck | claim, escalate, reply, close, teleport |
+| Developer | Bug, Other | claim, escalate, reply, close, teleport, mark the answer |
+
+### On a ticket
+
+- **Escalate** adds another role to a ticket without taking it off its owner. **Assign** hands it over; escalate brings help in.
+- **Internal notes**, in dark red, are for staff. They are removed on the server before anything is sent to the player.
+- **Ready-made replies**, offered by keyword from what the player wrote. Eight ship with the script.
+- **Mark the answer**: pinned in green for staff and player.
+- **Red bubbles** on the chips and tabs count what is still waiting.
+- **Full screen**, per staff member.
+
+### Staff chat
+
+A room per role, plus any rooms you make. Admins read all; mods read Mod and Helper; helpers read Helper; developers have their own. All of that is on the role, so change it. **Messages are never saved**: memory only, gone at the next restart. A room with a Discord webhook is copied there.
+
+### Solved questions
+
+Staff can make a closed ticket with a marked answer **public**. Any player can then read it, with every name hidden, and the form suggests matching answers while a player types, so a question already answered never becomes a ticket. Off by default for every ticket, never possible for a ticket about a player, and `Config.PublicAnswers = false` removes the feature.
+
+### Archive, and delete
+
+**Archive** is a role power: the ticket leaves every list but the Archived filter, and nothing is destroyed. **Delete** is not a role power. Only the server owner can grant it, in `server.cfg`, and only an archived ticket can be deleted:
+
+```
+add_ace identifier.steam:110000112345678 poggy_tickets.delete allow
+```
+
+The audit trail keeps who deleted which ticket, and when.
+
+### Tickets on the website (off by default)
+
+At **rosewoodridge.xyz/tickets**, signed in with Cfx.re, with your community's one ID (shown to everyone at the top of `/ticket` and `/tickets`):
+
+- **players** read and answer their own tickets, under each character, and write new ones when they are not in game;
+- **anyone with a ticket role** gets the staff desk as well: read, reply, internal notes, claim, release, close. **Warn, kick and ban stay in game** unless you switch on `Config.Web.Moderation`. With `Config.Web.VerifyDevices` (on by default) each browser must be confirmed once with a link code from the game before it opens the staff desk, so a stolen Cfx.re login is not enough.
+- **banned players** can appeal to you by name at **rosewoodridge.xyz/appeal**; an appeal arrives as a *Ban appeal* ticket.
+
+A person is linked to their Cfx.re account by itself at login when their game names one, or with a six-character **link code** from the **Website** tab of `/ticket`, typed on the website. Turn it on with `Config.Web.Enabled`, and read the note above it first: your server cannot talk to a website directly, so copies of your **open tickets** are held on a relay run by Rosewood Ridge while they are open and for 7 days after, with the Cfx.re id, name and character names of each person who uses the website. Switch it off and the relay forgets your community at once. Your own server checks every web action again. See `docs/help/web.md`.
+
+### Players
+
+The record shows what the **ladder** suggests next (a suggestion, never an action), which old warnings **no longer count**, **staff notes** the player never sees, and a **watch** flag that tells staff when that player logs in.
 
 ## Config
 
@@ -66,14 +111,21 @@ Everything is in `config.lua`, with a comment on every setting, and in `/poggy`.
 
 | Setting | Default | What |
 |---|---|---|
-| `Config.OpenKey` / `Config.StaffKey` | Page Up / Page Down | The keys. `0` turns one off. |
+| `Config.OpenKey` / `Config.StaffKey` | Page Up / Home | The keys. `0` turns one off. (The staff key was Page Down until 1.1.0; vorp_admin uses that one.) |
 | `Config.PlayerList` | `"nearby"` | Who can be picked as the reported player: `nearby`, `all`, or `ids`. |
 | `Config.NearbyRadius` | `100` | Metres. |
 | `Config.TicketCooldownMinutes` | `15` | |
 | `Config.MaxOpenTickets` | `2` | |
 | `Config.HelpCooldownMinutes` | `5` | |
 | `Config.Categories` | six kinds | The kinds of ticket. Never change an `id` once tickets exist. |
-| `Config.Routing` | | Which roles see which kind. |
+| `Config.Routing`, `Config.HelpRoles` | | **Old.** Read once when 1.1.0 first starts, then the roles are the truth. |
+| `Config.ShowExpectedWait` | `true` | Tell players how long their kind of ticket usually waits. |
+| `Config.PublicAnswers`, `Config.SuggestAnswers`, `Config.PublicKinds` | on | Solved questions: see below. |
+| `Config.NudgeAfterHours` / `Config.AutoCloseAfterHours` | `24` / `48` | "Still need help?", then close as *No response*. `0` turns either off. |
+| `Config.StaffFullscreen` | `false` | How the panel starts. Each staff member can switch it. |
+| `Config.ChatPopups` | `true` | A pop-up for a new staff chat message. |
+| `Config.WarningDecayDays` | `90` | When a warning stops counting toward the ladder. `0` is never. |
+| `Config.Ladder` | warn, warn, kick, ban 1d, 7d, perm | What to *suggest* for a player's next offence. |
 | `Config.StaleClaimMinutes` | `15` | |
 | `Config.SoundVolume` | `0.4` | |
 | `Config.PurgeClosedAfterDays` | `0` | `0` keeps closed tickets forever. |
