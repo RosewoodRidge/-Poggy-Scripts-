@@ -360,3 +360,13 @@ function PoggyCore.Self()
     if not cores["poggy_core"] then cores["poggy_core"] = buildCore("poggy_core") end
     return cores["poggy_core"]
 end
+
+-- Tell the server this game has poggy_core running. After `restart poggy_core`
+-- the server starts the other Poggy scripts only once the connected games have
+-- said so (sv_dependents.lua): they load their bridge out of this resource, and
+-- starting them before it is here leaves them without `Poggy`. A thread, so it
+-- goes out after every client file of poggy_core has loaded.
+CreateThread(function()
+    Wait(0)
+    TriggerServerEvent("poggy_core:clientUp")
+end)

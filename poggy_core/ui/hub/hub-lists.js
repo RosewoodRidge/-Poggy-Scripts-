@@ -1193,6 +1193,26 @@
             var grid = h('div.ph-rowgrid');
             plain.forEach(function (k) { renderKey(grid, k); });
             if (plain.length) host.appendChild(grid);
+            // A position kept as separate numbers (x, y, z, maybe h / heading):
+            // the same tools a vector3 has, under the last of its boxes.
+            var axis = {};
+            plain.forEach(function (k) {
+                var low = String(k).toLowerCase();
+                var a = low === 'heading' || low === 'w' ? 'h' : low;
+                if ((a === 'x' || a === 'y' || a === 'z' || a === 'h') && typeof v[k] === 'number' && !axis[a]) axis[a] = { key: k, path: childPathOf(ctx.path, k) };
+            });
+            if (axis.x && axis.y) {
+                var keys = {}, lastField = null;
+                ['x', 'y', 'z', 'h'].forEach(function (a) {
+                    if (!axis[a]) return;
+                    keys[a] = axis[a].path;
+                    var f = grid.querySelector('.ph-field[data-path="' + String(PH.canon(axis[a].path)).replace(/"/g, '\\"') + '"]');
+                    if (f && a !== 'h') lastField = f;
+                });
+                var bar = F.xyzTools(grid, keys, ctx.onChange);
+                if (lastField && lastField.nextSibling) grid.insertBefore(bar, lastField.nextSibling);
+                else grid.appendChild(bar);
+            }
         }
         nested.forEach(function (k) {
             var fm = fieldMeta(ctx.listMeta, childPattern(ctx.pattern, k, false));

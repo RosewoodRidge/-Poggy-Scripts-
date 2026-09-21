@@ -44,6 +44,32 @@
     is not a file write, so it also runs on a development server.
 
     poggycore dependents lists every dependent with its state and the record.
+
+    Waiting for the players' games (0.20.4). Starting the dependents two seconds
+    after poggy_core was enough for the SERVER, and wrong for the CLIENTS. Every
+    Poggy script loads `@poggy_core/template/poggy.lua` (and most the prompt
+    library) out of poggy_core on the player's machine. After `restart
+    poggy_core` each connected game stops poggy_core, fetches whichever of its
+    files changed (the hub alone is 1.7 MB) and starts it again; a dependent is
+    unchanged, so it is cached and starts at once. When poggy_core had changed,
+    the dependents started on the client first, the `@poggy_core/...` files were
+    not there to load, and the scripts ran without their bridge:
+
+        attempt to call a nil value (global 'Poggy')
+        attempt to call a nil value (global 'PoggyReady')
+        attempt to index a nil value (field 'PoggyPromptGroup')
+
+    A second `restart poggy_core` always worked, because by then nothing had
+    changed and the client had poggy_core up within milliseconds. That is why it
+    looked random: it happened exactly when poggy_core had been updated.
+
+    So poggy_core's client says when it is up (`poggy_core:clientUp`, the last
+    thing cl_core.lua does), the server keeps the ids that said so in the convar
+    `poggy_core_clients_up`, and after a restart the dependents are started once
+    every one of THOSE players who is still connected has said so again, or
+    after CLIENT_WAIT_MS. Players who were still loading in at the restart never
+    said so before, so they are not waited for: a joining game loads every
+    resource in order anyway.
 ]]
 
 PoggyCore = PoggyCore or {}
@@ -59,6 +85,10 @@ local STOPPED_WITH_US_MS = 15 * 1000        -- a dependent that stopped this clo
 local UPGRADE_HINT_MS    = 5 * 60 * 1000    -- no record, but the server has been up this long: say what is stopped
 local START_DELAY_MS     = 2000             -- let poggy_core finish starting before dependents are started
 local SETTLE_MS          = 1500             -- how long a started resource gets before its state is read
+local CLIENT_WAIT_MS     = 20 * 1000        -- the longest the players' games get to load poggy_core again
+local CLIENT_POLL_MS     = 250
+
+Dependents.CLIENTS_CONVAR = "poggy_core_clients_up"
 
 local function log(msg)
     print(PREFIX .. msg)
@@ -216,6 +246,67 @@ end
 -- Restore
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- Which players' games have poggy_core running
+-- ---------------------------------------------------------------------------
+
+local clientsUp = {}   -- [src] = true, this run
+
+local function readClients()
+    local ok, raw = pcall(GetConvar, Dependents.CLIENTS_CONVAR, "")
+    local ids = {}
+    if ok and type(raw) == "string" then
+        for id in raw:gmatch("%d+") do ids[#ids + 1] = tonumber(id) end
+    end
+    return ids
+end
+
+-- Read while this file loads, before any event of this run can be handled:
+-- the first clientUp of this run overwrites the convar.
+local clientsBefore = readClients()
+
+local function writeClients()
+    if not SetConvar then return end
+    local ids = {}
+    for id in pairs(clientsUp) do ids[#ids + 1] = id end
+    table.sort(ids)
+    pcall(SetConvar, Dependents.CLIENTS_CONVAR, table.concat(ids, ","))
+end
+
+function Dependents.ClientUp(src)
+    src = tonumber(src)
+    if not src or src <= 0 or clientsUp[src] then return end
+    clientsUp[src] = true
+    writeClients()
+end
+
+function Dependents.ClientGone(src)
+    src = tonumber(src)
+    if src and clientsUp[src] then clientsUp[src] = nil; writeClients() end
+end
+
+local function connected(id)
+    local ok, name = pcall(GetPlayerName, id)
+    return ok and name ~= nil
+end
+
+--- Wait until every player whose game had poggy_core before the restart has it
+--- again. Returns the milliseconds waited and the ids that never answered.
+--- Counted in polls, not by the clock, so it ends even if the clock does not move.
+function Dependents.WaitForClients(ids)
+    local waited, missing = 0, {}
+    for _ = 0, math.floor(CLIENT_WAIT_MS / CLIENT_POLL_MS) do
+        missing = {}
+        for _, id in ipairs(ids or {}) do
+            if not clientsUp[id] and connected(id) then missing[#missing + 1] = id end
+        end
+        if #missing == 0 or waited >= CLIENT_WAIT_MS then break end
+        Wait(CLIENT_POLL_MS)
+        waited = waited + CLIENT_POLL_MS
+    end
+    return waited, missing
+end
+
 local function aceAllowed(object)
     if IsPrincipalAceAllowed == nil then return false end
     local ok, allowed = pcall(IsPrincipalAceAllowed, "resource." .. me(), object)
@@ -261,6 +352,18 @@ function Dependents.Restore()
     if #record.names == 0 then return {}, "nothing recorded" end
 
     Wait(START_DELAY_MS)
+
+    -- The players' games must have poggy_core back before a script that loads
+    -- its bridge out of it is started (see the top of this file).
+    local waited, missing = Dependents.WaitForClients(clientsBefore)
+    if #missing > 0 then
+        log(("^3⚠️  %d player(s) had not loaded %s again after %d s (id %s). Starting the scripts anyway;"
+            .. " if theirs show \"attempt to call a nil value (global 'Poggy')\", run: restart %s^7")
+            :format(#missing, own, math.floor(waited / 1000), table.concat(missing, ", "), own))
+    elseif waited > 0 then
+        log(("^9waited %.1f s for %d player(s) to load %s again before starting its scripts^7")
+            :format(waited / 1000, #clientsBefore, own))
+    end
 
     -- Still a dependent, and stopped now: a resource that came back some other
     -- way, or was removed from the server, is left alone.
@@ -332,6 +435,11 @@ function Dependents.Command(say)
     else
         say(("record (%s): none"):format(Dependents.CONVAR))
     end
+    local up = {}
+    for id in pairs(clientsUp) do up[#up + 1] = id end
+    table.sort(up)
+    say(("players whose game has %s running: %d%s ^9(after a restart the scripts wait for these, %d s at most)^7")
+        :format(me(), #up, #up > 0 and (" (id " .. table.concat(up, ", ") .. ")") or "", CLIENT_WAIT_MS / 1000))
     say(("RestartDependents: %s — after `restart %s`, the recorded resources that are stopped are started again")
         :format(enabled() and "^2on^7" or "^9off^7", me()))
 end
@@ -339,6 +447,14 @@ end
 -- ---------------------------------------------------------------------------
 -- Events
 -- ---------------------------------------------------------------------------
+
+if RegisterNetEvent and AddEventHandler then
+    -- A player's game has poggy_core running (again). Anyone may send it; all it
+    -- can do is end a wait early for the sender's own id.
+    RegisterNetEvent("poggy_core:clientUp")
+    AddEventHandler("poggy_core:clientUp", function() Dependents.ClientUp(source) end)
+    AddEventHandler("playerDropped", function() Dependents.ClientGone(source) end)
+end
 
 if AddEventHandler then
     AddEventHandler("onResourceStart", function(resource)

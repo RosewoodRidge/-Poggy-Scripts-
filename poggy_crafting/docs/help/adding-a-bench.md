@@ -6,7 +6,7 @@ A bench is a fixed spot where players craft. Benches live in
 
 ## Steps
 
-1. Stand at the spot. Note your position (x, y, z).
+1. Stand at the spot. (Or have the position copied, as a `vector3(...)` or plain numbers.)
 2. Open `/poggy`, then **Poggy Crafting**, then **Locations** → **Benches**.
 3. Click **Add bench** and fill it in:
 
@@ -14,8 +14,8 @@ A bench is a fixed spot where players craft. Benches live in
 |---|---|
 | ID | A unique id, for example `smithy_rhodes`. Recipes use it. |
 | Name | Shown on the prompt and the map. |
-| X, Y, Z | The position. |
-| Categories | **Every category**, or **Only these** and pick them from **Recipes** → **Categories**. |
+| X, Y, Z | The position. Under Z: **Use my position** takes where you stand; **Paste coordinates** takes a copied `vector3(...)`, `vector4(...)` or `x, y, z`. Pasting a whole vector into one of the boxes fills all three. |
+| Categories | **Every category**, or **Only these**, then **Add** and pick each category (they are listed by name). An empty list means the bench offers nothing. |
 | Jobs | **Anyone**, or **Only these jobs** and add each job name. |
 | Map blip | Optional. `Show blip` on, and a sprite name such as `blip_shop_blacksmith`. |
 

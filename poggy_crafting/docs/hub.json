@@ -812,7 +812,11 @@
         "Categories": {
           "label": "Categories",
           "tooltip": "Every category, or only the ones listed (from Recipes → Categories). A recipe whose category this bench does not offer is greyed out here.",
-          "any": { "value": 0, "label": "Every category", "listLabel": "Only these" }
+          "any": { "value": 0, "label": "Every category", "listLabel": "Only these", "emptyNote": "Empty list: this bench offers no recipes at all until you add a category." },
+          "suggest": [
+            { "from": "Config.Categories", "field": "ident", "label": "text", "group": "Category", "icon": "link" }
+          ],
+          "suggestNote": "Not the ident of a category. Check the spelling, or add it under Recipes → Categories."
         },
         "Job": {
           "label": "Jobs",

@@ -135,15 +135,18 @@
 
     /**
      * A search-as-you-type picker in a popover.
-     * opts: { anchor, fetch(q) -> Promise<[{ value, label, sub, image }]>, allowFree, freeLabel, placeholder, onPick(value) }
+     * opts: { anchor, fetch(q) -> Promise<[{ value, label, sub, image }]>, allowFree, freeLabel, placeholder,
+     *         emptyText, onPick(value), onClose() }
      */
     F.pick = function (opts) {
         var input = h('input.ph-input.ph-pick__search', { type: 'text', placeholder: opts.placeholder || 'Search…', spellcheck: 'false' });
         var list = h('div.ph-pick__list', { role: 'listbox' });
         var status = h('div.ph-pick__status');
         var pop = PH.popover(opts.anchor, h('div.ph-pick', [h('div.ph-pick__bar', [icon('search'), input]), list, status]),
-            { minWidth: opts.width || 360, maxHeight: 440, cls: 'ph-pop--pick' });
+            { minWidth: opts.width || 360, maxHeight: 440, cls: 'ph-pop--pick', onClose: opts.onClose });
         var results = [], sel = 0, seq = 0;
+        var shownFor = null;       // the text the list on screen answers
+        var chooseWhenIn = false;  // Enter came before the search did
 
         function row(r, i) {
             var img = r.image ? h('img.ph-pick__img', { src: r.image, alt: '' }) : null;
@@ -174,7 +177,7 @@
             pop.close();
             opts.onPick(r.value, r);
         }
-        var run = PH.debounce(function () {
+        function search() {
             var q = input.value.trim();
             var mine = ++seq;
             status.textContent = 'Searching…';
@@ -185,15 +188,25 @@
                     results.push({ value: q, label: (opts.freeLabel || 'Use') + ' “' + q + '”', sub: 'Typed by hand', icon: 'pencil' });
                 }
                 sel = 0;
+                shownFor = q;
                 draw();
-                status.textContent = results.length ? '' : (q ? 'Nothing matches “' + q + '”.' : 'Type to search.');
+                status.textContent = results.length ? '' : (q ? 'Nothing matches “' + q + '”.' : (opts.emptyText || 'Type to search.'));
+                if (chooseWhenIn) { chooseWhenIn = false; choose(0); }
             });
-        }, 180);
+        }
+        var run = PH.debounce(search, 180);
         input.addEventListener('input', run);
         input.addEventListener('keydown', function (e) {
             if (e.key === 'ArrowDown') { e.preventDefault(); select(Math.min(results.length - 1, sel + 1)); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); select(Math.max(0, sel - 1)); }
-            else if (e.key === 'Enter') { e.preventDefault(); choose(sel); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                // Typing a name and pressing Enter at once used to do nothing, or
+                // take a row of the list before: the search waits 180 ms. The
+                // list must answer what is in the box before Enter chooses.
+                if (shownFor === input.value.trim()) choose(sel);
+                else { chooseWhenIn = true; search(); }
+            }
         });
         run();
         setTimeout(function () { input.focus(); }, 20);
@@ -1467,6 +1480,92 @@
         });
     };
 
+    /**
+     * The numbers in a pasted position, or null when there are fewer than two.
+     * Takes what people actually have on the clipboard: `vector3(1.0, 2.0, 3.0)`,
+     * `vec4(1, 2, 3, 90)`, `1.0, 2.0, 3.0`, `{ x = 1, y = 2, z = 3, h = 90 }`,
+     * `{"x":1,"y":2,"z":3}`, `x: 1 y: 2 z: 3`, `coords = vector3(...), heading = 90`.
+     * Names are dropped whole first, so the 3 of "vector3" is not read as a number.
+     */
+    F.parseVector = function (text) {
+        var t = String(text == null ? '' : text).replace(/\b[A-Za-z_]\w*/g, ' ');
+        var found = t.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) || [];
+        var nums = found.map(Number).filter(function (n) { return isFinite(n); });
+        return nums.length >= 2 && nums.length <= 4 ? nums : null;
+    };
+
+    /**
+     * Ask for a pasted position. The clipboard cannot be read from a button in
+     * the game's browser, so this opens a small box to press Ctrl+V into; where
+     * the browser does allow reading, the box is skipped.
+     */
+    F.askVector = function (anchor, done) {
+        function open() {
+            var input = h('input.ph-input.ph-pick__search', { type: 'text', spellcheck: 'false', placeholder: 'Press Ctrl+V here…' });
+            var status = h('div.ph-pick__status', 'A vector3 or vector4, or the numbers on their own: x, y, z and, if you have it, the heading.');
+            var pop = PH.popover(anchor, h('div.ph-pick', [h('div.ph-pick__bar', [icon('clipboard'), input]), status]), { minWidth: 380, cls: 'ph-pop--pick' });
+            function take(text) {
+                var nums = F.parseVector(text);
+                if (!nums) { status.textContent = 'No position in that. It needs two to four numbers, like vector3(-1772.95, -913.17, 103.15).'; return false; }
+                pop.close();
+                done(nums);
+                return true;
+            }
+            input.addEventListener('paste', function (e) {
+                var text = e.clipboardData ? e.clipboardData.getData('text') : '';
+                if (text) { e.preventDefault(); if (!take(text)) input.value = text; }
+            });
+            input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); take(input.value); } });
+            setTimeout(function () { input.focus(); }, 20);
+        }
+        var read = navigator.clipboard && navigator.clipboard.readText ? navigator.clipboard.readText() : null;
+        if (!read || !read.then) { open(); return; }
+        read.then(function (text) { var nums = F.parseVector(text); if (nums) done(nums); else open(); }, open);
+    };
+
+    /**
+     * A row that keeps its position as separate numbers (x, y, z and maybe h /
+     * heading) gets what a vector3 has: "Use my position", and a pasted vector
+     * spread over the boxes. `grid` holds the row's fields; keys = { x, y, z, h }
+     * gives each axis' path (z and h may be missing).
+     */
+    F.xyzTools = function (grid, keys, onChange) {
+        function fieldOf(path) { return grid.querySelector('.ph-field[data-path="' + String(PH.canon(path)).replace(/"/g, '\\"') + '"]'); }
+        function put(values) {
+            if (S.isReadOnly()) return;
+            var said = [];
+            ['x', 'y', 'z', 'h'].forEach(function (a) {
+                if (!keys[a] || typeof values[a] !== 'number') return;
+                var n = Math.round(values[a] * 10000) / 10000;
+                if (S.set(keys[a], n) !== false) said.push(a + ' ' + PH.num(n));
+                var f = fieldOf(keys[a]);
+                if (f && f.refresh) f.refresh();
+            });
+            if (onChange) onChange();
+            if (said.length) PH.toast({ kind: 'success', title: 'Position set', text: said.join('  ') });
+        }
+        function fromNums(nums) { put({ x: nums[0], y: nums[1], z: nums[2], h: nums[3] }); }
+        var use = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: keys.h ? 'Where your character stands now, and the way they face' : 'Where your character stands now' }, [icon('target'), 'Use my position']);
+        use.addEventListener('click', function () { F.myPosition().then(function (p) { if (p) put({ x: p.x, y: p.y, z: p.z, h: p.heading }); }); });
+        var paste = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Paste a vector3 / vector4, or x, y, z' }, [icon('clipboard'), 'Paste coordinates']);
+        paste.addEventListener('click', function () { if (!S.isReadOnly()) F.askVector(paste, fromNums); });
+        // A vector pasted straight into one of the boxes fills them all.
+        ['x', 'y', 'z', 'h'].forEach(function (a) {
+            var f = keys[a] && fieldOf(keys[a]);
+            var inp = f && f.querySelector('input.ph-input--num');
+            if (!inp) return;
+            inp.addEventListener('paste', function (e) {
+                var nums = F.parseVector(e.clipboardData ? e.clipboardData.getData('text') : '');
+                if (!nums) return;
+                e.preventDefault();
+                fromNums(nums);
+            });
+        });
+        var bar = h('div.ph-xyzbar', [use, paste]);
+        if (S.isReadOnly()) { use.disabled = true; paste.disabled = true; }
+        return bar;
+    };
+
     function ctlVector(spec, commit, err) {
         var v = PH.clone(spec.value);
         var axes = PH.vecAxes(v);
@@ -1480,9 +1579,25 @@
                 v[a] = n;
                 commit(PH.clone(v));
             });
+            // A whole vector pasted into one box fills them all.
+            inp.addEventListener('paste', function (e) {
+                var nums = F.parseVector(e.clipboardData ? e.clipboardData.getData('text') : '');
+                if (!nums || inp.readOnly) return;
+                e.preventDefault();
+                fill(nums);
+            });
             inputs[a] = inp;
             return h('label.ph-vec__axis', [h('span.ph-vec__name', a === 'w' ? 'h' : a), inp]);
         });
+        function fill(nums) {
+            axes.forEach(function (a, i) { if (typeof nums[i] === 'number') v[a] = nums[i]; });
+            axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); inputs[a].classList.remove('is-bad'); });
+            err('');
+            commit(PH.clone(v));
+            PH.toast({ kind: 'success', title: 'Position set', text: axes.map(function (a) { return (a === 'w' ? 'h' : a) + ' ' + PH.num(v[a]); }).join('  ') });
+        }
+        var paste = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Paste a vector3 / vector4, or the numbers on their own' }, [icon('clipboard'), 'Paste']);
+        paste.addEventListener('click', function () { F.askVector(paste, fill); });
         var use = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: axes.length === 4 ? 'Your position, and the way you face as the fourth value' : 'Where your character stands now' },
             [icon('target'), 'Use my position']);
         use.addEventListener('click', function () {
@@ -1504,9 +1619,9 @@
             PH.toast({ kind: 'info', title: 'Copied', text: 'The coordinates are on the clipboard.' });
         });
         return {
-            el: h('div.ph-vec', [h('div.ph-vec__axes.ph-vec__axes--' + axes.length, boxes), h('div.ph-vec__tools', [use, copy])]),
+            el: h('div.ph-vec', [h('div.ph-vec__axes.ph-vec__axes--' + axes.length, boxes), h('div.ph-vec__tools', [use, paste, copy])]),
             set: function (nv) { v = PH.clone(nv); axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); }); },
-            disable: function (d) { axes.forEach(function (a) { inputs[a].readOnly = d; }); use.disabled = d; },
+            disable: function (d) { axes.forEach(function (a) { inputs[a].readOnly = d; }); use.disabled = d; paste.disabled = d; },
         };
     }
 
@@ -1523,10 +1638,10 @@
         var chipsEl = h('div.ph-chips__list');
         var roleBar = h('div.ph-chips__role');
         var disabled = false;
-        // §9.3: item names are checked one by one, and added with the type-ahead.
+        // §9.3: item names are checked one by one.
         var itemMode = picker === 'item' && IC.enabled();
         var notes = itemMode ? h('div.ph-chips__notes') : null;
-        var deferred = false;
+        var deferred = false, picking = false;
         wrap.appendChild(roleBar);
         wrap.appendChild(chipsEl);
         if (notes) wrap.appendChild(notes);
@@ -1603,71 +1718,50 @@
             });
             if (!arr.length && (linked || disabled)) chipsEl.appendChild(h('span.ph-chips__empty', linked ? 'The role is empty.' : 'Empty'));
 
+            // ONE way to add, in every list (0.20.3): the Add chip opens the picker.
+            // It lists what the hub knows (jobs, items, the rows of another list,
+            // hub.json `suggest`) and always takes a name typed by hand, so a list
+            // with nothing to offer works the same way: Add, type, Enter. There
+            // used to be three behaviours here (an Add button, an item type-ahead
+            // box, a bare text box that only kept a name after Enter), and the
+            // bare box lost Britannia two saved-empty lists in one evening.
             if (!linked && !disabled) {
-                if (itemMode) {
-                    var tin = h('input.ph-chips__input.ph-chips__input--item', { type: 'text', placeholder: arr.length ? 'Add an item…' : 'Type an item name…', spellcheck: 'false', autocomplete: 'off' });
-                    var addName = function (v) {
-                        v = String(v == null ? '' : v).trim();
-                        if (!v) return;
-                        if (arr.indexOf(v) === -1) { arr.push(v); commit(PH.clone(arr)); }
-                        draw();
-                        var again = chipsEl.querySelector('.ph-chips__input');
-                        if (again) again.focus();
-                    };
-                    IC.typeahead(tin, {
-                        anchor: chipsEl, onPick: addName, onEnter: addName,
-                        onCancel: function () { if (!tin.value) return false; tin.value = ''; return true; },
-                        exclude: function (n) { return arr.indexOf(n) !== -1; },
-                    });
-                    tin.addEventListener('keydown', function (e) {
-                        if (e.key === 'Backspace' && !tin.value && arr.length) {
-                            arr.pop(); draw(); commit(PH.clone(arr));
-                            var again = chipsEl.querySelector('.ph-chips__input');
+                var base = refT ? refFetch : sugg ? suggestFetch : (picker && F.fetchers[picker]) || null;
+                var addBtn = h('button.ph-chip.ph-chip--add', { type: 'button' }, [icon('plus'), 'Add']);
+                addBtn.addEventListener('click', function () {
+                    picking = true;
+                    F.pick({
+                        anchor: addBtn, allowFree: true, freeLabel: 'Add',
+                        placeholder: numeric ? 'Type a number…' : base ? 'Search, or type a name…' : 'Type a name…',
+                        emptyText: base ? 'Type to search.' : (numeric ? 'Type a number, then press Enter.' : 'Type a name, then press Enter.'),
+                        fetch: function (q) {
+                            if (!base) return Promise.resolve([]);
+                            return Promise.resolve(base(q)).then(function (res) {
+                                return (res || []).filter(function (r) { return arr.indexOf(r.value) === -1; });
+                            });
+                        },
+                        onPick: function (val) {
+                            if (numeric) {
+                                val = numberParse(String(val));
+                                if (val === null) { err('Numbers only in this list.'); return; }
+                            } else {
+                                val = String(val).trim();
+                                if (!val) return;
+                            }
+                            err('');
+                            if (arr.indexOf(val) === -1) { arr.push(val); commit(PH.clone(arr)); }
+                            draw();
+                            // Back on Add, so Enter opens it again: a run of names is Add, type, Enter, Enter, type...
+                            var again = chipsEl.querySelector('.ph-chip--add');
                             if (again) again.focus();
-                        }
+                        },
+                        onClose: function () {
+                            picking = false;
+                            if (deferred) { deferred = false; draw(); }
+                        },
                     });
-                    // A redraw that waited for the box to lose focus.
-                    tin.addEventListener('blur', function () { setTimeout(function () { if (deferred && !chipsEl.contains(document.activeElement)) { deferred = false; draw(); } }, 150); });
-                    chipsEl.appendChild(tin);
-                } else if (refT || sugg || (picker && F.fetchers[picker])) {
-                    var addBtn = h('button.ph-chip.ph-chip--add', { type: 'button' }, [icon('plus'), 'Add']);
-                    addBtn.addEventListener('click', function () {
-                        F.pick({ anchor: addBtn, fetch: refT ? refFetch : sugg ? suggestFetch : F.fetchers[picker], allowFree: true, freeLabel: 'Add',
-                            onPick: function (v) { if (arr.indexOf(v) === -1) { arr.push(v); draw(); commit(PH.clone(arr)); } } });
-                    });
-                    chipsEl.appendChild(addBtn);
-                } else {
-                    var input = h('input.ph-chips__input', { type: 'text', placeholder: numeric ? 'Add a number…' : 'Add…', spellcheck: 'false' });
-                    // Returns true when the typed text became a chip.
-                    var addTyped = function () {
-                        var t = input.value.trim();
-                        if (!t) return false;
-                        var val = t;
-                        if (numeric) {
-                            val = numberParse(t);
-                            if (val === null) { err('Numbers only in this list.'); return false; }
-                        }
-                        err('');
-                        if (arr.indexOf(val) === -1) arr.push(val);
-                        input.value = '';
-                        draw();
-                        commit(PH.clone(arr));
-                        return true;
-                    };
-                    // Text left in the box is an entry too: without this, typing a
-                    // name and pressing Done saved an empty list.
-                    input.addEventListener('blur', function () { addTyped(); });
-                    input.addEventListener('keydown', function (e) {
-                        if (e.key === 'Enter' || e.key === ',') {
-                            e.preventDefault();
-                            if (addTyped()) chipsEl.querySelector('.ph-chips__input').focus();
-                        } else if (e.key === 'Backspace' && !input.value && arr.length) {
-                            arr.pop(); draw(); commit(PH.clone(arr));
-                            chipsEl.querySelector('.ph-chips__input').focus();
-                        }
-                    });
-                    chipsEl.appendChild(input);
-                }
+                });
+                chipsEl.appendChild(addBtn);
             }
 
             if (spec.roleable && !numeric) {
@@ -1711,8 +1805,8 @@
         draw();
         if (itemMode) {
             IC.loadList();
-            // An answer about an item arrived: redraw, but never under the cursor of someone typing.
-            IC.watch(wrap, function () { if (chipsEl.contains(document.activeElement)) deferred = true; else draw(); });
+            // An answer about an item arrived: redraw, but never under an open picker (it hangs off the Add chip).
+            IC.watch(wrap, function () { if (picking) deferred = true; else draw(); });
         }
         return {
             el: wrap,

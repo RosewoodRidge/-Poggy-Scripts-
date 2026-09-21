@@ -946,6 +946,8 @@ html { font-size: clamp(13.5px, calc(8.8px + 0.42vw), 21px); }
     font-family: var(--ph-mono); font-size: .76rem; font-weight: 600; color: var(--ph-clay); text-transform: uppercase; pointer-events: none;
 }
 .ph-vec__tools { display: flex; align-items: center; gap: .3rem; }
+/* The same tools for a row that keeps x, y and z as separate numbers. */
+.ph-xyzbar { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; padding: .55rem 0 .8rem; border-bottom: 1px solid var(--ph-rule); }
 
 .ph-chips { display: flex; flex-direction: column; gap: .5rem; }
 .ph-chips__role { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; }
