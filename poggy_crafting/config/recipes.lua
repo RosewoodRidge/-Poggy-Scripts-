@@ -23,7 +23,8 @@
         name        the inventory item name.
         count       how many, per craft.
         take        false leaves the item in the inventory -- a tool, not an
-                    ingredient. Defaults to true.
+                    ingredient. A tool is needed ONCE however many are crafted:
+                    one hatchet splits fifty logs. Defaults to true.
         canUseDecay a number 0-100. The item is only accepted when its
                     condition is at least this. Omit to accept any condition.
                     VORP only: on frameworks with no item decay the check
@@ -39,7 +40,10 @@
 
     AltRewards      Optional. Keyed by the alt ingredient actually consumed,
                     each holding a full Reward list that replaces the default.
-                    Lets one recipe pay out by size or quality.
+                    Lets one recipe pay out by size or quality. A batch is then
+                    made from ONE of the items (the recipe's own first, else the
+                    first alt the player has enough of): 3 pine and 2 oak logs
+                    are two batches, not five of either.
 
     Type            'item' or 'weapon'. A weapon reward is created as a weapon,
                     with its own serial, not as a stackable item.

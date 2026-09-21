@@ -26,7 +26,7 @@ Two ingredients in, one reward out, anyone, anywhere.
 |---|---|
 | `Text` | The recipe's name **and** its id. It must be unique. Renaming it empties it from shopping lists. |
 | `SubText`, `Desc` | The short line and the long description in the browser. |
-| `Items` | What one craft uses. `take = false` keeps an item, like a tool. |
+| `Items` | What one craft uses. `take = false` keeps an item, like a tool: it is needed once, however many are crafted at a time. |
 | `Reward` | What one craft gives. |
 | `Type` | `'item'`, or `'weapon'` for a real weapon with a serial. |
 | `Category` | A category from the **Categories** list (the hub offers a dropdown). |
@@ -38,7 +38,9 @@ Two ingredients in, one reward out, anyone, anywhere.
 ## "Any fish" in one slot
 
 Give an ingredient `AltNames`. Any of those items fills the slot.
-Add `AltRewards` to pay out by which one was used:
+Add `AltRewards` to pay out by which one was used. With `AltRewards`, one batch
+is made from one of the items (3 pine logs and 2 oak logs are two batches, not
+five), so **Max** is the most any single one of them allows:
 
 ```lua
 Items = { { name = 'fish', count = 1, AltNames = { 'a_c_fishperch_01_ms' } } },

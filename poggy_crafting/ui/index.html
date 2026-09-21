@@ -482,9 +482,9 @@
           <span class="dialog-info-max">×{{ getMaxCraftable(craftItem) }}</span>
         </div>
         <div class="dialog-info-row" v-for="ing in (craftItem && craftItem.Items || [])" :key="ing.name">
-          <span>{{ getItemDisplayLabel(ing.name) }}</span>
-          <span :style="{color: getInventoryCount(ing.name) >= ing.count * craftQty ? 'var(--ok)' : 'var(--danger)'}">
-            {{ getInventoryCount(ing.name) }} / {{ ing.count * craftQty }}
+          <span>{{ qtyRow(ing).label }}</span>
+          <span :style="{color: qtyRow(ing).ok ? 'var(--ok)' : 'var(--danger)'}">
+            {{ qtyRow(ing).have }} / {{ qtyRow(ing).need }}
           </span>
         </div>
       </div>

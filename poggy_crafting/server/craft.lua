@@ -42,12 +42,22 @@ local function gatherIngredients(src, recipe, quantity)
     -- slot key -> what it still needs, and which names can fill it
     local slots = {}
     for _, item in ipairs(recipe.Items or {}) do
+        local take = item.take ~= false
         slots[item.name] = {
-            need        = item.count * quantity,
+            -- A tool (take = false) is not used up, so it is needed ONCE however
+            -- many are crafted. It used to be count x quantity: one hatchet
+            -- capped every craft at one (2.0.11).
+            need        = take and item.count * quantity or item.count,
             found       = 0,
-            take        = item.take ~= false,
+            take        = take,
             canUseDecay = tonumber(item.canUseDecay),
             fill        = {},
+            -- With AltRewards the payout follows the ONE alternative used, so a
+            -- batch is filled from a single name: 3 pine + 2 oak is not 5 of
+            -- anything. `names` is the order they are tried in, the recipe's
+            -- own item first.
+            names       = (take and recipe.AltRewards and item.AltNames and #item.AltNames > 0)
+                and { item.name, table.unpack(item.AltNames) } or nil,
         }
     end
 
@@ -57,24 +67,45 @@ local function gatherIngredients(src, recipe, quantity)
         for _, alt in ipairs(item.AltNames or {}) do altOf[alt] = item.name end
     end
 
+    --- canUseDecay: VORP marks degradable items with a condition percentage. A
+    --- framework that has no such idea reports neither field, and the item is
+    --- accepted -- the check can only ever make a recipe stricter, never block
+    --- one on a framework without decay.
+    local function usableIn(slot, entry)
+        if not slot.canUseDecay then return true end
+        local native = entry.native
+        if native and native.isDegradable then
+            return (tonumber(native.percentage) or 100) >= slot.canUseDecay
+        end
+        return true
+    end
+
+    -- Single-name slots: which one name covers the whole batch on its own?
+    local stock = {}   -- slot key -> name -> usable amount
+    for _, entry in pairs(items) do
+        local key  = altOf[entry.name] or entry.name
+        local slot = slots[key]
+        if slot and slot.names and usableIn(slot, entry) then
+            stock[key] = stock[key] or {}
+            stock[key][entry.name] = (stock[key][entry.name] or 0) + (tonumber(entry.amount) or 0)
+        end
+    end
+    for key, slot in pairs(slots) do
+        if slot.names then
+            for _, name in ipairs(slot.names) do
+                if ((stock[key] or {})[name] or 0) >= slot.need then slot.only = name break end
+            end
+            if not slot.only then return false, nil, nil end
+        end
+    end
+
     local consumedAlt = nil
 
     for _, entry in pairs(items) do
         local key  = altOf[entry.name] or entry.name
         local slot = slots[key]
-        if slot and slot.found < slot.need then
-            local usable = true
-
-            -- canUseDecay: VORP marks degradable items with a condition
-            -- percentage. A framework that has no such idea reports neither
-            -- field, and the item is accepted -- the check can only ever make
-            -- a recipe stricter, never block one on a framework without decay.
-            if slot.canUseDecay then
-                local native = entry.native
-                if native and native.isDegradable then
-                    usable = (tonumber(native.percentage) or 100) >= slot.canUseDecay
-                end
-            end
+        if slot and slot.found < slot.need and (not slot.only or slot.only == entry.name) then
+            local usable = usableIn(slot, entry)
 
             if usable then
                 local take = math.min(tonumber(entry.amount) or 0, slot.need - slot.found)

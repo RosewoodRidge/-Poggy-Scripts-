@@ -306,7 +306,7 @@ const app = createApp({
             // ── Style / timing ──
             style: { fontSize: "m" },
             crafttime: 15000,
-            max: 999,
+            max: 100,   // the most the server crafts in one go (server/craft.lua)
             min: 1,
 
             // ── Shopping list ──
@@ -726,6 +726,38 @@ const app = createApp({
             return this.itemLimits[name] || 0;
         },
 
+        // Does one batch of this slot have to come from a single item? With
+        // AltRewards the payout follows the ONE alternative used, so 3 pine
+        // logs and 2 oak logs are not 5 of anything (server: gatherIngredients).
+        slotIsSingle(recipe, ing) {
+            return ing.take !== false && !!(recipe && recipe.AltRewards) && !!(ing.AltNames && ing.AltNames.length);
+        },
+
+        // How much the player has for this slot, as the server will count it.
+        slotHave(recipe, ing) {
+            if (!this.slotIsSingle(recipe, ing)) return this.getIngHaveCount(ing);
+            return Math.max(...[ing.name, ...ing.AltNames].map(n => this.inventory[n] || 0));
+        },
+
+        // The item the server will take for `qty` crafts: the recipe's own item
+        // if it covers the batch, else the first alternative that does.
+        slotItem(recipe, ing, qty) {
+            const names = [ing.name, ...(ing.AltNames || [])];
+            const need = ing.take === false ? (ing.count || 1) : (ing.count || 1) * qty;
+            return names.find(n => (this.inventory[n] || 0) >= need)
+                || names.find(n => (this.inventory[n] || 0) > 0) || ing.name;
+        },
+
+        // The quantity dialog's rows: what is needed for this many, and what is there.
+        qtyRow(ing) {
+            const recipe = this.craftItem;
+            const tool = ing.take === false;
+            const need = tool ? (ing.count || 1) : (ing.count || 1) * this.craftQty;
+            const item = this.slotItem(recipe, ing, this.craftQty);
+            const have = this.slotIsSingle(recipe, ing) ? (this.inventory[item] || 0) : this.getIngHaveCount(ing);
+            return { label: this.getItemDisplayLabel(item), have, need, ok: have >= need, tool };
+        },
+
         getMaxCraftable(recipe) {
             if (!recipe) return 999;
             const known = this.maxCraftMap[recipe.Text];
@@ -735,12 +767,21 @@ const app = createApp({
         computeMaxCraftable(recipe) {
             if (!recipe || !recipe.Items || !recipe.Items.length) return 999;
 
-            let maxCrafts = 999;
+            // The server refuses more than this in one go (server/craft.lua).
+            let maxCrafts = this.max;
 
-            // Limit by available ingredients (primary + all AltNames)
+            // Limit by available ingredients. The same rules as the server's
+            // gatherIngredients, or Max offers what the server then refuses.
             for (const ing of recipe.Items) {
-                const have = this.getIngHaveCount(ing);
-                const possible = Math.floor(have / ing.count);
+                const need = ing.count || 1;
+                // A tool (take = false) is not used up: it is needed once,
+                // however many are crafted. Counting it per craft is what capped
+                // every recipe with a tool at the number of tools you carry.
+                if (ing.take === false) {
+                    if (this.getIngHaveCount(ing) < need) return 0;
+                    continue;
+                }
+                const possible = Math.floor(this.slotHave(recipe, ing) / need);
                 if (possible < maxCrafts) maxCrafts = possible;
             }
 
@@ -814,7 +855,10 @@ const app = createApp({
             if (!this.craftItem) return;
 
             const recipe = this.craftItem;
-            const qty = this.craftQty;
+            // The box takes typing, so what it holds may be past what is possible.
+            const cap = Math.min(this.max, this.getMaxCraftable(recipe));
+            const qty = Math.max(1, Math.min(cap, Math.floor(Number(this.craftQty)) || 1));
+            if (cap < 1) return;
 
             this.showQtyDialog = false;
             this.craftItem = null;
@@ -941,7 +985,8 @@ const app = createApp({
             newVisited.add(recipe.Text);
 
             for (const ing of recipe.Items) {
-                const needed = ing.count * multiplier;
+                // A tool (take = false) is needed once, not once per craft.
+                const needed = ing.take === false ? ing.count : ing.count * multiplier;
 
                 // Check if this ingredient is itself craftable
                 const subRecipe = this.allCraftablesUnfiltered.find(

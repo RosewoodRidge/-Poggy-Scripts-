@@ -960,7 +960,7 @@
         },
         "Items[].take": {
           "label": "Used up",
-          "tooltip": "false = the item is needed but kept, like a tool. Default true."
+          "tooltip": "Off = the item is needed but kept, like a tool: one is enough however many are crafted at a time. Default on."
         },
         "Items[].canUseDecay": {
           "label": "Minimum condition",
