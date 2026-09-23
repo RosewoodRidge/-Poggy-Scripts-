@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_multijob'
 author 'Poggy'
 description 'Multijob System'
-version '1.7.3'
+version '1.7.4'
 poggy_core_min '0.14.0'
 
 dependencies {

@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_scene'
 author 'Poggy'
 description 'Poggy Scene - A collection of scene-related utilities and features for RedM.'
-version '1.3.2'
+version '1.3.3'
 poggy_core_min '0.13.0'
 
 dependencies {

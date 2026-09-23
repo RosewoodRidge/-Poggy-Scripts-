@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_auction'
 author 'Poggy'
 description 'Auction house where players list, bid on, buy out and collect items, with a supply catalogue and want requests.'
-version '1.3.2'
+version '1.3.3'
 poggy_core_min '0.17.0'
 
 dependencies {

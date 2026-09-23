@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_trashbins'
 author 'Poggy'
 description 'Poggy Trash Bins'
-version '1.5.2'
+version '1.5.3'
 poggy_core_min '0.13.0'
 
 dependencies {

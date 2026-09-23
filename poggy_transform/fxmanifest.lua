@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_transform'
 author 'Poggy'
 description 'Poggy Transform - Become any animal, any ped, or any character on your server.'
-version '1.2.2'
+version '1.2.3'
 poggy_core_min '0.13.0'
 
 dependencies {

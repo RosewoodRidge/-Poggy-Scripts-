@@ -163,6 +163,10 @@ Config.StoreTypes = {
 --                          already owns never shows a FOR SALE prompt.
 --             price        cost to buy it.  Falls back to the `price` column
 --                          on the playershops row when left out.
+--             purchaseJobs { "valstables" } -- only characters holding one
+--                          of these jobs may buy it (the job they wear, or
+--                          any job on their poggy_multijob list).  Left out,
+--                          anyone with the money may.  Admins always may.
 --             job          the shop's job: given to its owner and staff
 --                          (only applies when Config.ShopJobs.enabled;
 --                          an admin can override it with /pmshopjob)

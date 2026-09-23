@@ -1440,6 +1440,13 @@
           "label": "For sale",
           "tooltip": "Offer this storefront for sale. Only works with a Shop ID whose playershops row is unowned or repossessed."
         },
+        "purchaseJobs": {
+          "label": "Buyers' jobs",
+          "tooltip": "Only characters holding one of these jobs may buy this storefront: the job they wear, or any job on their poggy_multijob list. Empty or left out = anyone with the money. Admins are never refused."
+        },
+        "purchaseJobs[]": {
+          "picker": "job"
+        },
         "price": {
           "label": "Sale price",
           "tooltip": "What the storefront costs. Left out, the price column of its playershops row is used.",

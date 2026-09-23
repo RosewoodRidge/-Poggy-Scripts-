@@ -47,6 +47,7 @@ PM.Locale = {
     shop_invalid_name = "That is not a valid shop name.",
     shop_not_for_sale = "That storefront is not for sale.",
     shop_already_owned = "That storefront already has an owner.",
+    shop_purchase_job = "Only someone with the job %s may buy this storefront.",
 
     -- ── Ledger ─────────────────────────────────────────────────────────────
     ledger_deposited = "Deposited %s into the shop ledger.",

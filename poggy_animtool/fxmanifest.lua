@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_animtool'
 author 'Poggy'
 description 'Poggy AnimTool - Timeline editor for RedM animation scenes (clips and keyframed props) with Lua export.'
-version '2.1.2'
+version '2.1.3'
 
 dependencies {
     'poggy_core',

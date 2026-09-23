@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_emotes'
 author 'Poggy'
 description 'A searchable emote menu with 330+ animations, favourites, recents, a live preview, and a Nearby tab for the chairs, bars and props around you.'
-version '1.1.1'
+version '1.1.2'
 poggy_core_min '0.13.0'
 
 dependencies {

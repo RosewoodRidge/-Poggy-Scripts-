@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_skillcheck'
 author 'Poggy'
 description 'Poggy Skillcheck - Standalone DBD-style circular skillcheck system.'
-version '1.0.2'
+version '1.0.3'
 poggy_core_min '0.13.0'
 
 dependencies {

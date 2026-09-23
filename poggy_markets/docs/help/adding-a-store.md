@@ -42,6 +42,12 @@ A storefront can only be bought when **both** are true:
 Then set **For sale** on, and a **Sale price**. The FOR SALE prompt
 disappears as soon as someone buys it.
 
+To sell it only to the holders of a job (a stable to the stable's job), fill
+**Buyers' jobs**. The job they are wearing counts, and with poggy_multijob so
+does every job on their list. Everyone else is told which job they need.
+Admins can always buy, and can hand the shop over in **Player shops** →
+**Transfer** instead.
+
 ## Only some jobs may use it
 
 Fill **Job lock** with job names, for example `sheriff`.

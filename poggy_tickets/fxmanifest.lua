@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_tickets'
 author 'Poggy'
 description 'Player tickets and help requests, with a staff panel: your own staff roles, staff chat, claim, escalate, reply, teleport, warn, kick, ban, Discord.'
-version '1.1.0'
+version '1.1.1'
 poggy_core_min '0.19.0'        -- ban.add, ban.remove, ban.list, player.kick, player.identifiers
 
 dependencies {
@@ -22,6 +22,7 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/cl_place.lua',   -- the game-specific bits; before cl_main.lua
     'client/cl_main.lua',
     'client/cl_staff.lua',
 }
