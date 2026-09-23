@@ -62,14 +62,15 @@
     anything: after it, run `refresh` then `restart <resource>`.
 
     Automatic runs (bottom of this file):
-      - on start (after StartDelaySeconds) and every CheckIntervalMinutes,
-        poggy_core runs `update all check`, or `update all apply` when
-        Updates.AutoUpdate is on (ApplyOnStart: apply on start only).
+      - once, on start (after StartDelaySeconds), poggy_core runs
+        `update all check`, or `update all apply` when Updates.AutoUpdate or
+        ApplyOnStart is on. Nothing is checked again while the server runs
+        (0.22.0; the "periodic" path of Updates.Auto is kept, but nothing
+        starts it).
       - after an automatic apply, RestartUpdated runs `refresh` once and restarts
-        each updated resource. Updates applied while players are online wait for
-        an empty server when RestartWhenEmptyOnly is set; at start they restart
-        at once. `refresh` needs `add_ace resource.poggy_core command.refresh allow`;
-        without it nothing is restarted and the exact lines are printed.
+        each updated resource at once. `refresh` needs
+        `add_ace resource.poggy_core command.refresh allow`; without it nothing
+        is restarted and the exact lines are printed.
       - only one update run at a time (Updates.busy). A resource that fails is
         reported and the rest carry on.
       - poggy_core is updated last and never restarts itself (see restartResources).
@@ -94,7 +95,7 @@
 
     Settings hub (0.18.0). While someone edits a script in /poggy
     (PoggyCore.Hub.IsLocked), nothing here writes to it: an automatic run
-    reports it "held" and tries again on the next check, and a manual stage or
+    reports it "held" and tries again on the next start, and a manual stage or
     apply refuses with the editor's name. Updates.FetchShipped hands the hub
     the config files a published version shipped with (its "changed" badges
     and Reset), read the same way the merge reads its base.
@@ -328,6 +329,9 @@ local function writeFile(resource, rel, data)
         return false, ("saved, but reading it back gave %s byte(s), expected %d")
             :format(back and tostring(#back) or "no", #data)
     end
+    -- The settings hub keeps each script's last build; this one is out of date.
+    local Hub = PoggyCore.Hub
+    if Hub and Hub.FilesChanged then pcall(Hub.FilesChanged, resource) end
     return true, how
 end
 
@@ -1312,9 +1316,8 @@ function Updates.Describe()
             token() and "token set" or "public, no token")
     end
     local auto = c.AutoUpdate and "^2on^7" or c.ApplyOnStart and "^3at start only^7" or "^9off^7"
-    local interval = math.max(0, tonumber(c.CheckIntervalMinutes) or 60)
-    local checks = interval > 0 and ("checks every %d min"):format(interval)
-        or (c.CheckOnStart ~= false and "checks at start only" or "no automatic checks")
+    local atStart = c.CheckOnStart ~= false or c.AutoUpdate == true or c.ApplyOnStart == true
+    local checks = atStart and "checks at start" or "no automatic checks"
     local dev = Updates.IsDevServer() and "  ·  ^3dev server: updates read-only^7" or ""
     return ("updates: %s  ·  auto-update: %s  ·  %s%s"):format(from, auto, checks, dev)
 end
@@ -1570,19 +1573,16 @@ function Updates.Auto(reason)
     return result
 end
 
--- Start check, then a check every CheckIntervalMinutes. Labelled, so an
--- automatic run cannot be mistaken for a command someone just typed.
+-- One check at start, never again while running (0.22.0: the hourly check
+-- went; a server picks up updates when it restarts, or from
+-- `poggycore update all apply`). Labelled, so an automatic run cannot be
+-- mistaken for a command someone just typed.
 CreateThread(function()
     local c = cfg()
     local atStart = c.CheckOnStart ~= false or c.AutoUpdate == true or c.ApplyOnStart == true
-    local interval = math.max(0, tonumber(c.CheckIntervalMinutes) or 60)
-    if not atStart and interval == 0 then return end
+    if not atStart then return end
     Wait(math.max(0, tonumber(c.StartDelaySeconds) or 20) * 1000)
-    if atStart then Updates.Auto("startup") end
-    while interval > 0 do
-        Wait(interval * 60 * 1000)
-        Updates.Auto("periodic")
-    end
+    Updates.Auto("startup")
 end)
 
 -- ---------------------------------------------------------------------------

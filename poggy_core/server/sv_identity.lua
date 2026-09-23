@@ -181,6 +181,10 @@ if AddEventHandler then
     AddEventHandler("onResourceStop", function(resource)
         Identity.Forget(resource)
     end)
+    -- `refresh`: folders may have come or gone, manifests may have changed.
+    AddEventHandler("onResourceListRefresh", function()
+        Identity.Refresh()
+    end)
 end
 
 -- ---------------------------------------------------------------------------

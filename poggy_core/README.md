@@ -173,6 +173,12 @@ once when they start. The database tables below are a mirror and a history,
 rebuilt from the files and never written back into them. If they disagree, the
 file wins.
 
+**Opening is quick (0.22.0).** poggy_core reads every script's config in the
+background when it starts, and again whenever a script restarts, is updated or
+is saved from the hub, so `/poggy` shows the cards without reading any files.
+A config file edited by hand while the server runs is read when you open that
+script, and its card is up to date from then on.
+
 ### Who can use it
 
 | ACE | What it allows |
@@ -1141,8 +1147,9 @@ Versions compare as numbers, so `0.10.0` is newer than `0.9.0`.
 ### Automatic updates (on by default)
 
 Out of the box (`PoggyCoreConfig.Updates` in `config.lua`: `AutoUpdate = true`,
-`ApplyOnStart = true`, `CheckIntervalMinutes = 60`), poggy_core checks the feed
-when the server starts and every hour. It does this for every Poggy script whose published
+`ApplyOnStart = true`), poggy_core checks the feed once, when the server
+starts (0.22.0: the hourly check while running is gone; `poggycore update all
+apply` installs updates without a restart). It does this for every Poggy script whose published
 `fxmanifest.lua` version is higher than the local one. Same or older is never
 touched. For each such script it:
 
@@ -1152,9 +1159,7 @@ touched. For each such script it:
 2. backs up every original it replaced in `poggy_core/update_backups/`;
 3. runs `refresh` once and restarts each updated script (`RestartUpdated`).
 
-At server start the restarts happen immediately. Updates installed while players
-are online are written at once, but their restarts wait until the server is
-empty (`RestartWhenEmptyOnly`). poggy_core never restarts itself: its own
+The restarts happen immediately, at server start. poggy_core never restarts itself: its own
 update takes effect on the next server restart (or `refresh` then
 `ensure poggy_core` by hand). Escrowed scripts update the same way; nobody
 re-downloads from the portal for an update.

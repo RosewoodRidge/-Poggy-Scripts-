@@ -324,8 +324,7 @@ end
 -- Discovery (§4.1)
 -- ---------------------------------------------------------------------------
 
-local scanAt = nil
-local SCAN_SECONDS = 30
+local scriptList = nil   -- { { id, folder, version } }, until something changes (Hub.Scripts)
 
 local function manifestField(text, key)
     local Id = PoggyCore.Identity
@@ -335,39 +334,53 @@ end
 --- Every Poggy script on the server, running or not, sorted by id:
 --- { id, folder, version, running }. Scripts whose id two folders claim
 --- resolve to the one that is running, else are left out.
+---
+--- The list (ids, folders, versions) is kept until a resource starts or
+--- stops, `refresh` runs, or the updater writes a file (Hub.FilesChanged);
+--- `fresh` also reads every manifest on the server again. Only the state is
+--- asked for on every call, so `running` is always current.
 function Hub.Scripts(fresh)
     local Id = PoggyCore.Identity
     if not Id then return {} end
-    if fresh or not scanAt or I.now() - scanAt >= SCAN_SECONDS then
+    if fresh then
         Id.Refresh()
-        scanAt = I.now()
+        scriptList = nil
     end
-    local seen, out = {}, {}
-    local function add(id, folder)
-        if seen[id] or not folder then return end
-        seen[id] = true
-        local okState, state = pcall(GetResourceState, folder)
+    if not scriptList then
+        local seen, list = {}, {}
+        local function add(id, folder)
+            if seen[id] or not folder then return end
+            seen[id] = true
+            local okState, state = pcall(GetResourceState, folder)
+            state = okState and state or "missing"
+            if state == "missing" or state == "unknown" then return end
+            local text = LoadResourceFile(folder, "fxmanifest.lua")
+            list[#list + 1] = {
+                id = id,
+                folder = folder,
+                version = manifestField(text, "version") or GetResourceMetadata(folder, "version", 0),
+            }
+        end
+        local registered = Id.List()
+        for _, e in ipairs(registered) do add(e.id, e.folder) end
+        local scan = Id.Scan()
+        for id in pairs(scan.claims or {}) do
+            if not seen[id] then
+                local okLoc, folder = pcall(Id.Locate, id)
+                if okLoc and folder then add(id, folder) end
+            end
+        end
+        table.sort(list, function(a, b) return a.id < b.id end)
+        scriptList = list
+    end
+    local out = {}
+    for _, e in ipairs(scriptList) do
+        local okState, state = pcall(GetResourceState, e.folder)
         state = okState and state or "missing"
-        if state == "missing" or state == "unknown" then return end
-        local text = LoadResourceFile(folder, "fxmanifest.lua")
-        out[#out + 1] = {
-            id = id,
-            folder = folder,
-            version = manifestField(text, "version") or GetResourceMetadata(folder, "version", 0),
-            running = state == "started",
-            state = state,
-        }
-    end
-    local registered = Id.List()
-    for _, e in ipairs(registered) do add(e.id, e.folder) end
-    local scan = Id.Scan()
-    for id in pairs(scan.claims or {}) do
-        if not seen[id] then
-            local okLoc, folder = pcall(Id.Locate, id)
-            if okLoc and folder then add(id, folder) end
+        if state ~= "missing" and state ~= "unknown" then
+            out[#out + 1] = { id = e.id, folder = e.folder, version = e.version, running = state == "started", state = state }
         end
     end
-    table.sort(out, function(a, b) return a.id < b.id end)
     return out
 end
 
@@ -421,16 +434,18 @@ end
 
 --- The config files of a script (§4.1): hub.json `files` when given, else
 --- every config.lua, config/*.lua and translations.lua the manifest loads.
---- Returns { { file, dictKeys } } in manifest order.
+--- Returns { { file, dictKeys, text } } in manifest order; text is what was
+--- read to find the file, so Hub.Build does not read it a second time.
 function Hub.ConfigFiles(script, meta)
     local out, seen = {}, {}
     local function add(rel)
         rel = tostring(rel):gsub("\\", "/"):gsub("^%./", "")
         if seen[rel] or rel == "" or rel:find("..", 1, true) or rel:find(":", 1, true) or rel:find("^/") then return end
         if rel:sub(-4):lower() ~= ".lua" then return end
-        if not LoadResourceFile(script.folder, rel) then return end
+        local text = LoadResourceFile(script.folder, rel)
+        if not text then return end
         seen[rel] = true
-        out[#out + 1] = { file = rel, dictKeys = isTranslationPath(rel) }
+        out[#out + 1] = { file = rel, dictKeys = isTranslationPath(rel), text = text }
     end
     if meta and type(meta.files) == "table" and #meta.files > 0 then
         for _, rel in ipairs(meta.files) do
@@ -528,9 +543,10 @@ local iconCache = {}   -- folder -> { at, value }
 ---   2. the icon poggy_core ships for that poggy_id, ui/hub/img/icons/<id>.png,
 ---      so older installs without their own icon still show one
 ---   3. nil: the page draws a monogram tile
+--- Kept until the script's files change (I.forgetBuilt, Hub.FilesChanged).
 function I.icon(script)
     local c = iconCache[script.folder]
-    if c and I.now() - c.at < 300 then return c.value end
+    if c then return c.value end
     local value = nil
     if I.manifestListsFile(script.folder, "docs/icon.png") and LoadResourceFile(script.folder, "docs/icon.png") then
         value = ("nui://%s/docs/icon.png"):format(script.folder)
@@ -538,7 +554,7 @@ function I.icon(script)
         local rel = ("ui/hub/img/icons/%s.png"):format(script.id)
         if LoadResourceFile(SELF, rel) then value = ("nui://%s/%s"):format(SELF, rel) end
     end
-    iconCache[script.folder] = { at = I.now(), value = value }
+    iconCache[script.folder] = { value = value }
     return value
 end
 
@@ -770,9 +786,10 @@ end
 --- filled in by separate `Config.X.y = ...` lines, or with code in a row)
 --- is dropped again, hub.json's own included: the table is then shown as the
 --- group it is, and a collection of it is kept by its nodes (§8.4).
-function Hub.LoadFile(folder, rel, dictKeys, meta)
+function Hub.LoadFile(folder, rel, dictKeys, meta, text)
     local out = { file = rel }
-    local text = LoadResourceFile(folder, rel)
+    -- text: the file as the caller just read it (Hub.ConfigFiles), else read here.
+    if type(text) ~= "string" then text = LoadResourceFile(folder, rel) end
     if not text then
         out.err = "the file could not be read"
         return out
@@ -785,10 +802,16 @@ function Hub.LoadFile(folder, rel, dictKeys, meta)
         out.err = "the settings model (sv_settings_model.lua) is not loaded"
         return out
     end
-    out.fingerprint = Model.Fingerprint(text)
-    local base, sig = I.modelOpts(meta, dictKeys)
     local key = folder .. "|" .. rel
     local cached = modelCache[key]
+    -- Hashing walks every byte in Lua; comparing with the text last hashed is
+    -- one memcmp. A file changed on disk still differs, and is hashed again.
+    if cached and cached.text == text then
+        out.fingerprint = cached.fp
+    else
+        out.fingerprint = Model.Fingerprint(text)
+    end
+    local base, sig = I.modelOpts(meta, dictKeys)
     if cached and cached.fp == out.fingerprint and cached.sig == sig then
         out.model, out.err, out.opts = cached.model, cached.err, cached.opts
         return out
@@ -797,7 +820,7 @@ function Hub.LoadFile(folder, rel, dictKeys, meta)
     if not model then
         Util.Warn("%s/%s could not be read as settings: %s", folder, rel, tostring(err))
     end
-    modelCache[key] = { fp = out.fingerprint, sig = sig, model = model, opts = opts,
+    modelCache[key] = { text = text, fp = out.fingerprint, sig = sig, model = model, opts = opts,
         err = model == nil and tostring(err) or nil }
     out.model, out.err, out.opts = model, modelCache[key].err, opts
     return out
@@ -960,7 +983,25 @@ end
 local built = {}   -- folder -> { key, value }
 
 function I.forgetBuilt(folder)
-    if folder then built[folder] = nil else built = {} end
+    if folder then
+        built[folder] = nil
+        iconCache[folder] = nil
+    else
+        built = {}
+        iconCache = {}
+    end
+end
+
+--- The last build of a script, without reading its files again: what `open`
+--- shows on the cards. Anything the hub or the updater writes, a restart, and
+--- new defaults all forget the build (I.forgetBuilt); a file edited by hand is
+--- noticed when that script is opened (Hub.Script builds it again).
+function I.lastBuilt(script)
+    local c = built[script.folder]
+    if c and c.value.script.id == script.id and c.value.script.version == script.version then
+        return c.value
+    end
+    return nil
 end
 
 --- Copy of a model node with the hub's fields added.
@@ -1003,7 +1044,7 @@ function Hub.Build(script)
     local files = Hub.ConfigFiles(script, meta)
     local loaded, keyParts = {}, {}
     for _, f in ipairs(files) do
-        local l = Hub.LoadFile(script.folder, f.file, f.dictKeys, meta)
+        local l = Hub.LoadFile(script.folder, f.file, f.dictKeys, meta, f.text)
         l.dictKeys = f.dictKeys
         loaded[#loaded + 1] = l
         keyParts[#keyParts + 1] = f.file .. "=" .. tostring(l.fingerprint)
@@ -3271,9 +3312,10 @@ function I.lockView(id)
     return { name = l.name, since = l.since }
 end
 
---- §6.2 card.
-function Hub.Card(b)
-    local s, meta = b.script, b.meta
+--- §6.2 card. live: the script as Hub.Scripts sees it now (running, state);
+--- a build kept from earlier holds the script as it was then.
+function Hub.Card(b, live)
+    local s, meta = live or b.script, b.meta
     local lock = I.lockView(s.id)
     return {
         id = s.id,
@@ -3311,29 +3353,34 @@ end
 --- §6.2 searchEntry: every setting and list, and every command. Each points
 --- where the rail (§8.1) shows it: tab, and section (a setting on a tab
 --- page) or item + row (inside a collection kept as nodes).
+--- Worked out once per build and kept on it (b.search).
 function I.searchEntries(b, into)
-    local id = b.script.id
-    for _, n in ipairs(b.nodes) do
-        if n.kind ~= "group" and not n.meta.hidden and not n.cell then
-            into[#into + 1] = {
-                id = id, path = n.path, label = n.meta.label, tooltip = clip(n.meta.tooltip, 160),
-                tab = n.tab, section = n.section, item = n.item, row = n.row,
-                kind = n.collection and "collection" or n.kind,
+    if not b.search then
+        local id, list = b.script.id, {}
+        for _, n in ipairs(b.nodes) do
+            if n.kind ~= "group" and not n.meta.hidden and not n.cell then
+                list[#list + 1] = {
+                    id = id, path = n.path, label = n.meta.label, tooltip = clip(n.meta.tooltip, 160),
+                    tab = n.tab, section = n.section, item = n.item, row = n.row,
+                    kind = n.collection and "collection" or n.kind,
+                }
+            end
+        end
+        -- §10: data panels by name (their rows are live data, not indexed).
+        for _, p in ipairs(b.panels or {}) do
+            list[#list + 1] = {
+                id = id, panel = p.id, path = "panel:" .. p.id, label = p.label,
+                tooltip = clip(p.tooltip, 160), tab = p.tab, kind = "panel",
             }
         end
-    end
-    -- §10: data panels by name (their rows are live data, not indexed).
-    for _, p in ipairs(b.panels or {}) do
-        into[#into + 1] = {
-            id = id, panel = p.id, path = "panel:" .. p.id, label = p.label,
-            tooltip = clip(p.tooltip, 160), tab = p.tab, kind = "panel",
-        }
-    end
-    for _, c in ipairs(I.commands(b)) do
-        if c.command then
-            into[#into + 1] = { id = id, command = c.command, description = clip(c.description, 160), kind = "command" }
+        for _, c in ipairs(I.commands(b)) do
+            if c.command then
+                list[#list + 1] = { id = id, command = c.command, description = clip(c.description, 160), kind = "command" }
+            end
         end
+        b.search = list
     end
+    for _, e in ipairs(b.search) do into[#into + 1] = e end
 end
 
 -- ---------------------------------------------------------------------------
@@ -3517,9 +3564,86 @@ function Hub.OnRegister(entry)
     I.forgetBuilt(entry.folder)
     I.pushViewers("scriptState", { id = entry.id, running = true })
     if Hub.QueueMirror then Hub.QueueMirror(entry.id) end
+    Hub.QueueWarm(entry.id)
 end
 
+-- ---------------------------------------------------------------------------
+-- Builds kept ready (0.22.0)
+--
+-- `open` shows every card from the last build of each script and reads no
+-- files (I.lastBuilt). So each script is built in the background: once when
+-- poggy_core starts, and again whenever something forgets its build (it
+-- registered, the updater wrote to it, its defaults arrived). Opening a
+-- script still reads its files, so a hand edit is found there.
+-- ---------------------------------------------------------------------------
+
+local warmQueue, warmWorker = {}, false
+
+--- Build one script (by id), or every script (nil), in the background: one
+--- script per server frame, so a start-up full of scripts never stalls.
+function Hub.QueueWarm(id)
+    if id == nil then
+        for _, s in ipairs(Hub.Scripts()) do warmQueue[s.id] = true end
+    elseif type(id) == "string" then
+        warmQueue[id] = true
+    else
+        return
+    end
+    if warmWorker then return end
+    warmWorker = true
+    CreateThread(function()
+        Wait(1000)
+        while next(warmQueue) do
+            local want = next(warmQueue)
+            warmQueue[want] = nil
+            for _, s in ipairs(Hub.Scripts()) do
+                if s.id == want then
+                    local okBuild, b = pcall(Hub.Build, s)
+                    if not okBuild then
+                        Util.Debug("hub: building %s in the background failed: %s", want, tostring(b))
+                    elseif not b.defaultsKnown and Hub.WarmDefaults and Hub.DB and Hub.DB.ready then
+                        -- Only with the database up: without it every script
+                        -- would fetch its defaults from the feed at each start.
+                        Hub.WarmDefaults(s)
+                    end
+                    break
+                end
+            end
+            Wait(0)
+        end
+        warmWorker = false
+    end)
+end
+
+--- Files in a resource changed outside the hub (the updater wrote them): its
+--- version, icon and build are read again.
+function Hub.FilesChanged(folder)
+    if type(folder) ~= "string" then return end
+    scriptList = nil
+    I.forgetBuilt(folder)
+    local Id = PoggyCore.Identity
+    Hub.QueueWarm(Id and Id.Id(folder) or folder)
+end
+
+-- The list of scripts is kept until a resource starts or stops, or `refresh`
+-- runs (a new folder, or a manifest that changed).
+AddEventHandler("onResourceStart", function()
+    scriptList = nil
+end)
+
+AddEventHandler("onResourceListRefresh", function()
+    scriptList = nil
+    for k in pairs(iconCache) do iconCache[k] = nil end
+end)
+
+CreateThread(function()
+    -- After the other resources have started and registered.
+    Wait(15000)
+    Hub.QueueWarm()
+end)
+
 AddEventHandler("onResourceStop", function(resource)
+    scriptList = nil
     if resource == SELF then return end
     local Id = PoggyCore.Identity
     if not Id or next(viewers) == nil then return end
@@ -3561,10 +3685,12 @@ end
 function Hub.Open(src)
     if tonumber(src) and tonumber(src) > 0 then viewers[tonumber(src)] = true end
     local scripts, index, used = {}, {}, {}
-    for _, s in ipairs(Hub.Scripts(true)) do
-        local okBuild, b = pcall(Hub.Build, s)
+    for _, s in ipairs(Hub.Scripts()) do
+        -- The last build when there is one (no files read); else built now.
+        local okBuild, b = true, I.lastBuilt(s)
+        if not b then okBuild, b = pcall(Hub.Build, s) end
         if okBuild and b then
-            local card = Hub.Card(b)
+            local card = Hub.Card(b, s)
             scripts[#scripts + 1] = card
             used[card.category] = true
             I.searchEntries(b, index)
@@ -3731,9 +3857,18 @@ local function register(call, fn, open)
 end
 Hub.Register = register
 
---- One console line per /poggy: proof the server answered, how big the answer
---- is, and whether it survives msgpack (what the network uses) intact.
+--- One console line per /poggy: proof the server answered. With
+--- PoggyCoreConfig.Debug on it also says how big the answer is and whether it
+--- survives msgpack (what the network uses) intact; that packs and unpacks the
+--- whole answer, so it is not done otherwise.
 function I.traceOpen(src, answer)
+    local scripts = type(answer.value) == "table" and type(answer.value.scripts) == "table" and #answer.value.scripts or 0
+    if not PoggyCoreConfig.Debug or type(msgpack) ~= "table" then
+        print(("%s/%s opened for %s: %d scripts")
+            :format(PoggyCore.PREFIX, tostring((PoggyCoreConfig.Hub or {}).Command or "poggy"),
+                GetPlayerName(src) or tostring(src), scripts))
+        return
+    end
     local okPack, packed = pcall(msgpack.pack, { n = 1, answer })
     local size = (okPack and type(packed) == "string") and #packed or -1
     local trip
@@ -3747,7 +3882,6 @@ function I.traceOpen(src, answer)
             trip = "UNPACK FAILED: " .. tostring(back)
         end
     end
-    local scripts = type(answer.value) == "table" and type(answer.value.scripts) == "table" and #answer.value.scripts or 0
     print(("%s/%s opened for %s: %d scripts, answer %d bytes, msgpack round trip %s")
         :format(PoggyCore.PREFIX, tostring((PoggyCoreConfig.Hub or {}).Command or "poggy"),
             GetPlayerName(src) or tostring(src), scripts, size, trip))
@@ -3756,7 +3890,7 @@ end
 register("open", function(src)
     local answer = I.ok(Hub.Open(src))
     -- Diagnostics only: never let the trace stop the hub opening.
-    if type(msgpack) == "table" then pcall(I.traceOpen, src, answer) end
+    pcall(I.traceOpen, src, answer)
     return answer
 end)
 

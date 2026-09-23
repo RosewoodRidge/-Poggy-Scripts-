@@ -487,13 +487,13 @@
     "PoggyCoreConfig.Updates": {"label": "Updates", "tab": "updates"},
     "PoggyCoreConfig.Updates.AutoUpdate": {
       "label": "Automatic updates",
-      "tooltip": "On: new versions of your Poggy scripts are installed on their own, at start and on every check. Your config values are kept and backups are made. Off: the console only tells you what is available.",
+      "tooltip": "On: new versions of your Poggy scripts are installed on their own when the server starts. Your config values are kept and backups are made. Off: the console only tells you what is available.",
       "tab": "updates",
       "group": "Automatic updates"
     },
     "PoggyCoreConfig.Updates.ApplyOnStart": {
       "label": "Install updates at start",
-      "tooltip": "Installs available updates when the server starts, even with automatic updates off. Updates found later are only reported.",
+      "tooltip": "Installs available updates when the server starts, even with automatic updates off.",
       "tab": "updates",
       "group": "Automatic updates"
     },
@@ -502,16 +502,6 @@
       "tooltip": "Lists every Poggy script with a newer version in the console when the server starts.",
       "tab": "updates",
       "group": "Automatic updates"
-    },
-    "PoggyCoreConfig.Updates.CheckIntervalMinutes": {
-      "label": "Check again every",
-      "tooltip": "How often to check for updates while the server runs, in minutes. 0 checks only at start.",
-      "tab": "updates",
-      "group": "Automatic updates",
-      "min": 0,
-      "max": 1440,
-      "step": 5,
-      "unit": "minutes"
     },
     "PoggyCoreConfig.Updates.StartDelaySeconds": {
       "label": "Start check delay",
@@ -527,12 +517,6 @@
     "PoggyCoreConfig.Updates.RestartUpdated": {
       "label": "Restart updated scripts",
       "tooltip": "After installing, restarts each updated script so the new version runs. Needs 'add_ace resource.poggy_core command.refresh allow' and '... command.ensure allow' in server.cfg. poggy_core itself only updates on the next server restart.",
-      "tab": "updates",
-      "group": "After installing"
-    },
-    "PoggyCoreConfig.Updates.RestartWhenEmptyOnly": {
-      "label": "Wait for an empty server",
-      "tooltip": "Updates installed while players are online are written at once, but the restarts wait until nobody is online. Updates at start restart at once.",
       "tab": "updates",
       "group": "After installing"
     },

@@ -376,6 +376,8 @@ ON DUPLICATE KEY UPDATE `defaults` = VALUES(`defaults`), `version` = VALUES(`ver
     if files then
         shipped[script.id] = { version = script.version, files = files, stamp = I.now() }
         I.forgetBuilt(script.folder)
+        -- Rebuilt now with its "changed" badges, so the next /poggy has them ready.
+        if Hub.QueueWarm then Hub.QueueWarm(script.id) end
     else
         shipped[script.id] = { version = script.version, failedAt = I.now() }
     end

@@ -166,13 +166,14 @@ PoggyCoreConfig.Updates = {
     StartDelaySeconds = 20,
 
     -- Automatic updates. On by default: your Poggy scripts keep themselves
-    -- current and you never install an update by hand.
-    --   true:  every available update is checked AND installed, at start and on
-    --          every periodic check. Config files are merged (your values kept),
-    --          originals are backed up in poggy_core/update_backups/.
+    -- current and you never install an update by hand. Updates are checked
+    -- once, when the server starts; `poggycore update all apply` installs
+    -- them while it runs.
+    --   true:  every available update is checked AND installed at start.
+    --          Config files are merged (your values kept), originals are
+    --          backed up in poggy_core/update_backups/.
     --   false: poggy_core only tells you in the console what is available.
     AutoUpdate           = true,
-    CheckIntervalMinutes = 60,     -- check again while running; 0 = only at start
     -- After installing, run `refresh` once and restart each updated resource.
     -- This needs two lines in server.cfg (poggy_core prints them if missing):
     --     add_ace resource.poggy_core command.refresh allow
@@ -180,9 +181,6 @@ PoggyCoreConfig.Updates = {
     -- poggy_core never restarts itself: its own update takes effect on the next
     -- server restart (or `refresh` then `ensure poggy_core` by hand).
     RestartUpdated       = true,
-    -- Updates installed while players are online: files are written at once, but
-    -- the restarts wait until the server is empty. At start they happen at once.
-    RestartWhenEmptyOnly = true,
 
     -- After the start-up check, list the published Poggy scripts this server
     -- does not have, once per boot: name and store link, grey, at most ten

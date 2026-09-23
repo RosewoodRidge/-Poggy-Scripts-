@@ -29,6 +29,33 @@ local function jobAllows(list)
     return PC.Allows(list, job)
 end
 
+--- Read the job again. This script starts on the client before the player
+--- picks a character, when there is no job to read, so a job read only once
+--- stays nil all session and every job-locked bench hides its prompt. It is
+--- read again when a character loads, when the job changes, and on a timer.
+local function refreshJob()
+    job = PC.Ask('poggy_crafting:job')
+end
+
+AddEventHandler('poggy_core:charLoadedLocal', function()
+    CreateThread(refreshJob)
+end)
+
+-- The event carries the new job name; the server is asked anyway, so a grade
+-- change (which carries the old name) and a missed field both come out right.
+AddEventHandler('poggy_core:jobChangedLocal', function()
+    CreateThread(refreshJob)
+end)
+
+-- Every 5 s while there is no job yet (still at character select), every 60 s
+-- after that, for a job set by something that sends no change event.
+CreateThread(function()
+    while true do
+        Wait(job and 60000 or 5000)
+        refreshJob()
+    end
+end)
+
 -- ===========================================================================
 --  Blips
 -- ===========================================================================
@@ -51,7 +78,9 @@ end
 -- ===========================================================================
 
 CreateThread(function()
-    if not PoggyReady() then return end
+    -- Keep waiting rather than giving up: a client whose core took longer than
+    -- PoggyReady's 30 s used to lose every bench prompt for the session.
+    while not PoggyReady() do Wait(5000) end
 
     promptGroup = PoggyPromptGroup:new(T('prompt_bench'))
     craftPrompt = PoggyPrompt:new(Config.PromptControl, T('prompt_craft'), promptGroup)
@@ -71,7 +100,7 @@ CreateThread(function()
         end
     end)
 
-    job = PC.Ask('poggy_crafting:job')
+    refreshJob()
     placeBlips()
 
     while true do
