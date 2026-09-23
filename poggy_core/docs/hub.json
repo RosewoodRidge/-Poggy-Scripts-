@@ -8,7 +8,8 @@
     {"title": "Using the settings hub", "file": "docs/help/settings-hub.md"},
     {"title": "Roles and job lists", "file": "docs/help/roles.md"},
     {"title": "Diagnostics commands", "file": "docs/help/diagnostics.md"},
-    {"title": "Bans", "file": "docs/help/bans.md"}
+    {"title": "Bans", "file": "docs/help/bans.md"},
+    {"title": "Theme", "file": "docs/help/theme.md"}
   ],
 
   "commands": [
@@ -207,6 +208,7 @@
     {"id": "hub", "label": "Settings hub", "icon": "sliders"},
     {"id": "storage", "label": "Storage & items", "icon": "box"},
     {"id": "interface", "label": "Menus & notifications", "icon": "chat"},
+    {"id": "theme", "label": "Theme", "icon": "palette"},
     {"id": "updates", "label": "Updates", "icon": "download"},
     {"id": "advanced", "label": "Advanced", "icon": "cog"}
   ],
@@ -472,6 +474,169 @@
       "tooltip": "Plays the game's menu sounds when moving, selecting and closing.",
       "tab": "interface",
       "group": "Menus and text boxes"
+    },
+    "PoggyCoreConfig.Theme": {
+      "label": "Theme",
+      "tab": "theme"
+    },
+    "PoggyCoreConfig.Theme.Preset": {
+      "label": "Theme",
+      "tooltip": "The look of every Poggy script's own screens (shops, the market, the auction house, tickets, transform and the rest) and of these menus. Screens drawn with pictures keep their art. Applies without a restart: each screen changes the next time it opens.",
+      "tab": "theme",
+      "group": "Theme",
+      "options": [
+        {
+          "value": "rosewood",
+          "label": "Rosewood: black and gold"
+        },
+        {
+          "value": "blackwater",
+          "label": "Blackwater Steel: slate and steel blue"
+        },
+        {
+          "value": "lemoyne",
+          "label": "Lemoyne Moss: dark green and moss"
+        },
+        {
+          "value": "saint_denis",
+          "label": "Saint Denis Wine: burgundy and rose"
+        },
+        {
+          "value": "ambarino",
+          "label": "Ambarino Frost: midnight and ice"
+        },
+        {
+          "value": "tumbleweed",
+          "label": "Tumbleweed Copper: leather and copper"
+        },
+        {
+          "value": "outlaw",
+          "label": "Outlaw Crimson: black and blood red"
+        },
+        {
+          "value": "silver",
+          "label": "Silver Dollar: charcoal and silver"
+        },
+        {
+          "value": "ledger",
+          "label": "Ledger: light parchment and dark ink"
+        },
+        {
+          "value": "custom",
+          "label": "Custom: the colours below"
+        }
+      ],
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.OwnLook": {
+      "label": "Scripts that keep their own colours",
+      "tooltip": "Product ids of Poggy scripts that should not follow the theme, e.g. poggy_supplydrops. Their screens look as they did before the theme existed.",
+      "tab": "theme",
+      "group": "Theme",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom": {
+      "label": "Custom theme",
+      "tab": "theme",
+      "group": "Colours for the custom theme"
+    },
+    "PoggyCoreConfig.Theme.Custom.Background": {
+      "label": "Panels",
+      "tooltip": "The colour of every panel. Dark colours give a dark theme, light ones a light theme.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Text": {
+      "label": "Writing",
+      "tooltip": "The main text colour. Pick something that reads clearly on the panel colour.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Accent": {
+      "label": "Accent",
+      "tooltip": "Highlights: the selected thing, the active tab, the main button, prices.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Success": {
+      "label": "Success",
+      "tooltip": "Good news: done, gained, available.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Danger": {
+      "label": "Danger",
+      "tooltip": "Bad news and destructive buttons: remove, lost, refused.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Warning": {
+      "label": "Warning",
+      "tooltip": "Take care: low, expiring, pending.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Info": {
+      "label": "Information",
+      "tooltip": "Neutral notes and information.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "picker": "color",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Opacity": {
+      "label": "Panel solidity",
+      "tooltip": "How solid a panel is: 1 hides the world behind it, 0.5 lets it show through.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "min": 0.5,
+      "max": 1,
+      "step": 0.01,
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Font": {
+      "label": "Lettering",
+      "tooltip": "Old style: a period serif for titles and labels, plain letters for numbers (the Poggy look). Book: one serif throughout. Clean: plain sans-serif throughout.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "options": [
+        {
+          "value": "fell",
+          "label": "Old style"
+        },
+        {
+          "value": "serif",
+          "label": "Book"
+        },
+        {
+          "value": "clean",
+          "label": "Clean"
+        }
+      ],
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.Custom.Corners": {
+      "label": "Corner rounding",
+      "tooltip": "0 keeps every corner square, as the Poggy look has it.",
+      "tab": "theme",
+      "group": "Colours for the custom theme",
+      "min": 0,
+      "max": 16,
+      "step": 1,
+      "unit": "px",
+      "live": true
     },
     "PoggyCoreConfig.Ui.Timeout": {
       "label": "Menu answer time limit",

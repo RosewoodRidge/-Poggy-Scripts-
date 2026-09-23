@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.22.0"
+version "0.23.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -19,6 +19,7 @@ shared_scripts {
     "shared/sh_frameworks.lua",   -- this game's framework table; before sh_detect.lua
     "shared/sh_detect.lua",
     "shared/sh_verbs.lua",
+    "shared/sh_theme.lua",           -- the Poggy theme's presets (0.23.0)
 }
 
 client_scripts {
@@ -30,6 +31,7 @@ client_scripts {
     "client/cl_prompt.lua",
     "client/cl_menu.lua",            -- the menu and text input (ui/); after cl_callbacks.lua, which it registers with
     "client/cl_hub.lua",             -- the settings hub, /poggy (0.18.0); after cl_callbacks.lua and cl_menu.lua
+    "client/cl_theme.lua",           -- the Poggy theme: answers every script's page (0.23.0); after the shared files
 }
 
 server_scripts {
@@ -55,6 +57,7 @@ server_scripts {
     "server/sv_updates.lua",
     "server/sv_hub.lua",             -- the settings hub, server side (0.18.0); after sv_settings_model.lua
     "server/sv_hub_save.lua",        -- the hub's saving, history, roles, restarts; after sv_hub.lua
+    "server/sv_theme.lua",           -- the Poggy theme, live from config.lua (0.23.0); after sv_util.lua
     "server/sv_bans.lua",            -- account bans and the connect check (0.19.0); after sv_sql.lua and sv_util.lua
     "server/sv_bannet.lua",          -- the shared ban network (0.20.0); after sv_bans.lua
     "server/sv_nettest.lua",

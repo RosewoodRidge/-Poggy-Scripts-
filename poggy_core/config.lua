@@ -236,6 +236,46 @@ PoggyCoreConfig.Ui = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Theme (0.23.0)
+-- ---------------------------------------------------------------------------
+--- One look for every Poggy script's own screens (shops, the market, the
+--- auction house, tickets, transform, ...) and for poggy_core's menus and
+--- /poggy. Screens drawn with pictures (a book, a leather ledger, a brass
+--- plate) keep their art. Changes here apply without a restart: each screen
+--- picks the new theme up the next time it opens.
+PoggyCoreConfig.Theme = {
+    --- rosewood     black and gold (the default)
+    --- blackwater   slate and steel blue
+    --- lemoyne      dark green and moss
+    --- saint_denis  burgundy and rose
+    --- ambarino     midnight and ice
+    --- tumbleweed   leather and copper
+    --- outlaw       black and blood red
+    --- silver       charcoal and silver
+    --- ledger       light parchment and dark ink
+    --- custom       the colours below
+    Preset = "rosewood",
+
+    --- Used when Preset is "custom". Colours are hex, "#rrggbb".
+    Custom = {
+        Background = "#141414",   -- the panels
+        Text       = "#f6efe3",   -- the writing
+        Accent     = "#d6ad68",   -- highlights, the selected thing, the main button
+        Success    = "#8fbf7f",
+        Danger     = "#d48a8a",
+        Warning    = "#e0b35a",
+        Info       = "#8fb3d9",
+        Opacity    = 0.94,        -- how solid a panel is, 0.5 to 1
+        Font       = "fell",      -- "fell" (old-style serif titles, the default), "serif", or "clean" (all sans-serif)
+        Corners    = 0,           -- corner rounding in pixels, 0 (square) to 16
+    },
+
+    --- Scripts that keep their own colours instead, by product id,
+    --- e.g. { "poggy_supplydrops" }.
+    OwnLook = {},
+}
+
+-- ---------------------------------------------------------------------------
 -- Settings hub (0.18.0)
 -- ---------------------------------------------------------------------------
 --- /poggy opens a full-screen hub in game where an admin edits every Poggy

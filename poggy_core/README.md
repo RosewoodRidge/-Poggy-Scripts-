@@ -300,6 +300,39 @@ it from the hub.
 
 ---
 
+## Theme (0.23.0)
+
+Every Poggy script's own screens, and poggy_core's menus and `/poggy`, share one
+look: the Poggy inventory's dark panels, thin light edges, square corners and
+one accent colour. Black and gold (**Rosewood**) by default. Pick another in
+`/poggy` → Poggy Core → **Theme**, or in `config.lua`:
+
+```lua
+PoggyCoreConfig.Theme = {
+    Preset  = "rosewood",   -- rosewood blackwater lemoyne saint_denis ambarino tumbleweed outlaw silver ledger custom
+    Custom  = { Background = "#141414", Text = "#f6efe3", Accent = "#d6ad68", ... },
+    OwnLook = {},           -- scripts that keep their own colours, e.g. { "poggy_supplydrops" }
+}
+```
+
+The theme is live: nothing restarts, and each screen takes the new look the next
+time it opens. Screens drawn with pictures (fishing's brass plate, the market's
+leather ledger) keep their art; set that script's own skin to `"default"` to
+give it the theme instead.
+
+**For script authors.** A page follows the theme with one line at the end of
+its `<head>`:
+
+```html
+<script src="https://cfx-nui-poggy_core/ui/hub/theme.js"></script>
+```
+
+and a skin in poggy_core, `ui/hub/theme-<poggy_id>.css`, that restyles it with
+the theme's `--pg-*` tokens. The bridge answers the page's request for the
+theme; nothing is ever sent into the page. Tokens, house style and rules:
+`docs/reference/poggy-theme-spec.md` on the development machine.
+`exports.poggy_core:ThemeFor(poggyId)` (client) returns what a page gets.
+
 ## Design rules
 
 These are promises, not preferences. Code against them.

@@ -6,12 +6,15 @@
     <!--
         poggy_core — the menu and the text input every Poggy script uses
         (menu.open, menu.close, input.text). One page, hidden until asked for,
-        no external fonts, scripts or images: nothing here needs the internet.
+        no external scripts or images. The theme's title font (IM Fell English)
+        comes from Google Fonts; offline, the Source Serif 4 in hub/fonts stands in.
         Driven by client/cl_menu.lua; see the message shapes at the top of script.js.
     -->
     <link rel="stylesheet" href="style.css">
     <!-- The settings hub (/poggy, 0.18.0): client/cl_hub.lua drives it. -->
     <link rel="stylesheet" href="hub/hub.css">
+    <!-- The Poggy theme (0.23.0): the same file every Poggy script's page loads. -->
+    <script src="hub/theme.js"></script>
 </head>
 <body>
 

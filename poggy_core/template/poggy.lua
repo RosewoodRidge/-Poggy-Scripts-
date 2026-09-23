@@ -79,7 +79,7 @@
     first time PoggyReady() passes on the server).
 ]]
 
-local BRIDGE_VERSION = "1.2.0"
+local BRIDGE_VERSION = "1.3.0"
 
 local RESOURCE = GetCurrentResourceName()
 local VERSION  = GetResourceMetadata(RESOURCE, "version", 0) or "?"
@@ -377,5 +377,26 @@ if IsDuplicityVersion() then
             return { ok = true }
         end
         return { ok = false, err = "SaveResourceFile returned false (does the folder exist?)" }
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- The Poggy theme (bridge 1.3.0, poggy_core 0.23.0)
+--
+-- A script's page that carries
+--     <script src="https://cfx-nui-poggy_core/ui/hub/theme.js"></script>
+-- asks this callback what it should look like; the answer is the theme the
+-- server owner chose in poggy_core (exports.poggy_core:ThemeFor). Nothing is
+-- ever pushed into the page, so the script's own message handler sees nothing
+-- new. An older poggy_core without ThemeFor answers {} and the page keeps the
+-- default look. docs/reference/poggy-theme-spec.md.
+-- ---------------------------------------------------------------------------
+if not IsDuplicityVersion() then
+    local themeId = nil
+
+    RegisterNUICallback("poggy_core:theme", function(_, cb)
+        themeId = themeId or poggyId()
+        local ok, t = pcall(function() return exports.poggy_core:ThemeFor(themeId) end)
+        cb(ok and type(t) == "table" and t or {})
     end)
 end

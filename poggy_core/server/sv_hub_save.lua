@@ -1607,6 +1607,16 @@ function Hub.Apply(src, script, changes, opts)
             script.id, table.concat(changedFiles, ", "))
     end
 
+    -- The theme is live (0.23.0): send it to every player now, no restart.
+    if script.folder == SELF and #changedFiles > 0 and PoggyCore.Theme then
+        for _, c in ipairs(changes) do
+            if type(c) == "table" and type(c.path) == "string" and c.path:find("^PoggyCoreConfig%.Theme") then
+                PoggyCore.Theme.Reload()
+                break
+            end
+        end
+    end
+
     -- 7. the answer
     local fresh = Hub.Build(script)
     local fps = {}
