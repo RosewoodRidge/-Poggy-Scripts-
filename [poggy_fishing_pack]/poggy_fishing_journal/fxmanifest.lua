@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_fishing_journal'
 author 'Poggy'
 description 'Fishing journal with a discoverable fish map and seasonal fish.'
-version '1.2.2'
+version '1.2.3'
 poggy_core_min '0.13.0'
 
 dependencies {
