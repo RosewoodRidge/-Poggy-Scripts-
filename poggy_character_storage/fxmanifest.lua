@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_character_storage'
 author 'Poggy'
 description 'Poggy Storage - Player-owned storage for RedM.'
-version '1.5.2'
+version '1.5.4'
 poggy_core_min '0.14.0'
 
 -- poggy_core provides character data, money, containers, notifications, the
