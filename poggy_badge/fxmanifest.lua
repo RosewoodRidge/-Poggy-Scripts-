@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_badge'
 author 'Poggy'
 description 'Poggy Badge – custom badge attachment, editor & display'
-version '1.3.1'
+version '1.3.2'
 poggy_core_min '0.13.0'
 
 dependencies {
