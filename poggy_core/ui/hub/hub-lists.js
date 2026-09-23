@@ -1168,6 +1168,40 @@
         return PH.IDENT.test(k) ? base + '.' + k : PH.joinPath(base, k);
     }
 
+    /**
+     * What an absent declared field shows until it is set (0.21.1): `default`
+     * from hub.json when given, else what its other metadata implies. Only the
+     * value on screen: nothing is queued until the person changes it.
+     */
+    function unsetValueOf(fm, listMeta, pattern) {
+        if (fm.default !== undefined) return PH.clone(fm.default);
+        if (fm.any && typeof fm.any === 'object') return fm.any.value === undefined ? 0 : fm.any.value;
+        if (Array.isArray(fm.options) && fm.options.length) return fm.options[0].value;
+        if (fm.picker === 'coords') return { __type: 'vec3', x: 0, y: 0, z: 0 };
+        if (typeof fm.min === 'number' || typeof fm.max === 'number' || typeof fm.step === 'number') return fm.min || 0;
+        if ((listMeta && listMeta.fields || {})[pattern + '[]']) return [];
+        return '';
+    }
+
+    /** Fields hub.json declares under this pattern that the row does not have, oldest first. */
+    function unsetKeys(v, pattern, listMeta) {
+        var fields = (listMeta && listMeta.fields) || {};
+        var prefix = pattern ? pattern + '.' : '';
+        var out = [];
+        Object.keys(fields).forEach(function (f) {
+            if (prefix && f.indexOf(prefix) !== 0) return;
+            var name = f.slice(prefix.length);
+            if (!PH.IDENT.test(name) || Object.prototype.hasOwnProperty.call(v, name) || out.indexOf(name) !== -1) return;
+            if (fields[f] && fields[f].hidden) return;
+            // A group of settings (Blip, with Blip.Hash and Blip.enable under it)
+            // cannot be shown as one value; only a `default` says what it would be.
+            var isGroup = Object.keys(fields).some(function (g) { return g.indexOf(f + '.') === 0; });
+            if (isGroup && (fields[f] || {}).default === undefined) return;
+            out.push(name);
+        });
+        return out;
+    }
+
     function renderObject(host, ctx) {
         var v = ctx.value;
         var skip = {};
@@ -1175,12 +1209,28 @@
         var keys = orderedKeys(v, ctx.pattern, ctx.listMeta).filter(function (k) { return !skip[k]; });
         var plain = keys.filter(function (k) { var x = v[k]; return !PH.isPlainObj(x) && !(Array.isArray(x) && x.some(function (y) { return y && typeof y === 'object' && !PH.isVec(y) && !PH.isHash(y); })); });
         var nested = keys.filter(function (k) { return plain.indexOf(k) === -1; });
+        // A field hub.json declares but this row does not have (an ingredient
+        // with no `take` line): shown all the same, marked "Not set", so it can
+        // be switched on. Britannia could not make an item a tool because the
+        // toggle only ever appeared on rows that already had the line.
+        var unset = ctx.pattern === undefined ? [] : unsetKeys(v, ctx.pattern, ctx.listMeta).filter(function (k) { return !skip[k]; });
 
         function renderKey(target, k) {
             L.renderValue(target, {
                 path: childPathOf(ctx.path, k), value: v[k], pattern: childPattern(ctx.pattern, k, false), listMeta: ctx.listMeta,
                 file: ctx.file, depth: ctx.depth + 1, label: PH.readable(k), onChange: ctx.onChange,
             });
+        }
+        function renderUnset(target, k) {
+            var pattern = childPattern(ctx.pattern, k, false);
+            var fm = fieldMeta(ctx.listMeta, pattern);
+            var em = fieldMeta(ctx.listMeta, pattern + '[]');
+            if ((em.picker) && !fm.picker && (fm.any || fm.default === undefined)) fm = Object.assign({}, fm, { picker: em.picker });
+            target.appendChild(F.field({
+                path: childPathOf(ctx.path, k), value: unsetValueOf(fm, ctx.listMeta, pattern), meta: fm,
+                label: fm.label || PH.readable(k), tooltip: fm.tooltip || '',
+                stack: true, unset: true, onChange: ctx.onChange,
+            }));
         }
 
         if (ctx.big && plain.length > 24) {
@@ -1192,7 +1242,8 @@
         } else {
             var grid = h('div.ph-rowgrid');
             plain.forEach(function (k) { renderKey(grid, k); });
-            if (plain.length) host.appendChild(grid);
+            unset.forEach(function (k) { renderUnset(grid, k); });
+            if (plain.length || unset.length) host.appendChild(grid);
             // A position kept as separate numbers (x, y, z, maybe h / heading):
             // the same tools a vector3 has, under the last of its boxes.
             var axis = {};
@@ -1224,7 +1275,7 @@
             });
             host.appendChild(sec.el);
         });
-        if (!plain.length && !nested.length) host.appendChild(h('div.ph-coll__empty', 'No other fields.'));
+        if (!plain.length && !nested.length && !unset.length) host.appendChild(h('div.ph-coll__empty', 'No other fields.'));
     }
 
     function nest(title, sub, open) {

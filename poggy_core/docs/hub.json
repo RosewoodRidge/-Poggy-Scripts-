@@ -286,15 +286,17 @@
       "group": "Detection",
       "options": [
         {"value": false, "label": "Detect automatically"},
-        {"value": "vorp", "label": "VORP"},
-        {"value": "rsg", "label": "RSG"},
-        {"value": "qbr", "label": "QBR"},
+        {"value": "vorp", "label": "VORP (RedM)"},
+        {"value": "rsg", "label": "RSG (RedM)"},
+        {"value": "qbr", "label": "QBR (RedM)"},
+        {"value": "esx", "label": "ESX (FiveM)"},
+        {"value": "qbcore", "label": "QBCore (FiveM)"},
         {"value": "standalone", "label": "No framework (standalone)"}
       ]
     },
     "PoggyCoreConfig.DetectionOrder": {
       "label": "Detection order",
-      "tooltip": "When detecting, the first framework in this list whose core is running wins. Only matters when more than one framework core is running. Names: vorp, rsg, qbr, redem, rpx.",
+      "tooltip": "When detecting, the first framework in this list whose core is running wins. Only matters when more than one framework core is running. Names: vorp, rsg, qbr, redem, rpx on RedM; esx, qbcore on FiveM. The other game's names are simply skipped.",
       "tab": "general",
       "group": "Detection",
       "advanced": true

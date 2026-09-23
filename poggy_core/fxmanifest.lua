@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.20.4"
+version "0.21.1"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -16,6 +16,7 @@ version "0.20.4"
 shared_scripts {
     "config.lua",
     "shared/sh_api.lua",
+    "shared/sh_frameworks.lua",   -- this game's framework table; before sh_detect.lua
     "shared/sh_detect.lua",
     "shared/sh_verbs.lua",
 }

@@ -1968,7 +1968,8 @@
     /**
      * A whole field row.
      * spec: { path, value, label, tooltip, meta, node (top-level node, optional),
-     *         stack (label above control), roleable, readonly, onChange() }
+     *         stack (label above control), roleable, readonly, onChange(),
+     *         unset (the file has no line for this yet: `value` is what it means until set) }
      * Returns the element; el.refresh() re-reads the working value.
      */
     F.field = function (spec) {
@@ -1976,7 +1977,7 @@
         var meta = spec.meta || {};
         var label = spec.label || PH.readable(String(spec.path).split(/[.\[]/).pop().replace(/[\]"]/g, ''));
         var tooltip = spec.tooltip || '';
-        var el = h('div.ph-field' + (spec.stack ? '.ph-field--stack' : '') + (meta.advanced ? '.is-advanced' : ''), { dataset: { path: PH.canon(spec.path) } });
+        var el = h('div.ph-field' + (spec.stack ? '.ph-field--stack' : '') + (meta.advanced ? '.is-advanced' : '') + (spec.unset ? '.is-unset' : ''), { dataset: { path: PH.canon(spec.path) } });
         var errEl = h('div.ph-field__error');
         var badges = h('span.ph-field__badges');
         var resetBtn = null;
@@ -2030,6 +2031,11 @@
             if (differs) badges.appendChild(h('span.ph-badge.ph-badge--changed', { title: 'Different from the shipped default' }, 'Changed'));
             if (pending) badges.appendChild(h('span.ph-badge.ph-badge--pending', { title: 'Not saved yet' }, 'Unsaved'));
             if (meta.advanced) badges.appendChild(h('span.ph-badge.ph-badge--adv', 'Advanced'));
+            // Declared in hub.json, not in the file: the value shown is what the
+            // script assumes. Setting it writes the line (and the badge goes).
+            var stillUnset = !!spec.unset && !pending && S.get(spec.path) === undefined;
+            if (stillUnset) badges.appendChild(h('span.ph-badge.ph-badge--unset', { title: 'The file has no line for this yet. What is shown is what the script assumes; change it to add the line.' }, 'Not set'));
+            el.classList.toggle('is-unset', stillUnset);
             el.classList.toggle('is-pending', pending);
             el.classList.toggle('is-changed', differs);
             if (resetBtn) resetBtn.classList.toggle('is-hidden', !differs || S.isReadOnly());

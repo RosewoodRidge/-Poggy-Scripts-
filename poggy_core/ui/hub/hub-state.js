@@ -178,7 +178,10 @@
             return true;
         }
         var key = typeof last === 'number' ? String(last) : last;
-        if (!(key in parent)) return false;
+        // A field the row does not have yet (an ingredient with no `take` line)
+        // may be set: the server adds the line to the row. Anything else that is
+        // not there is a path that vanished, and is refused as before.
+        if (!(key in parent) && !(typeof last === 'string' && PH.IDENT.test(last))) return false;
         parent[key] = value;
         return true;
     }

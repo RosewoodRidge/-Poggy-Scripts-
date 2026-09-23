@@ -308,6 +308,10 @@ html { font-size: clamp(13.5px, calc(8.8px + 0.42vw), 21px); }
 .ph-badge--changed { color: var(--ph-tan); background: rgba(242, 205, 160, 0.1); border: 1px solid rgba(242, 205, 160, 0.35); }
 .ph-badge--pending { color: #1a1110; background: var(--ph-clay); border: 1px solid var(--ph-clay); }
 .ph-badge--adv { color: var(--ph-ink-faint); border: 1px dashed var(--ph-rule-strong); }
+/* A declared field the file has no line for yet: shown at what the script assumes, muted until it is set. */
+.ph-badge--unset { color: var(--ph-ink-faint); border: 1px dotted var(--ph-rule-strong); }
+.ph-field.is-unset .ph-field__ctl { opacity: .72; }
+.ph-field.is-unset .ph-field__ctl:hover, .ph-field.is-unset .ph-field__ctl:focus-within { opacity: 1; }
 
 .ph-status {
     display: inline-flex; align-items: center; gap: .45em;

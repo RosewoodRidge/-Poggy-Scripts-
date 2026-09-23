@@ -12,14 +12,21 @@ PoggyCoreConfig = {}
 -- ---------------------------------------------------------------------------
 
 --- Force a framework instead of detecting one.
---- One of: 'vorp', 'rsg', 'qbr', 'redem', 'rpx', 'standalone', or false to detect.
---- Useful on a server mid-migration that has two framework cores present.
+--- RedM:  'vorp', 'rsg', 'qbr', 'redem', 'rpx'
+--- FiveM: 'esx', 'qbcore'
+--- ...or 'standalone', or false to detect. Useful on a server mid-migration
+--- that has two framework cores present.
 PoggyCoreConfig.ForceFramework = false
 
 --- Detection order. The first framework whose core resource is *started* and
 --- whose handshake succeeds wins. VORP is first here deliberately: poggy_util
 --- checked RSG first, which meant a server running both resolved to RSG.
-PoggyCoreConfig.DetectionOrder = { "vorp", "rsg", "qbr", "redem", "rpx" }
+---
+--- Both games' frameworks are listed in one order on purpose. Only the current
+--- game's frameworks exist in PoggyCore.Frameworks, and an id that is not there
+--- is skipped, so the FiveM entries are inert on RedM and the RedM entries are
+--- inert on FiveM. One list, nothing to keep in step.
+PoggyCoreConfig.DetectionOrder = { "vorp", "rsg", "qbr", "esx", "qbcore", "redem", "rpx" }
 
 --- How long to wait for the framework core object before giving up (ms).
 PoggyCoreConfig.FrameworkTimeout = 30000

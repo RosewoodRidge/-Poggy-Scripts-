@@ -1,7 +1,12 @@
 # poggy_core
 
-One documented framework API for RedM. Write a script once; run it on VORP, RSG
-Core or QBCore RedM.
+One documented framework API. Write a script once; run it on **RedM** (VORP, RSG
+Core, QBCore RedM) or **FiveM** (ESX, QBCore).
+
+The two games ship as separate products built from one source: the folder is
+`poggy_core` on both, the feed id is `poggy_core` on RedM and
+`poggy_core_fivem` on FiveM, so a server is never sent the other game's files.
+See [FiveM](#fivem-esx-and-qbcore-0210).
 
 **Version 0.17.1.** Admins on the framework's user record now pass `perms.isAdmin`; see [Fixed in 0.17.1](#fixed-in-0171-admins-on-the-user-record). The VORP adapter is complete and every Poggy resource runs
 on it through `Poggy(verb, payload)`; see [Verbs added in 0.11.0](#verbs-added-in-0110).
@@ -884,6 +889,83 @@ qbr-inventory and the `stashitems` table), `storage.weapons`, `permissions`,
 `char.offline` and `job.persist` (need oxmysql), `menu.native` (needs
 qbr-menu). Not declared: `money.rol`, `inventory.carrycheck`,
 `storage.persist`, `storage.permissions`.
+
+---
+
+## FiveM: ESX and QBCore (0.21.0)
+
+Both adapters were written from the installed source on the FiveM test servers
+and **neither has run on a live server yet**. Until they have, treat every line
+below as a claim to check with `poggycore test` and `poggycore selftest full`.
+
+The verb contract is identical on both games. What differs is what a framework
+can actually do, and that is what `Core.Has(capability)` is for — a script that
+asks before it acts works on all five frameworks without a branch.
+
+### ESX
+
+`server/adapters/esx.lua`, against es_extended 1.15.2 with esx_identity,
+esx_addoninventory and esx_notify.
+
+| Area | On ESX |
+|---|---|
+| Character | `charId` is `xPlayer.identifier`; with esx_multicharacter that is `char1:<licence>`, so the slot lives inside the string and there is no numeric character id. `ownerId` is the bare licence. Names come from esx_identity's variables, falling back to splitting the player name; gender from `sex` |
+| Money | `cash` is the `money` account, `bank` is `bank`. No `gold`, no `rol`. `black_money` is deliberately not exposed as a currency. Every overdraw is `no_funds`: ESX itself does not check the balance and would go negative |
+| Jobs | one job per character — **no multi-job of any kind**. `Job.Set` reads the job back, because ESX's `setJob` prints and returns for a job it does not know. Duty is `setJob`'s third argument and persists in `metadata.jobDuty`. The job list is cached at start, because `GetJobs` blocks |
+| Inventory | weight only: no slots, and **no per-item metadata**, so `Inv.SetMeta` refuses. An item must already be a row in the `items` table or the add fails silently, so an unknown name answers `not_found`. `canCarryItem` is the carry check |
+| Weapons | ESX's separate loadout, not items, so they never appear in `Inv.Get` |
+| Storage | `esx_addoninventory` shared inventories. Reading and writing work; **`Storage.Open` refuses**, because stock ESX ships no stash UI at all. Counts are checked from the items table first, since `getItem` creates a zero row as a side effect and `removeItem` has no floor |
+| Offline | the `users` table by identifier; first and last names exist only when esx_identity has added the columns |
+| Item registry | `ESX.GetItems()`. **No item images**: stock ESX draws FontAwesome class names, so `Inv.ImageBase()` is nil |
+| Notifications | poggy_core's native renderer as everywhere; the `framework` renderer goes through `xPlayer.showNotification` and never `esx_notify` directly, because ESX's own wrapper un-swaps the message and type arguments |
+| Menus | `esx_menu_default` or `esx_context` when started |
+| Escape hatch | `Core.Native()` is the ESX shared object: `Core.Native().GetPlayerFromId(src)` |
+
+Detection: `exports['es_extended']:getSharedObject()` must answer a table with
+`GetPlayerFromId`. Note ESX 1.15.2 also needs `esx_lib` started; without it the
+core is half-working and poggy_core says so at start.
+
+Caps declared: `money.cash`, `money.bank`, `char.onduty`, `job.registry`,
+`job.duty`, `job.event`, `inventory.items`, `inventory.weapons`,
+`inventory.carrycheck`, `inventory.registry`, `storage`, `storage.persist`,
+`permissions`, `char.offline` and `job.persist` (need oxmysql), `menu.native`
+(needs esx_menu_default or esx_context). Not declared: `money.gold`,
+`money.rol`, `inventory.metadata`, `storage.permissions`, `storage.weapons`.
+
+### QBCore
+
+`server/adapters/qbcore.lua`, against qb-core 1.3.0 and qb-inventory 2.2.3.
+It is the sibling of the QBR adapter, but not a copy: the FiveM stack has real
+exports where QBR needed workarounds.
+
+| Area | On QBCore |
+|---|---|
+| Character | `charId` is the `citizenid`; `ownerId` the licence; `group` the highest ACE level in the configured `Permissions` order; gender from `charinfo.gender` (0/1) |
+| Money | `cash`, `bank`. No `gold` — the third type here is `crypto`, which is not a poggy currency. Every overdraw is `no_funds`, which is stricter than qb-core's own -5000 `MinusLimit` and makes `ok` mean the same thing on every framework |
+| Jobs | grades are keyed by the stringified number and labels come from the shared table; `Job.Set` answers `not_found` for a job it does not know. `SetDuty` works. `QBCore:Server:OnJobUpdate` fires, so unlike QBR there is no client poke |
+| Inventory | qb-inventory's exports. `CanAddItem` is a real carry check. `Inv.Remove` spans stacks because `RemoveItem` is single-slot; a failure part way has already taken what it took. `SetMeta` writes one key per call |
+| Weapons | a view over `type = 'weapon'` items; the serial is `info.serie`, which qb-inventory stamps itself |
+| Storage | qb-inventory stashes through `CreateInventory` / `OpenInventory` / `CloseInventory`. Capacity is **not** persisted — the `inventories` row holds items only — so poggy_core keeps the definitions and replays them before every operation, or qb-inventory refuses the write |
+| Offline | `GetOfflinePlayerByCitizenId`; appearance is `{ model, skin }`, because FiveM's `playerskins` has no `clothes` column |
+| Item registry | `GetShared('Items')`, read fresh each time because a cached core object goes stale after `AddItem`. Images under `nui://qb-inventory/html/images/` by the item's `image` field, which is often not `name.png` |
+| Notifications | the `framework` renderer sends `QBCore:Notify` with a **variant name** (`success`, `error`, `warning`, `primary`), not QBR's numeric style; a title with a description becomes `{ text, caption }` |
+| Menus | `qb-menu` when started |
+| Escape hatch | `Core.Native()` is the qb-core core object: `Core.Native().Functions.GetPlayer(src)` |
+
+Detection: `exports['qb-core']:GetCoreObject()` must answer a table with
+`Functions`. What comes back is a copy, so the adapter re-fetches the player on
+every call and mutates only through `Player.Functions.*`.
+
+Caps declared: everything ESX declares, plus `inventory.metadata` and
+`storage.weapons`. Not declared: `money.gold`, `money.rol`,
+`storage.permissions`.
+
+### What is not there yet
+
+`Inv.UnregisterUsable` refuses on **both**: ESX has no deregistration at all,
+and qb-core's `CreateUseableItem(key, nil)` is a no-op that leaves the old
+handler running. A script that stops leaves its handler behind until something
+overwrites it, which is why poggy_core re-registers unconditionally at start.
 
 ---
 
