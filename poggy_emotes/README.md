@@ -14,13 +14,14 @@ each emote out before you commit to it.
 4. [Commands and keys](#commands-and-keys)
 5. [Using the menu](#using-the-menu)
 6. [Categories](#categories)
-7. [Adding your own emotes](#adding-your-own-emotes)
-8. [Hiding emotes](#hiding-emotes)
-9. [Configuration](#configuration)
-10. [Database](#database)
-11. [Translations](#translations)
-12. [Upgrading from another emote script](#upgrading-from-another-emote-script)
-13. [Troubleshooting](#troubleshooting)
+7. [The Nearby tab](#the-nearby-tab)
+8. [Adding your own emotes](#adding-your-own-emotes)
+9. [Hiding emotes](#hiding-emotes)
+10. [Configuration](#configuration)
+11. [Database](#database)
+12. [Translations](#translations)
+13. [Upgrading from another emote script](#upgrading-from-another-emote-script)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -28,6 +29,7 @@ each emote out before you commit to it.
 
 | Feature | What it does |
 |---|---|
+| **Nearby** | The first tab is not emotes: it is what you can do with what is around you. Sit on that chair, stand at the bar, lean on that railing, pump that water. Pick one and your character walks over and does it. |
 | **330+ emotes** | Scenarios, animations and the game's own built-in emotes, sorted into eight categories. |
 | **Search** | Type any part of a name. The search looks across every category at once, not just the one you have open. |
 | **Favourites** | Star the ones you use. They are saved to your character and are there when you come back. |
@@ -116,10 +118,11 @@ Emotes marked **PROP** put something in your character's hand.
 
 ## Categories
 
-Eight ship with the script, plus two the script builds for each player:
+Eight ship with the script, plus three the script builds for each player:
 
 | Category | What is in it |
 |---|---|
+| Nearby | What the player can do with the things around them right now. See [The Nearby tab](#the-nearby-tab). |
 | Favourites | The emotes that player starred. |
 | Recent | The emotes that player played last. |
 | Gestures & Reactions | Waves, claps, points, insults, greetings. |
@@ -133,6 +136,50 @@ Eight ship with the script, plus two the script builds for each player:
 
 Which categories appear, and their order, is `Config.Menu.CategoryOrder`.
 Remove one to hide it and every emote in it.
+
+---
+
+## The Nearby tab
+
+Chairs, benches, bars, pianos, water pumps, stoves, campfires and railings
+all carry **scenario points**: the spots the game's own NPCs sit, stand and
+work at. The Nearby tab asks the game which points are around the player and
+lists them as actions, grouped by the thing they belong to, closest first:
+
+```
+CHAIR - 1.2 m
+  Sit down
+  Sit and drink
+  Sit at the table
+SPOT - 2.4 m
+  Stand at the bar
+WALL - 0.6 m
+  Lean back on the wall
+  Lean on the wall (left side)
+```
+
+Pick one and the character walks over, turns, and plays the enter animation
+the way an NPC would. Nothing is teleported. `Backspace`, `/ec` or **Stop
+emote** ends it, whether the character is still walking or already sitting.
+Any prop the game handed out on the way (a broom, a pitchfork, the hay on it)
+is put away with it, and one the exit animation dropped on the ground is
+removed too.
+
+With the mouse off the menu the player keeps their controls and can walk
+about with the menu open; the list follows them. Over the menu, the game gets
+no input. There is no preview character on this tab. A dev (an admin, or
+anyone with the ACE `poggy_emotes.nearby.block`) sees an `×` on every row:
+click, choose **Here only** or **Everywhere**, and that action is off the tab
+for everyone. The block is written into `Config.Nearby.Blocked` in
+`config.lua`, so it survives updates and ports with the file. That is how the
+scenarios that are broken in custom-built areas get found and removed in play.
+
+Two config lists add actions for things the game has no point for:
+`Config.Nearby.Keywords` (a scenario for any prop whose model name contains a
+word: lean on any barrel, rummage in any crate, knock on any door) and
+`Config.Nearby.Wall` (a wall found beside the player). Everything is under
+`Config.Nearby`, and in `/poggy` on the Nearby tab. The help page **The
+Nearby tab** covers naming, hiding and adding actions.
 
 ---
 

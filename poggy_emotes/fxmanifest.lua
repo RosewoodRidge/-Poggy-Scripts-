@@ -5,8 +5,8 @@ lua54 'yes'
 
 poggy_id 'poggy_emotes'
 author 'Poggy'
-description 'A searchable emote menu with 330+ animations, favourites, recents and a live preview.'
-version '1.0.1'
+description 'A searchable emote menu with 330+ animations, favourites, recents, a live preview, and a Nearby tab for the chairs, bars and props around you.'
+version '1.1.1'
 poggy_core_min '0.13.0'
 
 dependencies {
@@ -23,7 +23,11 @@ shared_scripts {
 }
 
 client_scripts {
+    'client/dataview.lua',
+    'client/object_names.lua',
+    'client/scenario_names.lua',
     'client/player.lua',
+    'client/nearby.lua',
     'client/preview.lua',
     'client/ragdoll.lua',
     'client/main.lua',

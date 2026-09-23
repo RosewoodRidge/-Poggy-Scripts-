@@ -138,6 +138,7 @@ Config.Menu = {
     -- 'favourites' and 'recent' are built by the script; the rest come from
     -- the category field in shared/emotes.lua and Config.CustomEmotes.
     CategoryOrder = {
+        "nearby",
         "favourites",
         "recent",
         "gestures",
@@ -148,6 +149,198 @@ Config.Menu = {
         "consume",
         "dance",
         "injury",
+    },
+}
+
+-- ============================================================================
+--  Nearby: what the player can do with what is around them
+-- ============================================================================
+-- The Nearby category lists actions for the things around the player: sit on
+-- that chair, lean on that railing, stand at the bar, pump that water. Pick
+-- one and the character walks over and does it. Nothing is teleported.
+--
+-- Most of it comes from the game itself. Chairs, benches, pianos, bars, pumps,
+-- stoves, campfires and railings carry scenario points that the game's own
+-- NPCs use; the script lists the ones nearby and lets the player use them the
+-- way an NPC would. The keyword and wall lists below add actions for things
+-- the game has no point for.
+
+Config.Nearby = {
+    -- Show the Nearby category at all. Off removes it from the menu.
+    Enabled = true,
+
+    -- How far around the player to look, in metres.
+    Radius = 4.0,
+
+    -- The most rows the category shows at once. Closest things first.
+    MaxRows = 40,
+
+    -- Seconds the character may go without getting any closer to the spot
+    -- before the action is cancelled with a message. Counted from the last
+    -- step of progress, not from the press, so a long way round a table is
+    -- fine; standing against a wall for this long is not.
+    WalkTimeout = 10,
+
+    -- The most scenario points the game is asked to report in one scan.
+    PointLimit = 48,
+
+    -- Only scenario types whose name starts with one of these are offered.
+    -- Everything else (animal, ambient-only, cutscene types) is hidden.
+    Prefixes = { "PROP_HUMAN_", "WORLD_HUMAN_", "PROP_PLAYER_", "WORLD_PLAYER_", "PROP_CAMP_", "MP_LOBBY_" },
+
+    -- Lua patterns. A scenario type matching any of them is never listed.
+    Hidden = { "_SPAWN", "_DEAD", "_CORPSE", "PROP_HUMAN_HITCH", "ANIMAL" },
+
+    -- List scenario types the game reports but the script has no name for
+    -- (shown as a hex number). Useful when hunting for one to label.
+    ShowUnknown = false,
+
+    -- Also ask the game whether this character may use the point. Turn on if
+    -- rows appear that the character then refuses; off if the list is empty.
+    RequireUsable = false,
+
+    -- Blocking from in game. A dev sees an x on every Nearby row; clicking it
+    -- and confirming takes that action off the tab for everyone, at once, and
+    -- writes it into the Blocked list below, so it is kept with the config,
+    -- survives updates, and ports with the file. Some of the game's scenarios
+    -- are badly broken in custom-built areas, and this is how they are found
+    -- and removed in play. A blocked row stays visible to devs, crossed out,
+    -- so it can be allowed again from the same place.
+    --
+    -- Who is a dev: anyone poggy_core says is an admin (when AdminsCanBlock is
+    -- on), and anyone with the ACE below in server.cfg, e.g.
+    --   add_ace group.dev poggy_emotes.nearby.block allow
+    AdminsCanBlock = true,
+    BlockAce = "poggy_emotes.nearby.block",
+
+    -- A block with x, y, z is for that one spot only (within BlockRadius
+    -- metres); one without is for that scenario type everywhere. The x in
+    -- the menu offers both. Rows may also be added by hand.
+    BlockRadius = 0.75,
+    Blocked = {
+    },
+
+    -- Friendly names for scenario types. Anything not listed is named from the
+    -- scenario itself ("PROP_HUMAN_SEAT_CHAIR_DRINKING" -> "Seat Chair Drinking").
+    Labels = {
+        { scenario = "PROP_HUMAN_SEAT_CHAIR",                label = "Sit down" },
+        { scenario = "PROP_HUMAN_SEAT_CHAIR_DRINKING",       label = "Sit and drink" },
+        { scenario = "PROP_HUMAN_SEAT_CHAIR_TABLE",          label = "Sit at the table" },
+        { scenario = "PROP_HUMAN_SEAT_CHAIR_PORCH",          label = "Sit on the porch" },
+        { scenario = "PROP_HUMAN_SEAT_CHAIR_READING",        label = "Sit and read" },
+        { scenario = "PROP_HUMAN_SEAT_CHAIR_KNITTING",       label = "Sit and knit" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH",                label = "Sit on the bench" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH_DRINKING",       label = "Sit and drink" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH_SMOKING",        label = "Sit and smoke" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH_PORCH",          label = "Sit on the porch" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH_PORCH_DRINKING", label = "Sit and drink" },
+        { scenario = "PROP_HUMAN_SEAT_BENCH_PORCH_SMOKING",  label = "Sit and smoke" },
+        { scenario = "PROP_HUMAN_PIANO",                     label = "Play the piano" },
+        { scenario = "PROP_HUMAN_ABIGAIL_PIANO",             label = "Play the piano" },
+        { scenario = "PROP_HUMAN_SLEEP_BED_PILLOW",          label = "Sleep" },
+        { scenario = "PROP_HUMAN_SLEEP_BED_PILLOW_HIGH",     label = "Sleep" },
+        { scenario = "PROP_HUMAN_PUMP_WATER",                label = "Pump water" },
+        { scenario = "PROP_HUMAN_WOOD_CHOP",                 label = "Chop wood" },
+        { scenario = "PROP_HUMAN_GRINDSTONE",                label = "Use the grindstone" },
+        { scenario = "WORLD_HUMAN_BARCUSTOMER",              label = "Stand at the bar" },
+        { scenario = "WORLD_HUMAN_LEAN_RAILING",             label = "Lean on the railing" },
+        { scenario = "WORLD_HUMAN_LEAN_BACK_RAILING",        label = "Lean back on the railing" },
+        { scenario = "WORLD_HUMAN_LEAN_BARREL",              label = "Lean on the barrel" },
+        { scenario = "WORLD_HUMAN_LEAN_BACK_WALL",           label = "Lean on the wall" },
+        { scenario = "WORLD_HUMAN_LEAN_WALL_LEFT",           label = "Lean on the wall (left)" },
+        { scenario = "WORLD_HUMAN_LEAN_WALL_RIGHT",          label = "Lean on the wall (right)" },
+        { scenario = "WORLD_HUMAN_FIRE_STAND",               label = "Stand by the fire" },
+        { scenario = "WORLD_HUMAN_FIRE_SIT",                 label = "Sit by the fire" },
+        { scenario = "WORLD_HUMAN_CAULDRON_STIR",            label = "Stir the pot" },
+        { scenario = "WORLD_HUMAN_STIR_SOUP",                label = "Stir the soup" },
+        { scenario = "WORLD_HUMAN_CLEAN_TABLE",              label = "Wipe the table" },
+        { scenario = "WORLD_HUMAN_SHOP_BROWSE_COUNTER",      label = "Browse" },
+        { scenario = "WORLD_HUMAN_WASH_FACE_BUCKET_GROUND",  label = "Wash your face" },
+        { scenario = "WORLD_HUMAN_WASHBOARD_BASIN",          label = "Wash clothes" },
+        { scenario = "WORLD_HUMAN_KNOCK_DOOR",               label = "Knock" },
+        { scenario = "WORLD_HUMAN_CLEAN_WINDOW",             label = "Clean the window" },
+        { scenario = "WORLD_HUMAN_GRAVE_MOURNING",           label = "Mourn" },
+        { scenario = "WORLD_HUMAN_GRAVE_MOURNING_KNEEL",     label = "Kneel and mourn" },
+        { scenario = "WORLD_HUMAN_SAW_WOOD",                 label = "Saw wood" },
+        { scenario = "WORLD_HUMAN_PLANE_WOOD",               label = "Plane wood" },
+        { scenario = "WORLD_HUMAN_HAMMER_TABLE",             label = "Hammer" },
+        { scenario = "WORLD_HUMAN_PITCH_HAY_SCOOP",          label = "Pitch hay" },
+        { scenario = "WORLD_HUMAN_SIT_GROUND",               label = "Sit on the ground" },
+        { scenario = "WORLD_PLAYER_SLEEP_GROUND",            label = "Sleep on the ground" },
+        { scenario = "WORLD_PLAYER_SLEEP_BEDROLL",           label = "Sleep in the bedroll" },
+    },
+
+    -- Actions for props the game has no scenario point for, matched on the
+    -- prop's model name. keywords = plain text that must appear in the name;
+    -- distance = metres from the prop's edge to stand; face = "toward" the
+    -- prop or "away" from it (back to it, for leaning and sitting on edges).
+    Keywords = {
+        { keywords = { "barrel", "keg" },                 label = "Lean on it",          scenario = "WORLD_HUMAN_LEAN_BARREL",       distance = 0.1, face = "toward" },
+        { keywords = { "rail", "fence", "balustrade" },   label = "Lean on the railing", scenario = "WORLD_HUMAN_LEAN_RAILING",      distance = 0.1, face = "toward" },
+        { keywords = { "rail", "fence" },                 label = "Lean back on it",     scenario = "WORLD_HUMAN_LEAN_BACK_RAILING", distance = 0.1, face = "away" },
+        { keywords = { "post", "pole", "pillar", "column", "lamp" }, label = "Lean on it (left)",  scenario = "WORLD_HUMAN_LEAN_POST_LEFT",  distance = 0.15, face = "away" },
+        { keywords = { "post", "pole", "pillar", "column", "lamp" }, label = "Lean on it (right)", scenario = "WORLD_HUMAN_LEAN_POST_RIGHT", distance = 0.15, face = "away" },
+        { keywords = { "table", "desk", "counter" },      label = "Wipe it down",        scenario = "WORLD_HUMAN_CLEAN_TABLE",       distance = 0.2, face = "toward" },
+        { keywords = { "table", "desk" },                 label = "Write in a notebook", scenario = "WORLD_HUMAN_WRITE_NOTEBOOK",    distance = 0.2, face = "toward" },
+        { keywords = { "table", "desk" },                 label = "Lean and read paper", scenario = "WORLD_HUMAN_LEAN_READ_PAPER",   distance = 0.2, face = "toward" },
+        { keywords = { "counter", "shelf", "shelves", "display", "cabinet" }, label = "Browse", scenario = "WORLD_HUMAN_SHOP_BROWSE_COUNTER", distance = 0.3, face = "toward" },
+        { keywords = { "crate", "box", "chest", "trunk", "sack", "bag", "basket", "cabinet", "drawer", "cupboard", "wardrobe", "suitcase", "luggage" },
+          label = "Rummage through it", scenario = "WORLD_HUMAN_CROUCH_INSPECT", distance = 0.4, face = "toward" },
+        { keywords = { "window" },                        label = "Clean the window",    scenario = "WORLD_HUMAN_CLEAN_WINDOW",      distance = 0.3, face = "toward" },
+        { keywords = { "door" },                          label = "Knock",               scenario = "WORLD_HUMAN_KNOCK_DOOR",        distance = 0.4, face = "toward" },
+        { keywords = { "campfire", "fire", "brazier", "firepit" }, label = "Stand by the fire", scenario = "WORLD_HUMAN_FIRE_STAND", distance = 0.5, face = "toward" },
+        { keywords = { "campfire", "fire", "brazier", "firepit" }, label = "Sit by the fire",   scenario = "WORLD_HUMAN_FIRE_SIT",   distance = 0.6, face = "toward" },
+        { keywords = { "campfire", "fire", "brazier", "firepit" }, label = "Tend the fire",     scenario = "WORLD_HUMAN_FIRE_TEND_KNEEL", distance = 0.5, face = "toward" },
+        { keywords = { "cauldron", "pot", "stove", "kettle" }, label = "Stir the pot",    scenario = "WORLD_HUMAN_CAULDRON_STIR",     distance = 0.3, face = "toward" },
+        { keywords = { "trough", "bucket", "basin", "washtub", "tub" }, label = "Wash your face", scenario = "WORLD_HUMAN_WASH_FACE_BUCKET_GROUND", distance = 0.3, face = "toward" },
+        { keywords = { "washboard", "washtub", "basin" }, label = "Wash clothes",        scenario = "WORLD_HUMAN_WASHBOARD_BASIN",   distance = 0.3, face = "toward" },
+        { keywords = { "grindstone" },                    label = "Use the grindstone",  scenario = "PROP_HUMAN_GRINDSTONE",         distance = 0.2, face = "toward" },
+        { keywords = { "stump", "chopblock", "chopping" }, label = "Chop wood",          scenario = "PROP_HUMAN_WOOD_CHOP",          distance = 0.3, face = "toward" },
+        { keywords = { "log", "lumber", "plank" },        label = "Saw wood",            scenario = "WORLD_HUMAN_SAW_WOOD",          distance = 0.3, face = "toward" },
+        { keywords = { "anvil", "forge" },                label = "Hammer",              scenario = "WORLD_HUMAN_HAMMER_GROUND",     distance = 0.3, face = "toward" },
+        { keywords = { "grave", "tombstone", "headstone" }, label = "Mourn",             scenario = "WORLD_HUMAN_GRAVE_MOURNING",    distance = 0.5, face = "toward" },
+        { keywords = { "grave", "tombstone", "headstone" }, label = "Kneel and mourn",   scenario = "WORLD_HUMAN_GRAVE_MOURNING_KNEEL", distance = 0.5, face = "toward" },
+        { keywords = { "step", "stair", "porch" },        label = "Sit on the steps",    scenario = "WORLD_HUMAN_SEAT_STEPS",        distance = 0.1, face = "away" },
+        { keywords = { "ledge", "crate", "box", "barrel", "trunk", "log", "rock" }, label = "Sit on the edge", scenario = "WORLD_HUMAN_SEAT_LEDGE", distance = 0.1, face = "away" },
+    },
+
+    -- Some scenario points are the first of a chain: pick a bale up, carry
+    -- it, set it down at the linked point. On, those rows run the whole
+    -- chain (marked "carry" in the list) and what is set down stays. Off,
+    -- they run as a single point, which leaves the character holding it.
+    Chains = true,
+
+    -- Print what the walk sees, what the ped's movement state is at every
+    -- emote start and stop, and why anything stops, in the player's F8
+    -- console. Leave off on a live server.
+    Debug = false,
+
+    -- The marker drawn on the thing the highlighted row belongs to, so the
+    -- player can see which chair "Sit down" means.
+    Marker = {
+        Enabled = true,
+        Type = 0x94FDAE17,                 -- a marker hash; this one is a flat cylinder
+        Colour = { 254, 127, 156, 128 },   -- red, green, blue, alpha (0-255)
+        Scale = 0.5,                       -- metres across
+        Height = 0.0,                      -- lift above the spot, in metres
+    },
+
+    -- A wall found by a short ray scan around the player.
+    -- headingOffset: 0 = back flat against the wall, -90 = left shoulder on it,
+    -- 90 = right shoulder, 180 = facing it. distance = metres from the surface.
+    Wall = {
+        Enabled = true,
+        Distance = 1.5,      -- how close a wall has to be, in metres
+        Rays = 12,           -- directions checked; more finds walls at more angles
+        Actions = {
+            { label = "Lean back on the wall",         scenario = "WORLD_HUMAN_LEAN_BACK_WALL",            headingOffset = 0.0,   distance = 0.30 },
+            { label = "Lean back, smoke",              scenario = "WORLD_HUMAN_LEAN_BACK_WALL_SMOKING",    headingOffset = 0.0,   distance = 0.30 },
+            { label = "Lean back, drink",              scenario = "WORLD_HUMAN_LEAN_BACK_WALL_DRINKING",   headingOffset = 0.0,   distance = 0.30 },
+            { label = "Lean on the wall (left side)",  scenario = "WORLD_HUMAN_LEAN_WALL_LEFT",            headingOffset = -90.0, distance = 0.35 },
+            { label = "Lean on the wall (right side)", scenario = "WORLD_HUMAN_LEAN_WALL_RIGHT",           headingOffset = 90.0,  distance = 0.35 },
+            { label = "Guard the wall",                scenario = "WORLD_HUMAN_GUARD_LEAN_WALL",           headingOffset = 0.0,   distance = 0.30 },
+            { label = "Brace on the wall (drunk)",     scenario = "WORLD_HUMAN_DRUNK_BRACE_WALL_NO_VOMIT", headingOffset = 180.0, distance = 0.45 },
+        },
     },
 }
 
