@@ -148,7 +148,7 @@ RegisterNUICallback('craft', function(data, cb)
     end
 
     TriggerServerEvent('poggy_crafting:craft',
-        data.recipe, quantity, data.location and data.location.id or nil)
+        data.recipe, quantity, data.location and data.location.id or nil, data.category)
     cb('ok')
 end)
 

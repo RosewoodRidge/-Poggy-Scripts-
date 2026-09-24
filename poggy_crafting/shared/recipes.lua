@@ -31,16 +31,23 @@ function PC.Allows(list, value)
     return false
 end
 
---- The recipe with this Text, or nil. Text is the recipe's id: the client
---- sends it and the server looks the real recipe up again, so a tampered
+--- The recipe with this Text (and Category, when given), or nil. The client
+--- sends both and the server looks the real recipe up again, so a tampered
 --- payload can only ever name a recipe that exists.
-function PC.FindRecipe(text)
+---
+--- Text alone is not unique: a server may have a blacksmith "Shovel" and a
+--- lumber "Shovel". Matching on Text only handed every craft of the second one
+--- the first one's recipe, and its job refused them (2.0.15).
+function PC.FindRecipe(text, category)
     if type(text) ~= 'string' then return nil end
     -- A hidden recipe is not findable, so the server refuses to craft it even
     -- if a client asks for it by name.
     if PC.Hidden and PC.Hidden[text] then return nil end
+    if type(category) ~= 'string' then category = nil end
     for _, recipe in ipairs(Config.Crafting) do
-        if recipe.Text == text then return recipe end
+        if recipe.Text == text and (not category or recipe.Category == category) then
+            return recipe
+        end
     end
     return nil
 end
@@ -166,10 +173,19 @@ function PC.CheckRestrictions()
         check(where, 'Job', loc.Job)
         check(where, 'Categories', loc.Categories)
     end
+    local seen = {}
     for _, recipe in ipairs(Config.Crafting or {}) do
         local where = ('recipe %q'):format(tostring(recipe.Text))
         check(where, 'Job', recipe.Job)
         check(where, 'Location', recipe.Location)
+        -- Name + category is what a craft asks for; two recipes sharing both
+        -- are one recipe to the server, and the second can never be made.
+        local key = tostring(recipe.Text) .. '\0' .. tostring(recipe.Category)
+        if seen[key] then
+            problems[#problems + 1] = ('%s: a second recipe with this name in category %q. Only the first can be crafted; rename one.')
+                :format(where, tostring(recipe.Category))
+        end
+        seen[key] = true
     end
     return problems
 end

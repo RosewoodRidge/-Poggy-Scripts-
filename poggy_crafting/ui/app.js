@@ -69,9 +69,7 @@ const ChainNodeComponent = {
                 );
 
                 // Locked if the recipe exists but isn't in the player's accessible list
-                const isLocked = sourceRecipe && !this.allCraftables.find(
-                    r => r.Text === sourceRecipe.Text
-                );
+                const isLocked = sourceRecipe && !this.allCraftables.includes(sourceRecipe);
 
                 const have = (() => {
                     const names = [ing.name, ...(ing.AltNames || [])];
@@ -128,7 +126,7 @@ const ChainNodeComponent = {
         isIngCurrentSourceLocked(ing) {
             const sr = this.getIngCurrentSourceRecipe(ing);
             if (!sr) return false;
-            return !this.allCraftables.find(r => r.Text === sr.Text);
+            return !this.allCraftables.includes(sr);
         },
 
         recipeLabel(recipe) {
@@ -389,10 +387,13 @@ const app = createApp({
         },
 
         // How many of each recipe the player can make, worked out once per
-        // inventory change instead of three times per card per redraw.
+        // inventory change instead of three times per card per redraw. Keyed
+        // by the recipe itself: two recipes may share a name (a blacksmith
+        // and a lumber "Shovel"), and keyed by name the second one's count
+        // showed on both.
         maxCraftMap() {
-            const map = {};
-            for (const r of this.allCraftablesUnfiltered) map[r.Text] = this.computeMaxCraftable(r);
+            const map = new Map();
+            for (const r of this.allCraftablesUnfiltered) map.set(r, this.computeMaxCraftable(r));
             return map;
         },
 
@@ -760,7 +761,7 @@ const app = createApp({
 
         getMaxCraftable(recipe) {
             if (!recipe) return 999;
-            const known = this.maxCraftMap[recipe.Text];
+            const known = this.maxCraftMap.get(recipe);
             return known === undefined ? this.computeMaxCraftable(recipe) : known;
         },
 
@@ -871,6 +872,8 @@ const app = createApp({
                     // again from its own config, so nothing here can change
                     // what an ingredient costs or a reward gives.
                     recipe: recipe.Text,
+                    // The name is not unique on its own; the category says which.
+                    category: recipe.Category,
                     quantity: qty,
                     location: this.location
                 })

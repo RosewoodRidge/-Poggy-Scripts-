@@ -481,7 +481,7 @@
     },
     "PoggyCoreConfig.Theme.Preset": {
       "label": "Theme",
-      "tooltip": "The look of every Poggy script's own screens (shops, the market, the auction house, tickets, transform and the rest) and of these menus. Screens drawn with pictures keep their art. Applies without a restart: each screen changes the next time it opens.",
+      "tooltip": "The look of every Poggy script's own screens (shops, the market, the auction house, tickets, transform and the rest) and of these menus. Screens drawn with pictures keep their art. poggy_core's menus and /poggy change at once; a script's screens change when that script restarts, when poggy_core restarts, or when a player reconnects.",
       "tab": "theme",
       "group": "Theme",
       "options": [

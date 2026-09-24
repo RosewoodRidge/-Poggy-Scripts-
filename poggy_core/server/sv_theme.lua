@@ -8,7 +8,8 @@
     The theme settings are live: after the settings hub saves poggy_core's
     config.lua, sv_hub_save.lua calls PoggyCore.Theme.Reload(), which reads
     the Theme block back out of the file and sends it to everyone. Nothing
-    restarts. A page picks the new theme up the next time its script opens it.
+    restarts. poggy_core's own page changes at once; a script's page asks once,
+    when it loads, so it follows when that script restarts or the player reconnects.
 ]]
 
 PoggyCore = PoggyCore or {}

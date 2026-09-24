@@ -54,7 +54,8 @@ RegisterNetEvent("poggy_core:theme", function(snap)
     current = snap
     rev = tonumber(snap.rev) or (rev + 1)
     -- poggy_core's own page (menu, input, /poggy) changes at once; every other
-    -- script's page asks again the next time it is opened.
+    -- script's page asked once when it loaded, and takes the new theme when
+    -- that script restarts or the player reconnects (0.23.1).
     SendNUIMessage({ poggyTheme = themeFor(CORE_ID) })
     TriggerEvent("poggy_core:themeChanged", rev)
 end)

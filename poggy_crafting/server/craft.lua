@@ -280,13 +280,13 @@ end
 --  The craft request
 -- ===========================================================================
 
-RegisterNetEvent('poggy_crafting:craft', function(recipeName, quantity, locationId)
+RegisterNetEvent('poggy_crafting:craft', function(recipeName, quantity, locationId, category)
     local src = source
 
     quantity = math.floor(tonumber(quantity) or 0)
     if quantity < 1 or quantity > 100 then return end
 
-    local recipe = PC.FindRecipe(recipeName)
+    local recipe = PC.FindRecipe(recipeName, category)
     if not recipe then
         return PC.Notify(src, T('unknown_recipe'), 'error')
     end

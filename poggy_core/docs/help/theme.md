@@ -34,8 +34,9 @@ Add its product id to **Scripts that keep their own colours**, for example
 
 ## When it changes
 
-At once, with no restart. Each screen takes the new look the next time it
-opens; one already open changes when it is opened again.
+poggy_core's own menus and /poggy change at once. A script's screens take the
+new look when that script restarts (or poggy_core does, which restarts them
+all), or when a player reconnects: `restart poggy_core` shows it to everyone.
 
 Screens drawn with pictures keep their art. The fishing HUD (brass) and the
 market (leather) ship with a picture skin: set that script's own skin setting

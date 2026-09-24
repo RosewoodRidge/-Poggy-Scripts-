@@ -315,8 +315,9 @@ PoggyCoreConfig.Theme = {
 }
 ```
 
-The theme is live: nothing restarts, and each screen takes the new look the next
-time it opens. Screens drawn with pictures (fishing's brass plate, the market's
+poggy_core's own menus and /poggy change at once. A script's screens ask for the
+theme once, when they load: they take a new one when that script restarts (or
+poggy_core does), or when a player reconnects. Screens drawn with pictures (fishing's brass plate, the market's
 leather ledger) keep their art; set that script's own skin to `"default"` to
 give it the theme instead.
 
@@ -783,9 +784,7 @@ at three to five lines (longer text is cut with an ellipsis), so moving the
 highlight never shifts the rows: centre and top positions grow downward, and
 the bottom ones hold the description at its full five lines so the panel's
 height never changes. The config is read on every open, so an edit shows on the
-next menu without a restart. Colours are not configurable yet; the palette is
-one block of CSS variables at the top of `ui/style.css` for when a shared theme
-layer arrives.
+next menu without a restart. Colours come from the Poggy theme (see Theme, above).
 
 **Client**, from any script:
 

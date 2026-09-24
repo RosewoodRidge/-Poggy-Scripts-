@@ -15,8 +15,11 @@
         https://<this resource>/poggy_core:theme, answered by the bridge
         poggy_core/template/poggy.lua registers in every Poggy script;
      3. sets the base colours on <html>; theme.css derives the rest;
-     4. asks again (at most every 10 s) whenever the page gets a message, so
-        a theme changed from /poggy reaches a page the next time it opens.
+     4. asks ONCE, when the page loads (0.23.1). A theme changed in /poggy
+        reaches a script's page when that script restarts or the player
+        reconnects. Re-asking while the page was open, and re-attaching the
+        stylesheets on each answer, made the browser reload them: the page
+        flashed its old look (crafting, 23 September 2026).
 
    A script on the owner's "keep its own look" list gets nothing: no skin,
    no class, no colours. With no answer at all (an older poggy_core or
@@ -47,7 +50,6 @@
     };
 
     var state = { id: null, rev: null, enabled: null, key: null };
-    var lastAsk = 0;
 
     // ── colour helpers ────────────────────────────────────────────────
     function parseHex(hex) {
@@ -108,9 +110,22 @@
             el.rel = 'stylesheet';
         }
         if (el.getAttribute('href') !== href) el.setAttribute('href', href);
-        // Always last in <head>, so a skin wins over the script's own sheets
-        // of the same specificity, including ones added after this ran.
-        document.head.appendChild(el);
+        // Attached once and never moved: moving a <link> makes the browser
+        // drop and reload its sheet, and the page flashes unthemed.
+        if (!el.isConnected) document.head.appendChild(el);
+    }
+
+    // Once, when the document is complete: if the page's own stylesheets were
+    // parsed after ours, put ours back at the end so a skin wins over sheets
+    // of the same specificity. Only then, and only if something follows them.
+    function toEnd() {
+        ['pg-theme-base', 'pg-theme-skin'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el || !el.isConnected) return;
+            var n = el.nextElementSibling, later = false;
+            while (n) { if (n.id !== 'pg-theme-base' && n.id !== 'pg-theme-skin' && (n.tagName === 'STYLE' || (n.tagName === 'LINK' && /stylesheet/i.test(n.rel)))) later = true; n = n.nextElementSibling; }
+            if (later) document.head.appendChild(el);
+        });
     }
 
     function skinName(id) {
@@ -159,7 +174,6 @@
     }
 
     function ask() {
-        lastAsk = Date.now();
         if (!RESOURCE) return;
         fetch('https://' + RESOURCE + '/poggy_core:theme', {
             method: 'POST',
@@ -176,10 +190,11 @@
         ask();
     }
 
+    // Only poggy_core's own page is ever sent the theme (its menus and /poggy
+    // follow a change at once). A script's page never gets this message.
     window.addEventListener('message', function (e) {
         var d = e && e.data;
-        if (d && typeof d === 'object' && d.poggyTheme) { apply(d.poggyTheme); return; }
-        if (Date.now() - lastAsk > 10000) ask();
+        if (d && typeof d === 'object' && d.poggyTheme) apply(d.poggyTheme);
     });
 
     // Exposed for poggy_core's own page and for the preview tool.
@@ -187,9 +202,5 @@
 
     if (document.head) start();
     else document.addEventListener('DOMContentLoaded', start);
-    // Stylesheets parsed after this script would land after the skin: put
-    // the skin back at the end once the document is complete.
-    document.addEventListener('DOMContentLoaded', function () {
-        if (state.enabled) { link('pg-theme-base', BASE + 'theme.css'); link('pg-theme-skin', state.skin); }
-    });
+    document.addEventListener('DOMContentLoaded', toEnd);
 }());
