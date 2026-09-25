@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_witnesses'
 author 'Poggy'
 description 'Witness system for RedM (runs on poggy_core)'
-version '1.3.1'
+version '1.4.0'
 poggy_core_min '0.14.0'
 
 dependencies {
@@ -24,11 +24,13 @@ shared_scripts {
 }
 
 client_scripts {
+    '@poggy_core/client/lib/prompts.lua', -- the surrender prompt
     'client/client_action_detection.lua',
     'client/client_blips.lua',
     'client/client_event_handlers.lua',
     'client/client_global.lua',
     'client/client_init.lua',
+    'client/client_jail.lua', -- the built-in Sisika jail (off unless Config.LawResponse.BuiltinJail.Enabled)
     'client/client_jacking_detection.lua',
     'client/client_job_alerts.lua',
     'client/client_job_integration.lua',
@@ -41,8 +43,10 @@ client_scripts {
 }
 
 server_scripts {
+    'server/server_duty.lua', -- who is on duty (presets for law scripts); first, the others use it
     'server/server_core.lua',
     'server/server_npc.lua',
+    'server/server_jail.lua', -- the built-in Sisika jail; server_duty calls it at runtime
 }
 
 files {

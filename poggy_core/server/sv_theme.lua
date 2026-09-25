@@ -8,8 +8,9 @@
     The theme settings are live: after the settings hub saves poggy_core's
     config.lua, sv_hub_save.lua calls PoggyCore.Theme.Reload(), which reads
     the Theme block back out of the file and sends it to everyone. Nothing
-    restarts. poggy_core's own page changes at once; a script's page asks once,
-    when it loads, so it follows when that script restarts or the player reconnects.
+    restarts. poggy_core's own page changes at once; a script's page asks when
+    it loads and again when its script next sends it a message (0.24.0), so it
+    follows the next time that screen opens.
 ]]
 
 PoggyCore = PoggyCore or {}
@@ -36,10 +37,16 @@ local function snapshot()
         end
     end
     return {
-        Preset  = type(cfg.Preset) == "string" and cfg.Preset or PoggyCore.Themes.Default,
-        Custom  = custom,
-        OwnLook = own,
-        rev     = Theme.rev,
+        Preset    = type(cfg.Preset) == "string" and cfg.Preset or PoggyCore.Themes.Default,
+        Custom    = custom,
+        OwnLook   = own,
+        -- 0.24.0. PlayerThemes: players may pick a ready-made preset in
+        -- /poggyui (off when absent). Scale / FitScreen: optional lines, the
+        -- size a player starts at before choosing their own (100, no fit).
+        PlayerThemes = cfg.PlayerThemes == true,
+        Scale     = tonumber(cfg.Scale) or 100,
+        FitScreen = cfg.FitScreen == true,
+        rev       = Theme.rev,
     }
 end
 

@@ -242,8 +242,7 @@ PoggyCoreConfig.Ui = {
 --- auction house, tickets, transform, ...) and for poggy_core's menus and
 --- /poggy. Screens drawn with pictures (a book, a leather ledger, a brass
 --- plate) keep their art. poggy_core's own menus and /poggy change at once;
---- a script's screens take the new theme when that script (or poggy_core)
---- restarts, or when the player reconnects.
+--- a script's screens take the new theme the next time they open (0.24.0).
 PoggyCoreConfig.Theme = {
     --- rosewood     black and gold (the default)
     --- blackwater   slate and steel blue
@@ -274,6 +273,11 @@ PoggyCoreConfig.Theme = {
     --- Scripts that keep their own colours instead, by product id,
     --- e.g. { "poggy_supplydrops" }.
     OwnLook = {},
+
+    --- Every player sets their own screen size, Light, and less motion with
+    --- /poggyui (0.24.0). true also lets them pick one of the ready-made
+    --- themes above for themselves (never Custom).
+    PlayerThemes = false,
 }
 
 -- ---------------------------------------------------------------------------

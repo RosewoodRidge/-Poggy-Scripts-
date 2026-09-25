@@ -34,6 +34,14 @@ or `/calldoctor`. You can add your own, for example `/callblacksmith`.
   permissions**), it only gets the alert while on duty. Turn on
   **Ignore duty** in the alert to skip that.
 - **A job with no grades listed** only alerts grade 0.
+- **Where and when.** Every alert says where it happened (the town, or the
+  nearest one) and the in-game time.
+- **Seeing a crime alert yourself.** `/witnesstestalert [crime]` (ACE
+  `command.witnesstestalert`) puts one real crime alert on your own screen,
+  as an on-duty lawman gets it, whatever your job. Nobody else is alerted.
+- **The player who was seen** is told the law was called when a lawman got
+  the alert or the NPC posse rides out; with nobody to answer, they are told
+  that instead.
 
 ## From another script
 
@@ -41,4 +49,11 @@ Fire an alert from a server script without a command:
 
 ```lua
 exports.poggy_witnesses:TriggerAlertForPlayer(src, "callblacksmith")
+```
+
+A police alert with its own text, no row needed (on-duty law only, with the
+alert cooldown):
+
+```lua
+exports.poggy_witnesses:PoliceAlert({ src = src, title = "BANK ROBBERY", message = "The bank is being robbed!", crime = "Robbery" })
 ```

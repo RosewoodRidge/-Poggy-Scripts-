@@ -83,7 +83,56 @@ Translations = {
         -- NPC arrest (surrender)
         LAW_ARRESTED_TITLE   = "ARRESTED",
         LAW_ARRESTED_MESSAGE = "You have been arrested by the law",
-        LAW_JAILED           = "You have been arrested and jailed for %s minutes"
+        LAW_JAILED           = "You have been arrested and jailed for %s minutes",
+        -- The built-in Sisika jail (1.4.0)
+        JAIL_SENTENCED       = "You have been sent to Sisika Penitentiary for %s minutes",
+        JAIL_RESUMED         = "Your sentence in Sisika continues: %s left",
+        JAIL_RELEASED        = "You have been released from Sisika Penitentiary. You are free to go.",
+        JAIL_ESCAPED         = "You escaped from Sisika Penitentiary!",
+        JAIL_CANT_LEAVE      = "You cannot leave the prison grounds!",
+        JAIL_OUT_OF_BOUNDS   = "You are past the prison walls. Keep going and you are an escaped convict!",
+        JAIL_TIMER           = "Sisika Penitentiary: %s left",
+        JAIL_ESCAPE_ALERT_NAME = "PRISON BREAK!",
+        JAIL_ESCAPE_ALERT_MESSAGE = "A convict has escaped from Sisika Penitentiary! Round them up, lawman!",
+
+        -- Crimes added in 1.4.0
+        ALERT_LOOTING_NAME                  = "SOMEONE IS LOOTING A BODY!",
+        ALERT_LOOTING_MESSAGE               = "Someone was seen going through a dead man's pockets! Look into it, lawman!",
+        ALERT_LOOTING_ALERTER_NOTIFICATION  = "Folks saw you rob the dead! The law's been told!",
+        ALERT_POACHING_NAME                 = "POACHING!",
+        ALERT_POACHING_MESSAGE              = "Someone's been killing protected game! Track them down, lawman!",
+        ALERT_POACHING_ALERTER_NOTIFICATION = "Someone saw you poaching! The law's on the way!",
+        -- Alert details and alerts from other scripts (1.4.0)
+        ALERT_WHERE_IN                      = "In %s",
+        ALERT_WHERE_NEAR                    = "Near %s",
+        ALERT_WHERE_WILDS                   = "Out in the wilds",
+        ALERT_REPORTED_AT                   = "reported at %s",
+        ALERT_DEFAULT_NAME                  = "LAW ALERT",
+        ALERT_DEFAULT_MESSAGE               = "A crime has been reported. Respond to the location.",
+        ALERT_DEFAULT_ALERTER               = "Someone saw you! The law has been called!",
+        NOBODY_NOTICED                      = "Nothing happened. No one noticed.",
+        ALERT_ARRIVED                       = "You have arrived at the alert location.",
+        WAYPOINT_CLEARED                    = "Waypoint cleared.",
+        MARKER_CLEARED                      = "Marker cleared.",
+        ALERTS_CLEARED                      = "Cleared %s alert(s) and waypoints.",
+        ALERTS_ALL_CLEARED                  = "All alerts and waypoints cleared.",
+        TIME_MIN_SEC                        = "%d min %d s",
+        TIME_SEC                            = "%d s",
+        -- NPC law: warnings and surrender (1.4.0)
+        LAW_WARNED                          = "The lawmen want you to surrender! Put your hands up or run.",
+        LAW_SURRENDER_GROUP                 = "Lawmen",
+        LAW_SURRENDER_PROMPT                = "Surrender",
+        LAW_SURRENDER_TITLE                 = "SURRENDER",
+        LAW_SURRENDERING                    = "You are surrendering to the law",
+        LAW_SURRENDER_ACCEPTED              = "The lawmen have accepted your surrender",
+        LAW_SURRENDER_BROKEN_SHOT           = "You broke your surrender by shooting!",
+        LAW_SURRENDER_BROKEN_MOVED          = "You broke your surrender by moving!",
+        ALERT_NOBODY_TO_ANSWER              = "Word got out, but there is no law on duty to answer.",
+        LAW_SURRENDER_BROKEN_DREW           = "You broke your surrender by drawing a weapon!",
+        LAW_SURRENDER_ARREST_FAILED         = "The lawmen could not get to you.",
+        LAW_RELEASED_TITLE                  = "RELEASED",
+        LAW_RELEASED_MESSAGE                = "The deputies let you go with a warning. Don't let them catch you again.",
+        WITNESS_BLIP                        = "Witness"
     },
 
     ------------------------------------------------------------------
@@ -161,7 +210,56 @@ Translations = {
         -- Arresto por la ley NPC (rendición)
         LAW_ARRESTED_TITLE   = "ARRESTADO",
         LAW_ARRESTED_MESSAGE = "Has sido arrestado por la ley",
-        LAW_JAILED           = "Has sido arrestado y encarcelado durante %s minutos"
+        LAW_JAILED           = "Has sido arrestado y encarcelado durante %s minutos",
+        -- The built-in Sisika jail (1.4.0)
+        JAIL_SENTENCED       = "Has sido enviado a la penitenciaría de Sisika durante %s minutos",
+        JAIL_RESUMED         = "Tu condena en Sisika continúa: quedan %s",
+        JAIL_RELEASED        = "Has salido de la penitenciaría de Sisika. Eres libre.",
+        JAIL_ESCAPED         = "¡Te has fugado de la penitenciaría de Sisika!",
+        JAIL_CANT_LEAVE      = "¡No puedes salir del recinto de la prisión!",
+        JAIL_OUT_OF_BOUNDS   = "Has cruzado los muros de la prisión. ¡Si sigues, serás un fugitivo!",
+        JAIL_TIMER           = "Penitenciaría de Sisika: quedan %s",
+        JAIL_ESCAPE_ALERT_NAME = "¡FUGA DE LA PRISIÓN!",
+        JAIL_ESCAPE_ALERT_MESSAGE = "¡Un preso se ha fugado de la penitenciaría de Sisika! ¡Atrápalo, agente!",
+
+        -- Crímenes nuevos en 1.4.0
+        ALERT_LOOTING_NAME                  = "¡ALGUIEN SAQUEA UN CADÁVER!",
+        ALERT_LOOTING_MESSAGE               = "¡Vieron a alguien registrando los bolsillos de un muerto! ¡Investígalo, sheriff!",
+        ALERT_LOOTING_ALERTER_NOTIFICATION  = "¡La gente te vio robar a los muertos! ¡La ley ha sido avisada!",
+        ALERT_POACHING_NAME                 = "¡CAZA FURTIVA!",
+        ALERT_POACHING_MESSAGE              = "¡Alguien está matando animales protegidos! ¡Encuéntralo, sheriff!",
+        ALERT_POACHING_ALERTER_NOTIFICATION = "¡Alguien te vio cazando furtivamente! ¡La ley viene!",
+        -- Detalles de alerta y alertas de otros scripts (1.4.0)
+        ALERT_WHERE_IN                      = "En %s",
+        ALERT_WHERE_NEAR                    = "Cerca de %s",
+        ALERT_WHERE_WILDS                   = "En tierras salvajes",
+        ALERT_REPORTED_AT                   = "avisado a las %s",
+        ALERT_DEFAULT_NAME                  = "ALERTA DE LA LEY",
+        ALERT_DEFAULT_MESSAGE               = "Se ha denunciado un crimen. Acude al lugar.",
+        ALERT_DEFAULT_ALERTER               = "¡Alguien te vio! ¡Han llamado a la ley!",
+        NOBODY_NOTICED                      = "No pasó nada. Nadie se dio cuenta.",
+        ALERT_ARRIVED                       = "Has llegado al lugar de la alerta.",
+        WAYPOINT_CLEARED                    = "Punto de ruta borrado.",
+        MARKER_CLEARED                      = "Marcador borrado.",
+        ALERTS_CLEARED                      = "Se borraron %s alerta(s) y puntos de ruta.",
+        ALERTS_ALL_CLEARED                  = "Todas las alertas y puntos de ruta borrados.",
+        TIME_MIN_SEC                        = "%d min %d s",
+        TIME_SEC                            = "%d s",
+        -- Ley NPC: avisos y rendición (1.4.0)
+        LAW_WARNED                          = "¡Los agentes quieren que te rindas! Levanta las manos o huye.",
+        LAW_SURRENDER_GROUP                 = "Agentes de la ley",
+        LAW_SURRENDER_PROMPT                = "Rendirse",
+        LAW_SURRENDER_TITLE                 = "RENDICIÓN",
+        LAW_SURRENDERING                    = "Te estás rindiendo a la ley",
+        LAW_SURRENDER_ACCEPTED              = "Los agentes han aceptado tu rendición",
+        LAW_SURRENDER_BROKEN_SHOT           = "¡Rompiste tu rendición al disparar!",
+        LAW_SURRENDER_BROKEN_MOVED          = "¡Rompiste tu rendición al moverte!",
+        ALERT_NOBODY_TO_ANSWER              = "Se corrió la voz, pero no hay ley de servicio para responder.",
+        LAW_SURRENDER_BROKEN_DREW           = "¡Rompiste tu rendición al sacar un arma!",
+        LAW_SURRENDER_ARREST_FAILED         = "Los agentes no pudieron llegar hasta ti.",
+        LAW_RELEASED_TITLE                  = "LIBERADO",
+        LAW_RELEASED_MESSAGE                = "Los ayudantes te dejan ir con una advertencia. Que no te vuelvan a atrapar.",
+        WITNESS_BLIP                        = "Testigo"
     },
 
     ------------------------------------------------------------------
@@ -239,7 +337,56 @@ Translations = {
         -- Arrestation par la loi PNJ (reddition)
         LAW_ARRESTED_TITLE   = "ARRÊTÉ",
         LAW_ARRESTED_MESSAGE = "Vous avez été arrêté par la loi",
-        LAW_JAILED           = "Vous avez été arrêté et emprisonné pour %s minutes"
+        LAW_JAILED           = "Vous avez été arrêté et emprisonné pour %s minutes",
+        -- The built-in Sisika jail (1.4.0)
+        JAIL_SENTENCED       = "Vous avez été envoyé au pénitencier de Sisika pour %s minutes",
+        JAIL_RESUMED         = "Votre peine à Sisika continue : il reste %s",
+        JAIL_RELEASED        = "Vous êtes sorti du pénitencier de Sisika. Vous êtes libre.",
+        JAIL_ESCAPED         = "Vous vous êtes évadé du pénitencier de Sisika !",
+        JAIL_CANT_LEAVE      = "Vous ne pouvez pas quitter l'enceinte de la prison !",
+        JAIL_OUT_OF_BOUNDS   = "Vous avez franchi les murs de la prison. Continuez et vous serez un évadé !",
+        JAIL_TIMER           = "Pénitencier de Sisika : il reste %s",
+        JAIL_ESCAPE_ALERT_NAME = "ÉVASION !",
+        JAIL_ESCAPE_ALERT_MESSAGE = "Un détenu s'est évadé du pénitencier de Sisika ! Retrouvez-le, shérif !",
+
+        -- Nouveaux crimes en 1.4.0
+        ALERT_LOOTING_NAME                  = "QUELQU'UN DÉTROUSSE UN CADAVRE !",
+        ALERT_LOOTING_MESSAGE               = "On a vu quelqu'un fouiller les poches d'un mort ! Allez voir, shérif !",
+        ALERT_LOOTING_ALERTER_NOTIFICATION  = "Des gens vous ont vu détrousser les morts ! La loi a été prévenue !",
+        ALERT_POACHING_NAME                 = "BRACONNAGE !",
+        ALERT_POACHING_MESSAGE              = "Quelqu'un abat des animaux protégés ! Retrouvez-le, shérif !",
+        ALERT_POACHING_ALERTER_NOTIFICATION = "Quelqu'un vous a vu braconner ! La loi arrive !",
+        -- Détails des alertes et alertes des autres scripts (1.4.0)
+        ALERT_WHERE_IN                      = "À %s",
+        ALERT_WHERE_NEAR                    = "Près de %s",
+        ALERT_WHERE_WILDS                   = "En pleine nature",
+        ALERT_REPORTED_AT                   = "signalé à %s",
+        ALERT_DEFAULT_NAME                  = "ALERTE DE LA LOI",
+        ALERT_DEFAULT_MESSAGE               = "Un crime a été signalé. Rendez-vous sur place.",
+        ALERT_DEFAULT_ALERTER               = "Quelqu'un vous a vu ! La loi a été appelée !",
+        NOBODY_NOTICED                      = "Il ne s'est rien passé. Personne n'a rien remarqué.",
+        ALERT_ARRIVED                       = "Vous êtes arrivé sur le lieu de l'alerte.",
+        WAYPOINT_CLEARED                    = "Point de passage effacé.",
+        MARKER_CLEARED                      = "Marqueur effacé.",
+        ALERTS_CLEARED                      = "%s alerte(s) et points de passage effacés.",
+        ALERTS_ALL_CLEARED                  = "Toutes les alertes et points de passage effacés.",
+        TIME_MIN_SEC                        = "%d min %d s",
+        TIME_SEC                            = "%d s",
+        -- Loi PNJ : sommations et reddition (1.4.0)
+        LAW_WARNED                          = "Les hommes de loi vous somment de vous rendre ! Levez les mains ou fuyez.",
+        LAW_SURRENDER_GROUP                 = "Hommes de loi",
+        LAW_SURRENDER_PROMPT                = "Se rendre",
+        LAW_SURRENDER_TITLE                 = "REDDITION",
+        LAW_SURRENDERING                    = "Vous vous rendez à la loi",
+        LAW_SURRENDER_ACCEPTED              = "Les hommes de loi ont accepté votre reddition",
+        LAW_SURRENDER_BROKEN_SHOT           = "Vous avez rompu votre reddition en tirant !",
+        LAW_SURRENDER_BROKEN_MOVED          = "Vous avez rompu votre reddition en bougeant !",
+        ALERT_NOBODY_TO_ANSWER              = "La nouvelle s'est répandue, mais aucun homme de loi n'est en service pour répondre.",
+        LAW_SURRENDER_BROKEN_DREW           = "Vous avez rompu votre reddition en sortant une arme !",
+        LAW_SURRENDER_ARREST_FAILED         = "Les hommes de loi n'ont pas pu vous atteindre.",
+        LAW_RELEASED_TITLE                  = "LIBÉRÉ",
+        LAW_RELEASED_MESSAGE                = "Les adjoints vous laissent partir avec un avertissement. Qu'ils ne vous reprennent pas.",
+        WITNESS_BLIP                        = "Témoin"
     }
 }
 

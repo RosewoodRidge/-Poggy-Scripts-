@@ -6,6 +6,8 @@
      rows (hover, selected, disabled), right-hand column, description,
      count, key hints, Close button;
    - the text input (input.open): field, invalid state, note, buttons;
+   - the player's screen settings (/poggyui, 0.24.0): the sample, the
+     size slider, the look and motion chips, the numbers on buttons;
    - the /poggy settings hub: top bar, search, home (masthead, stats,
      filter chips, script cards), script page (header, banners, rail,
      panels, every field control), lists and tables, the row drawer,
@@ -136,6 +138,31 @@ html.pg-themed .pg-btn-primary:hover {
     box-shadow: none;
 }
 html.pg-themed .pg-btn-primary:hover { border-color: var(--pg-accent); }
+
+/* /poggyui (0.24.0): numbers stay in the body font, the chosen chip is the
+   selected thing (accent), the slider is a well with an accent thumb. */
+html.pg-themed .pg-scale-bar .pg-btn-quiet,
+html.pg-themed .pg-scale-num,
+html.pg-themed .pg-scale-value { font-family: var(--pg-font-body); letter-spacing: 0; text-transform: none; }
+html.pg-themed .pg-scale-num,
+html.pg-themed .pg-scale-value { color: var(--pg-accent-hi); }
+html.pg-themed .pg-scale-label { font-family: var(--pg-font-display); font-weight: 400; color: var(--pg-text-muted); }
+html.pg-themed .pg-scale-hint,
+html.pg-themed .pg-scale-note { font-family: var(--pg-font-body); color: var(--pg-text-muted); }
+html.pg-themed .pg-scale-chip.is-on {
+    color: var(--pg-accent-hi);
+    background: var(--pg-surface-hover);
+    border-color: var(--pg-accent-soft);
+    box-shadow: inset 0 0 0 1px var(--pg-accent-soft);
+}
+html.pg-themed #pg-scale-range::-webkit-slider-runnable-track { background: var(--pg-deep); border-color: var(--pg-border-soft); }
+html.pg-themed #pg-scale-range::-webkit-slider-thumb {
+    background: var(--pg-accent);
+    border-color: var(--pg-accent-soft);
+    border-radius: var(--pg-radius-sm);
+    box-shadow: var(--pg-shadow);
+}
+html.pg-themed #pg-scale-range:focus::-webkit-slider-thumb { background: var(--pg-accent-hi); }
 
 html.pg-themed #pg-input-field {
     background: var(--pg-input-bg);

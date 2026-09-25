@@ -315,9 +315,8 @@ PoggyCoreConfig.Theme = {
 }
 ```
 
-poggy_core's own menus and /poggy change at once. A script's screens ask for the
-theme once, when they load: they take a new one when that script restarts (or
-poggy_core does), or when a player reconnects. Screens drawn with pictures (fishing's brass plate, the market's
+poggy_core's own menus and /poggy change at once. A script's screens take a new
+theme the next time they open (0.24.0; before, when the script restarted). Screens drawn with pictures (fishing's brass plate, the market's
 leather ledger) keep their art; set that script's own skin to `"default"` to
 give it the theme instead.
 
@@ -333,6 +332,50 @@ the theme's `--pg-*` tokens. The bridge answers the page's request for the
 theme; nothing is ever sent into the page. Tokens, house style and rules:
 `docs/reference/poggy-theme-spec.md` on the development machine.
 `exports.poggy_core:ThemeFor(poggyId)` (client) returns what a page gets.
+
+### Each player's own screens: /poggyui (0.24.0)
+
+Every player can type `/poggyui` to set how every Poggy screen looks on their
+own screen:
+
+- **Size**, 50% to 200% in steps of 5. **Fit my screen** picks the size that
+  suits their resolution (a screen made at 1920x1080 then covers the same part
+  of a 2560x1440 or 4K screen); **Reset to 100%** goes back.
+- **Look**: the server's theme, or **Light** (the Ledger theme, easier to read).
+  With `PlayerThemes = true` in the Theme block (/poggy → Poggy Core → Theme →
+  *Players may pick a theme*, off by default) the ready-made themes are offered
+  too. Custom never is, and a script on `OwnLook` keeps its own colours for
+  everyone.
+- **Less motion**: every animation and transition on every Poggy screen runs in
+  a blink.
+
+A sample screen shows each change as it is made; Done keeps it, Cancel or Escape
+puts it back. The choice is kept on the player's PC for this server (client KVP,
+nothing on the server) and every Poggy screen takes it the next time it opens.
+A size never makes a screen's own area smaller than 1280x720 (so 150% at most on
+a 1080p screen, 200% on 1440p), which keeps every screen made for 1080p on the
+screen.
+
+Optional lines in the Theme block, not in the shipped config:
+
+```lua
+    PlayerCommand = "poggyui",   -- the command's name
+    Scale     = 100,             -- the size, in percent, a player starts at before choosing their own
+    FitScreen = false,           -- true: start each player at the size that suits their screen, Scale on top
+```
+
+`exports.poggy_core:OpenScreenSettings()` (client) opens the panel from another
+script's menu.
+
+No script needs a change: theme.js, the line every Poggy page already loads,
+does it all. For the size it zooms the page and then makes it behave as if the
+browser itself were zoomed: viewport units and media queries are corrected, and
+the mouse, `innerWidth` and `elementFromPoint` are given in the page's own pixels,
+so clicks, drags and anything placed at the pointer still land where they should.
+A script's page asks for its theme again when its script sends it a message
+(opening a screen), at most every few seconds, which is how a new setting, or a
+theme changed in /poggy, reaches it without a restart. Pages that do not load
+theme.js (non-Poggy resources) are left alone.
 
 ## Design rules
 
@@ -997,6 +1040,11 @@ every call and mutates only through `Player.Functions.*`.
 Caps declared: everything ESX declares, plus `inventory.metadata` and
 `storage.weapons`. Not declared: `money.gold`, `money.rol`,
 `storage.permissions`.
+
+### The theme and the screen size
+
+The theme and `/poggyui` work the same on FiveM: FiveM's pages run in the same
+Chromium (103) as RedM's, and nothing in either is game-specific.
 
 ### What is not there yet
 

@@ -58,6 +58,15 @@ Config.LawResponse = {
     -- JailExportCall = "exports.another_jail:JailPlayer(src, timeInSeconds, 'Arrested by law')"
     JailExportCall = "",
     
+    -- Built-in jail: Sisika Penitentiary (prison uniform, kept on the grounds,
+    -- time left on screen, own clothes back on release). Used only when the Jail
+    -- call above is empty and no jail export is set. Off, so it never fights a
+    -- jail script you already run. Staff: /witnessjail <id> <minutes>, /witnessunjail <id>.
+    -- More keys (coordinates, escapes, max minutes) are listed in the README.
+    BuiltinJail = {
+        Enabled = false, -- true: an NPC arrest sends the player to Sisika for Jail time minutes
+    },
+    
     -- Horse models for mounted officers
     HorseModels = {
         "A_C_HORSE_TENNESSEEWALKER_BLACKRABICANO",

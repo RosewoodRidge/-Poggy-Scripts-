@@ -25,7 +25,7 @@
 --       radius              = 25.0,                 -- search radius for an NPC witness (default 20.0)
 --       alertCommand        = "graverobbing8x2kp19",-- a Config.Alerts command to fire if reported
 --       triggerLawResponse  = true,                 -- spawn the NPC law response if reported
---       lawActionType       = "Shooting",           -- maps to Config.LawResponse.CrimeSeverity (default = actionType)
+--       lawActionType       = "Shooting",           -- the crime the posse is sent for: Config.LawResponse.EngagedCrimes and CrimeSeverity (default = actionType)
 --       forceWitness        = false,                -- if no NPC is nearby, still report after a short delay
 --       showNotifications   = true,                 -- show the "Someone saw what you did" toast (default true)
 --       timeout             = 60000,                -- max time (ms) to wait for a report (default 60000)
@@ -127,12 +127,20 @@ if IsDuplicityVersion() then
                 for _, alert in ipairs(Config.Alerts or {}) do
                     if alert.command == alertCommand then
                         Citizen.CreateThread(function()
-                            AlertPlayer(src, alert)
+                            AlertPlayer(src, alert, { npcLaw = false })
                         end)
                         TriggerEvent('poggy_witnesses:onAlertSent', src, actionType, requestId, alertCommand)
                         break
                     end
                 end
+            end
+
+            -- The NPC posse, when asked for (the same checks as a witness report:
+            -- enabled, an engaged crime, no lawman on duty).
+            if options.triggerLawResponse == true and type(StartNpcLawResponse) == "function" then
+                Citizen.CreateThread(function()
+                    StartNpcLawResponse(src, options.lawActionType or actionType, {})
+                end)
             end
 
             pendingApiWitnesses[requestId] = nil
@@ -160,7 +168,7 @@ else
         local playerPed = PlayerPedId()
         local coords = GetEntityCoords(playerPed)
         local itemSet = CreateItemset(true)
-        local size = Citizen.InvokeNative(0x59B57C4B06531E1E, coords, radius, itemSet, 1, Citizen.ResultAsInteger())
+        local size = Citizen.InvokeNative(0x59B57C4B06531E1E, coords, (tonumber(radius) or 10.0) + 0.0, itemSet, 1, Citizen.ResultAsInteger()) -- a float: an integer radius reads wrong
         local target = nil
 
         if size > 0 then
@@ -196,8 +204,6 @@ else
         local timeout           = tonumber(options.timeout) or 60000
         local force             = options.forceWitness == true
         local showNotifications = options.showNotifications ~= false
-        local triggerLaw        = options.triggerLawResponse == true
-        local lawActionType     = options.lawActionType or actionType
 
         -- Snapshot witnesses that already exist so we only track the ones we spawn.
         local baseline = {}
@@ -213,9 +219,6 @@ else
                 if showNotifications then ShowSawNotification() end
                 TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'created', { forced = true })
                 Citizen.Wait(3000)
-                if triggerLaw then
-                    TriggerEvent('poggy_witnesses:TriggerLawResponse', lawActionType)
-                end
                 TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'reported', { forced = true })
             else
                 TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'stopped', { reason = 'no_target' })
@@ -257,11 +260,7 @@ else
             end
 
             if reported then
-                -- Core already triggers law response when the witnessed actionType
-                -- is in Config.LawResponse.CrimeSeverity; this covers custom types.
-                if triggerLaw then
-                    TriggerEvent('poggy_witnesses:TriggerLawResponse', lawActionType)
-                end
+                -- The server sends the alert and, when asked, the NPC posse.
                 TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'reported', {})
                 return
             end
@@ -274,9 +273,6 @@ else
 
             if (GetGameTimer() - startTime) > timeout then
                 if force and sawAny then
-                    if triggerLaw then
-                        TriggerEvent('poggy_witnesses:TriggerLawResponse', lawActionType)
-                    end
                     TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'reported', { reason = 'timeout_forced' })
                 else
                     TriggerServerEvent('poggy_witnesses:api:stage', requestId, 'stopped', { reason = sawAny and 'timeout' or 'no_witness' })

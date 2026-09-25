@@ -22,6 +22,13 @@
       "examples": ["/poggy"]
     },
     {
+      "command": "/poggyui",
+      "who": "Everyone",
+      "description": "Opens a small panel where each player sets how every Poggy screen looks on their own screen: the size (50% to 200%, with Fit my screen and Reset to 100%), Light (easier to read) or the server's theme, and less motion. It shows each change as it is made and is kept for that player on this server. The name can be changed with a PlayerCommand line in the Theme block.",
+      "usage": "/poggyui",
+      "examples": ["/poggyui"]
+    },
+    {
       "command": "poggycore",
       "who": "Admins",
       "description": "Status: framework, version, capabilities and registered containers. Works in the server console, or in chat as /poggycore for players with the ACE command or poggycore, or a framework admin.",
@@ -481,7 +488,7 @@
     },
     "PoggyCoreConfig.Theme.Preset": {
       "label": "Theme",
-      "tooltip": "The look of every Poggy script's own screens (shops, the market, the auction house, tickets, transform and the rest) and of these menus. Screens drawn with pictures keep their art. poggy_core's menus and /poggy change at once; a script's screens change when that script restarts, when poggy_core restarts, or when a player reconnects.",
+      "tooltip": "The look of every Poggy script's own screens (shops, the market, the auction house, tickets, transform and the rest) and of these menus. Screens drawn with pictures keep their art. poggy_core's menus and /poggy change at once; a script's screens change the next time they open.",
       "tab": "theme",
       "group": "Theme",
       "options": [
@@ -531,6 +538,13 @@
     "PoggyCoreConfig.Theme.OwnLook": {
       "label": "Scripts that keep their own colours",
       "tooltip": "Product ids of Poggy scripts that should not follow the theme, e.g. poggy_supplydrops. Their screens look as they did before the theme existed.",
+      "tab": "theme",
+      "group": "Theme",
+      "live": true
+    },
+    "PoggyCoreConfig.Theme.PlayerThemes": {
+      "label": "Players may pick a theme",
+      "tooltip": "Every player can already set their own screen size, Light (easier to read) and less motion with /poggyui. On: they can also pick one of the ready-made themes for themselves (never Custom). Only their own screens change. Scripts that keep their own colours stay as they are.",
       "tab": "theme",
       "group": "Theme",
       "live": true

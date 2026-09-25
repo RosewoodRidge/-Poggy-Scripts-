@@ -2,9 +2,13 @@
   "label": "Witnesses",
   "tagline": "Every crime has a witness: stop them before they reach the law",
   "category": "Roleplay",
-  "description": "When a player shoots, fights, lassos, tramples, steals a horse or carries a hostage in town, a nearby NPC sees it, flees and tries to report it. If the witness gets away, law jobs get an alert with a blip and a waypoint. The same alert system gives players commands like /callpolice and /calldoctor, and an optional NPC law posse can ride out when no player lawmen are on duty.",
+  "description": "When a player shoots, fights, lassos, tramples, steals a horse, carries a hostage, loots a body or poaches in town, a nearby NPC reacts, flees and tries to report it. If the witness gets away, on-duty law gets an alert with a blip and a waypoint. The same alert system gives players commands like /callpolice and /calldoctor and gives other scripts a police alert export, and an NPC law posse can ride out when no player lawmen are on duty.",
   "readme": "README.md",
   "help": [
+    {
+      "title": "Duty and police alerts",
+      "file": "docs/help/duty-and-alerts.md"
+    },
     {
       "title": "Adding an alert command",
       "file": "docs/help/alert-commands.md"
@@ -123,9 +127,58 @@
       ]
     },
     {
+      "command": "/witnesscheck",
+      "who": "Everyone",
+      "description": "Prints to the F8 console, whatever the debug setting, every check that decides whether a crime where you stand would be witnessed: poggy_core ready, the town or blacklist, the crimes switched on, your weapon, the cooldown, the townsfolk who could see you, your job, duty and law immunity. The first thing to run when nothing is ever witnessed.",
+      "usage": "/witnesscheck",
+      "examples": [
+        "/witnesscheck"
+      ]
+    },
+    {
+      "command": "/witnessduty",
+      "who": "ACE: command.witnessduty",
+      "description": "Shows which duty script Witnesses reads (Duty script), the fallback, what jails after an NPC arrest, and every player with a law job with their duty state (and anyone in jail). Works from the server console too.",
+      "usage": "/witnessduty",
+      "examples": [
+        "/witnessduty"
+      ]
+    },
+    {
+      "command": "/witnesstestalert",
+      "who": "ACE: command.witnesstestalert",
+      "description": "Test: sends one real crime alert (the Job alerts row for that crime, Shooting when none is named) to your own screen only, exactly as an on-duty lawman gets it: the popup, the blip, the area circle, the route, where and when. Your job and duty do not matter, nobody else is alerted, and no posse rides out. From the server console, name the player first.",
+      "usage": "/witnesstestalert [crime]",
+      "examples": [
+        "/witnesstestalert",
+        "/witnesstestalert Melee",
+        "witnesstestalert 3 Hijacking"
+      ]
+    },
+    {
+      "command": "/jail",
+      "who": "ACE: command.jail",
+      "description": "Sends a player to the built-in Sisika jail for the given minutes (up to 240), in the prison uniform with the time left on screen. A player already inside gets the new time. Needs Use the built-in Sisika jail on. 'me' jails yourself, to try it. Works from the server console too.",
+      "usage": "/jail <id|me> <minutes> [reason]",
+      "examples": [
+        "/jail 12 15",
+        "/jail me 1"
+      ]
+    },
+    {
+      "command": "/unjail",
+      "who": "ACE: command.unjail",
+      "description": "Releases a player from the built-in Sisika jail at once: their own clothes back and faded to the release point across the river. Works from the server console too.",
+      "usage": "/unjail <id|me>",
+      "examples": [
+        "/unjail 12",
+        "/unjail me"
+      ]
+    },
+    {
       "command": "/dumpalertgroups",
       "who": "ACE: command.dumpalertgroups",
-      "description": "Lists which players are registered for which job alerts, then refreshes everyone's job registration. Works from the server console too.",
+      "description": "Lists every player with a loaded character: their job and grade, whether it is a law job, and whether they are on duty (so whether law alerts reach them). Also shows which duty script is in use. Works from the server console too.",
       "usage": "/dumpalertgroups",
       "examples": [
         "/dumpalertgroups"
@@ -134,7 +187,7 @@
     {
       "command": "/debugalertsgroups",
       "who": "ACE: command.debugalertsgroups",
-      "description": "Prints the players registered for each job and grade to the server console.",
+      "description": "The same list as /dumpalertgroups, printed to the server console.",
       "usage": "/debugalertsgroups",
       "examples": [
         "/debugalertsgroups"
@@ -394,6 +447,54 @@
       "tooltip": "The alert this crime sends when a witness reports it. It must match an alert in Job alerts; the shipped alerts read this value, so renaming it here renames the alert too.",
       "advanced": true
     },
+    "Config.Checks.Looting": {
+      "label": "Looting a body",
+      "tooltip": "Going through a dead person's pockets."
+    },
+    "Config.Checks.Looting.Enabled": {
+      "label": "Enabled",
+      "tooltip": "Switches detection of this crime on or off."
+    },
+    "Config.Checks.Looting.Probability": {
+      "label": "Chance to be witnessed",
+      "tooltip": "Percent chance that this crime starts a witness event. 100 = every time, 0 = never.",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%"
+    },
+    "Config.Checks.Looting.Command": {
+      "label": "Alert command",
+      "tooltip": "The alert this crime sends when a witness reports it. With no matching row in Job alerts, a standard law alert with this crime's own text is sent.",
+      "advanced": true
+    },
+    "Config.Checks.Poaching": {
+      "label": "Poaching",
+      "tooltip": "Killing one of the animals in Poaching: protected animals."
+    },
+    "Config.Checks.Poaching.Enabled": {
+      "label": "Enabled",
+      "tooltip": "Switches detection of this crime on or off."
+    },
+    "Config.Checks.Poaching.Probability": {
+      "label": "Chance to be witnessed",
+      "tooltip": "Percent chance that this crime starts a witness event. 100 = every time, 0 = never.",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%"
+    },
+    "Config.Checks.Poaching.Command": {
+      "label": "Alert command",
+      "tooltip": "The alert this crime sends when a witness reports it. With no matching row in Job alerts, a standard law alert with this crime's own text is sent.",
+      "advanced": true
+    },
+    "Config.PoachingAnimals": {
+      "label": "Poaching: protected animals",
+      "tooltip": "Animal model names whose killing counts as poaching (when Poaching is on), e.g. a_c_buffalo_01.",
+      "tab": "crimes",
+      "group": "Poaching"
+    },
     "Config.Checks.Trampling.MinSpeed": {
       "label": "Minimum horse speed",
       "tooltip": "The horse must be moving faster than this for a collision to count as trampling. Higher ignores slow bumps.",
@@ -478,13 +579,15 @@
     },
     "Config.WitnessEscape.BlipType": {
       "label": "Blip sprite",
-      "tooltip": "Not read by this version: witness blips always use the eyewitness sprite.",
+      "tooltip": "The blip icon on a witness, e.g. blip_ambient_eyewitness.",
       "advanced": true
     },
     "Config.WitnessEscape.BlipScale": {
       "label": "Blip size",
-      "tooltip": "Not read by this version: witness blips are always normal size.",
-      "advanced": true
+      "tooltip": "Size of the blip on a witness. 1.0 is normal size.",
+      "min": 0.5,
+      "max": 3.0,
+      "step": 0.1
     },
     "Config.WitnessEscape.ReactionDelay": {
       "label": "Reaction delay",
@@ -508,7 +611,7 @@
     },
     "Config.PoliceJobList": {
       "label": "Law jobs",
-      "tooltip": "The jobs that count as law: they get most alerts, witnesses ignore their crimes (with law immunity on), duty checks apply to them, and NPC law stands down when they are on duty. Exact job names, case-sensitive.",
+      "tooltip": "The jobs that count as law: they get most alerts, witnesses ignore their crimes while they are on duty (with law immunity on), duty checks apply to them, and NPC law stands down when they are on duty. Exact job names, case-sensitive.",
       "tab": "access",
       "group": "Law jobs",
       "picker": "job"
@@ -526,23 +629,115 @@
     },
     "Config.LawImmunityEnabled": {
       "label": "Law immunity",
-      "tooltip": "When on, witnesses ignore crimes committed by players with a law job.",
+      "tooltip": "When on, witnesses ignore crimes committed by lawmen ON DUTY (as the duty script says). An off-duty lawman is witnessed like anyone else.",
       "tab": "access",
       "group": "Law jobs"
     },
     "Config.DutyCheckEnabled": {
       "label": "Only alert on-duty law",
-      "tooltip": "When on, law jobs only get alerts while on duty (read by poggy_core, e.g. vorp_police on VORP). With no duty script running, nobody counts as on duty. Other jobs, such as doctors, are always alerted.",
+      "tooltip": "When on, law jobs only get law alerts while on duty, as the duty script chosen in Duty script says. Other jobs, such as doctors, are always alerted.",
       "tab": "access",
       "group": "Duty"
     },
     "Config.DutyExportCall": {
       "label": "Custom duty check",
-      "tooltip": "Lua code, run on the server, that returns true when a player is on duty. Leave empty to use poggy_core. It runs as code, so it can only be changed in config/config.lua.",
+      "tooltip": "Older way to plug in a duty script: Lua code, run on the server, that returns true when a player is on duty. Used only while Duty script is Automatic or Custom. Prefer Your own duty script. It runs as code, so it can only be changed in config/config.lua.",
       "tab": "access",
       "group": "Duty",
       "readonly": true,
       "advanced": true
+    },
+    "Config.Duty": {
+      "label": "Duty script",
+      "tooltip": "Which duty script decides who is an on-duty lawman.",
+      "tab": "access",
+      "group": "Duty"
+    },
+    "Config.Duty.Preset": {
+      "label": "Duty script",
+      "tooltip": "Where the on-duty answer comes from. Automatic uses the first one it finds running: outsider_policeman, vorp_police, rsg-lawman, qbr-policejob, bcc-law, then your framework through poggy_core. /witnessduty shows which one is in use. The same script says who is in jail (outsider_policeman, rsg-lawman): a jailed player is never reported or chased.",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Automatic (first one found)"
+        },
+        {
+          "value": "outsider_policeman",
+          "label": "outsider_policeman"
+        },
+        {
+          "value": "vorp_police",
+          "label": "vorp_police"
+        },
+        {
+          "value": "rsg_lawman",
+          "label": "rsg-lawman"
+        },
+        {
+          "value": "qbr_policejob",
+          "label": "qbr-policejob"
+        },
+        {
+          "value": "bcc_law",
+          "label": "bcc-law / bcc-society"
+        },
+        {
+          "value": "framework",
+          "label": "My framework (through poggy_core)"
+        },
+        {
+          "value": "job_only",
+          "label": "Everyone with a law job"
+        },
+        {
+          "value": "custom",
+          "label": "Custom (Your own duty script)"
+        }
+      ]
+    },
+    "Config.Duty.Fallback": {
+      "label": "When the duty script cannot say",
+      "tooltip": "Everyone with a law job: law jobs count as on duty when no duty script can answer (none running). Nobody: they count as off duty and get no law alerts.",
+      "options": [
+        {
+          "value": "job_only",
+          "label": "Everyone with a law job"
+        },
+        {
+          "value": "off_duty",
+          "label": "Nobody"
+        }
+      ]
+    },
+    "Config.Duty.Custom": {
+      "label": "Your own duty script",
+      "tooltip": "Used when Duty script is Custom: a server export and/or a state bag of your duty script. Jail keys (JailExport, IsJailedExport, JailedStateBag) can be added in config/config.lua; see the README.",
+      "advanced": true
+    },
+    "Config.Duty.Custom.Resource": {
+      "label": "Resource name",
+      "tooltip": "Your duty script's resource (folder) name, e.g. my_duty.",
+      "placeholder": "my_duty"
+    },
+    "Config.Duty.Custom.Export": {
+      "label": "Server export",
+      "tooltip": "Its server export that takes (source, job) and returns true when the player is on duty, e.g. IsOnDuty.",
+      "placeholder": "IsOnDuty"
+    },
+    "Config.Duty.Custom.StateBag": {
+      "label": "Player state bag",
+      "tooltip": "A player state bag key that is true when the player is on duty, e.g. onDuty.",
+      "placeholder": "onDuty"
+    },
+    "Config.AlertCooldown": {
+      "label": "Alert cooldown",
+      "tooltip": "Seconds before the same crime by the same player alerts the law again, so one shoot-out does not send a dozen alerts. 0 turns it off. Player calls such as /callpolice use their own cooldown.",
+      "tab": "alerts",
+      "group": "Delivery",
+      "min": 0,
+      "max": 600,
+      "step": 5,
+      "unit": "s"
     },
     "Config.BlipRadius": {
       "label": "Alert area size",
@@ -603,15 +798,21 @@
     },
     "Config.LawResponse.ResponseTime": {
       "label": "Response time",
-      "tooltip": "Not read by this version: the posse is sent as soon as the report is made.",
-      "advanced": true,
-      "group": "Posse"
+      "tooltip": "How long after the witness report the posse sets out. The player is warned at once.",
+      "group": "Posse",
+      "min": 0,
+      "max": 120000,
+      "step": 1000,
+      "unit": "ms"
     },
     "Config.LawResponse.Duration": {
       "label": "Response duration",
-      "tooltip": "Not read by this version: the posse stays until it is defeated, the player escapes or surrenders.",
-      "advanced": true,
-      "group": "Posse"
+      "tooltip": "The longest a posse keeps hunting. After this the player has got away.",
+      "group": "Posse",
+      "min": 60000,
+      "max": 1800000,
+      "step": 30000,
+      "unit": "ms"
     },
     "Config.LawResponse.MinOfficers": {
       "label": "Fewest officers (fallback)",
@@ -640,7 +841,7 @@
     },
     "Config.LawResponse.DespawnDistance": {
       "label": "Escape distance",
-      "tooltip": "If the player gets this far from the officers, the response ends and the player has escaped.",
+      "tooltip": "Get this far from every officer, and stay that far for about 10 seconds, and the player has escaped.",
       "min": 50,
       "max": 500,
       "step": 5,
@@ -668,12 +869,12 @@
     },
     "Config.LawResponse.PlayerLEOPriority": {
       "label": "Player lawmen first",
-      "tooltip": "When on, NPC law does not ride out while any player with a law job is on duty.",
+      "tooltip": "When on, NPC law only rides out while no player lawman is on duty (as Duty script says), so player lawmen answer first.",
       "group": "Posse"
     },
     "Config.LawResponse.EngagedCrimes": {
       "label": "Crimes that send NPC law",
-      "tooltip": "Only these crimes bring an NPC posse. Others still alert player lawmen. Names: Shooting, Threatening, Melee, Lassoing, Trampling, Hijacking, CarryingHostage.",
+      "tooltip": "Only these crimes bring an NPC posse. Others still alert player lawmen. Names: Shooting, Threatening, Melee, Lassoing, Trampling, Hijacking, CarryingHostage, Looting, Poaching, and any crime another script sends with the police alert export.",
       "group": "Posse"
     },
     "Config.LawResponse.AllowSurrender": {
@@ -683,7 +884,7 @@
     },
     "Config.LawResponse.JailTime": {
       "label": "Jail time by severity",
-      "tooltip": "Minutes in jail after surrendering, by crime severity. Only used when a jail call is set below."
+      "tooltip": "Minutes in jail after surrendering, by crime severity. Used only when something can jail: the Jail call below, a jail export under Your own duty script, or the built-in Sisika jail."
     },
     "Config.LawResponse.JailTime.*": {
       "min": 0,
@@ -693,15 +894,28 @@
     },
     "Config.LawResponse.SurrenderMovementTolerance": {
       "label": "Surrender movement tolerance",
-      "tooltip": "Not read by this version.",
-      "advanced": true,
-      "group": "Surrender and jail"
+      "tooltip": "How far a surrendering player can move before the surrender counts as broken and the posse opens fire.",
+      "group": "Surrender and jail",
+      "min": 0.5,
+      "max": 10.0,
+      "step": 0.5,
+      "unit": "m"
     },
     "Config.LawResponse.JailExportCall": {
       "label": "Jail call",
-      "tooltip": "Lua code, run on the server, that jails an arrested player through your jail script. Empty means arrest without jail. It runs as code, so it can only be changed in config/npc.lua.",
+      "tooltip": "Lua code, run on the server, that jails an arrested player through your jail script. It wins over a jail export under Your own duty script and over the built-in Sisika jail. None of the known law scripts can jail from another script. It runs as code, so it can only be changed in config/npc.lua.",
       "readonly": true,
       "advanced": true,
+      "group": "Surrender and jail"
+    },
+    "Config.LawResponse.BuiltinJail": {
+      "label": "Built-in jail (Sisika)",
+      "tooltip": "Witnesses' own jail at Sisika Penitentiary, used after an NPC arrest when the Jail call is empty and no jail export is set. More settings (coordinates, escapes, most minutes) can be added in config/npc.lua; see the README.",
+      "group": "Surrender and jail"
+    },
+    "Config.LawResponse.BuiltinJail.Enabled": {
+      "label": "Use the built-in Sisika jail",
+      "tooltip": "Off by default so it never fights a jail script you already run. On: an arrested player is taken to Sisika Penitentiary for Jail time by severity minutes, put in the prison uniform, kept on the grounds and shown the time left. The time counts only while they are online and carries over a relog. Their own clothes come back on release. Also turns on /jail.",
       "group": "Surrender and jail"
     },
     "Config.LawResponse.HorseModels": {
@@ -846,8 +1060,11 @@
     },
     "Config.LawResponse.ResponseTypes.LOW.MountedPercent": {
       "label": "Mounted officers",
-      "tooltip": "Not read by this version: each officer has a 50% chance to be mounted.",
-      "advanced": true
+      "tooltip": "Percent of officers who ride in on horseback. The rest come on foot.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
     },
     "Config.LawResponse.ResponseTypes.LOW.Probability": {
       "label": "Chance to respond",
@@ -883,8 +1100,11 @@
     },
     "Config.LawResponse.ResponseTypes.MEDIUM.MountedPercent": {
       "label": "Mounted officers",
-      "tooltip": "Not read by this version: each officer has a 50% chance to be mounted.",
-      "advanced": true
+      "tooltip": "Percent of officers who ride in on horseback. The rest come on foot.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
     },
     "Config.LawResponse.ResponseTypes.MEDIUM.Probability": {
       "label": "Chance to respond",
@@ -920,8 +1140,11 @@
     },
     "Config.LawResponse.ResponseTypes.HIGH.MountedPercent": {
       "label": "Mounted officers",
-      "tooltip": "Not read by this version: each officer has a 50% chance to be mounted.",
-      "advanced": true
+      "tooltip": "Percent of officers who ride in on horseback. The rest come on foot.",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
     },
     "Config.LawResponse.ResponseTypes.HIGH.Probability": {
       "label": "Chance to respond",

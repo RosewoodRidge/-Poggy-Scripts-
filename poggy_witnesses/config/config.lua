@@ -37,6 +37,29 @@ Config.DutyCheckEnabled = true -- Enable/disable checking if LEO recipients of a
 Config.DutyExportCall = ""
 --
 -- IMPORTANT: Ensure the call returns true if on duty, false otherwise.
+
+-- Which duty script decides who is on duty (1.4.0). Law alerts only reach
+-- on-duty lawmen, and the NPC law response only rides out when there are none.
+Config.Duty = {
+    -- "auto" uses the first duty script it finds running: outsider_policeman,
+    -- vorp_police, rsg-lawman, qbr-policejob, bcc-law, then your framework
+    -- through poggy_core. Or name one: "outsider_policeman", "vorp_police",
+    -- "rsg_lawman", "qbr_policejob", "bcc_law", "framework", "custom", or
+    -- "job_only" (everyone with a law job counts as on duty).
+    Preset = "auto",
+    -- When the duty script cannot say: "job_only" counts every law job as on
+    -- duty, "off_duty" counts nobody.
+    Fallback = "job_only",
+    -- For Preset = "custom": your duty script's resource name, its server export
+    -- that takes (source, job) and returns true when on duty, and/or a player
+    -- state bag key that is true when on duty.
+    Custom = { Resource = "", Export = "", StateBag = "" },
+}
+
+-- Seconds before the same crime by the same player alerts the law again
+-- (1.4.0). Stops one shoot-out sending a dozen alerts. 0 turns it off.
+Config.AlertCooldown = 60
+
 -- Witness Escape Configuration
 Config.WitnessEscape = {
     RequiredDistance = 20.0,                -- How far (in meters) a witness must be from player (relative to initial distance) to start reporting
@@ -86,7 +109,27 @@ Config.Checks = {
         Enabled = true,
         Command = "witness_carrying_hostage_alert",
         Probability = 90
+    },
+    Looting = { -- Searching a dead person's body (1.4.0)
+        Enabled = false,
+        Command = "witness_looting_alert",
+        Probability = 75
+    },
+    Poaching = { -- Killing an animal from Config.PoachingAnimals (1.4.0)
+        Enabled = false,
+        Command = "witness_poaching_alert",
+        Probability = 75
     }
+}
+
+-- Animals (model names) whose killing counts as poaching when
+-- Config.Checks.Poaching is enabled (1.4.0).
+Config.PoachingAnimals = {
+    "a_c_buffalo_01",
+    "a_c_buffalo_tatanka_01",
+    "a_c_eagle_01",
+    "a_c_moose_01",
+    "a_c_panther_01",
 }
 
 Config.EnforceTownLimits = true -- Set to true to only detect actions within defined town zones. Detection may cause performance issues if set to true, though none have been noticed in testing.

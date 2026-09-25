@@ -618,6 +618,8 @@ end
 ---   rowKey     the row's index or key when the path is inside a row
 ---   rowSegs    the row-relative field segments below that row ({} for the row itself)
 ---   rowPath    the row's own path
+local newSublistMeta   -- below, after protected()
+
 local function locate(model, b, path)
     local segs = I.splitPath(path)
     if not segs then return nil end
@@ -628,7 +630,7 @@ local function locate(model, b, path)
         local n = I.nodeAt(model.nodes, p)
         if n then
             local bn = I.nodeAt(b.byPath, n.path)
-            local m = bn and bn.meta or nil
+            local m = bn and bn.meta or newSublistMeta(b, n)
             out.chain[#out.chain + 1] = { node = n, meta = m }
             if i == 1 then out.exact = n end
             if not out.list then
@@ -702,6 +704,29 @@ local function fieldRefusal(fields, rowSegs)
 end
 
 local function plainTable(v) return type(v) == "table" and v.__type == nil end
+
+--- The meta of an empty sublist in a collection row the page has not seen: a
+--- row added earlier in the same save. The page's view names the sublists of
+--- rows it was shown as lists of rows (§8.4); a new row's {} would otherwise
+--- read as an empty list of names, and its first row be refused.
+newSublistMeta = function(b, n)
+    if n.kind ~= "strings" or type(n.value) ~= "table" or next(n.value) ~= nil then return nil end
+    local segs = I.splitPath(n.path)
+    if not segs or #segs < 3 or segs[#segs].index then return nil end
+    local anc = I.ancestors(n.path)
+    local coll = anc[2] and I.nodeAt(b.byPath, anc[2])
+    if not coll or not coll.collection or I.nodeAt(b.byPath, anc[1]) then return nil end
+    -- The collection's sublists: hub.json's, and those its other rows have.
+    local field, sub = segs[#segs].key, nil
+    for _, s in ipairs(plainTable(coll.collection) and coll.collection.sublists or {}) do
+        if s.field == field then sub = s break end
+    end
+    if not sub then return nil end
+    local m = plainTable(sub.meta) and I.copy(sub.meta) or {}
+    m.kind = sub.kind == "map" and "map" or "list"
+    if protected(fieldMeta(coll.meta.fields, { field })) then m.readonly = true end
+    return m
+end
 
 --- Every position in `new` (or `old`) that a readonly or hidden field covers
 --- must hold what it held before. Returns the first position that differs.

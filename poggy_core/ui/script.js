@@ -7,6 +7,9 @@
         { action: 'input.open', id, title, placeholder?, default?, maxLength?, numeric?, submitText?, closeText?,
                                 position?, margin? }
         { action: 'close' }                      hide everything, answer nothing
+        { action: 'uiprefs.open', scale: { player?, default, fit }, min, max,
+          look, looks: [{ id, label, theme }], motion }
+                                                 the player's screen settings (/poggyui, 0.24.0)
 
     `position` is one of center | left | right | top-left | top-right |
     bottom-left | bottom-right (PoggyCoreConfig.Ui.Position; anything else is
@@ -19,6 +22,8 @@
         ui:submit  { id, value }                 the text typed (a number when numeric)
         ui:close   { id }                        Escape, Backspace, right-click or the close button
         ui:sound   { kind }                      'move' | 'select' | 'close' — played by Lua
+        poggy_core:uiprefs:save  { scale, look, motion }   kept (scale null: the default size)
+        poggy_core:uiprefs:close {}              closed without keeping anything
 
     Everything else — which item is highlighted, scrolling, validation — is
     page-local. Values are never sent to the page: Lua keeps the caller's items
@@ -394,12 +399,186 @@
     // The game window was resized: re-pin whatever is open.
     window.addEventListener('resize', function () { placeCurrent(); });
 
+    // ------------------------------------------------ the player's screens --
+    //
+    // /poggyui. Everything is tried on this page as it changes: the size
+    // (theme.js zooms the whole page, PoggyTheme.scale.preview), the look
+    // (PoggyTheme.apply with the theme Lua worked out for each choice) and
+    // less motion. The sample in the middle shows it; the panel is given the
+    // opposite change of zoom so it keeps the size it opened at and the
+    // slider does not move under the pointer. "Done" keeps it all (Lua stores
+    // it on the player's PC and sends the page its new theme); Cancel and
+    // Escape put back what was there.
+
+    var scaleEl     = $('pg-scale');
+    var scaleBar    = scaleEl.querySelector('.pg-scale-bar');
+    var scaleRange  = $('pg-scale-range');
+    var scaleValue  = $('pg-scale-value');
+    var scaleNote   = $('pg-scale-note');
+    var scaleFit    = $('pg-scale-fit');
+    var scaleReset  = $('pg-scale-reset');
+    var scaleLooks  = $('pg-scale-looks');
+    var scaleMotion = $('pg-scale-motion');
+    var SCALE_NOTE  = scaleNote.textContent;
+    // { pick: percent or null (the default), def, base, look, looks, motion, was: { look, motion } }
+    var scaleOpen   = null;
+
+    function sizer() { return window.PoggyTheme && window.PoggyTheme.scale; }
+
+    function roundFive(n) { return Math.round(n / 5) * 5; }
+
+    function showScale(percent) {
+        var sz = sizer();
+        scaleRange.value = String(percent);
+        scaleValue.textContent = percent + '%';
+        if (sz) {
+            sz.preview(percent);
+            // The panel stays at the size in force when it opened.
+            scaleBar.style.zoom = String((scaleOpen ? scaleOpen.base : 1) / sz.current());
+        }
+    }
+
+    function lookTheme(id) {
+        if (!scaleOpen) return null;
+        for (var i = 0; i < scaleOpen.looks.length; i++) {
+            if (scaleOpen.looks[i].id === id) return scaleOpen.looks[i].theme;
+        }
+        return null;
+    }
+
+    // Try a look and a motion setting on this page, leaving the size alone.
+    function showLook() {
+        if (!scaleOpen || !window.PoggyTheme) return;
+        var t = lookTheme(scaleOpen.look);
+        if (t) {
+            var copy = {};
+            for (var k in t) if (Object.prototype.hasOwnProperty.call(t, k) && k !== 'scale') copy[k] = t[k];
+            copy.motion = scaleOpen.motion ? 'less' : null;
+            window.PoggyTheme.apply(copy);
+        } else {
+            window.PoggyTheme.motion(scaleOpen.motion ? 'less' : null);
+        }
+        var chips = scaleLooks.children;
+        for (var i = 0; i < chips.length; i++) {
+            var on = chips[i].getAttribute('data-look') === scaleOpen.look;
+            chips[i].classList.toggle('is-on', on);
+            chips[i].setAttribute('aria-checked', on ? 'true' : 'false');
+        }
+        scaleMotion.classList.toggle('is-on', !!scaleOpen.motion);
+        scaleMotion.setAttribute('aria-pressed', scaleOpen.motion ? 'true' : 'false');
+    }
+
+    function shortLabel(label) {
+        return String(label || '').replace(/\s*\(.*\)\s*$/, '');
+    }
+
+    function openScale(msg) {
+        var sz = sizer();
+        if (!sz) return;
+        var a = (msg.scale && typeof msg.scale === 'object') ? msg.scale : {};
+        var min = Number(msg.min) > 0 ? Number(msg.min) : 50;
+        var top = Number(msg.max) > 0 ? Number(msg.max) : 200;
+        var max = Math.min(top, Math.max(100, Math.floor(sz.maxPercent() / 5) * 5));
+        var def = Math.max(min, Math.min(max, roundFive(sz.resolve({ 'default': a['default'], fit: a.fit }) * 100)));
+        var fit = Math.max(min, Math.min(max, roundFive(sz.fitPercent())));
+        var mine = Number(a.player) > 0 ? Math.max(min, Math.min(max, roundFive(Number(a.player)))) : null;
+        var looks = Array.isArray(msg.looks) ? msg.looks : [];
+        var look = typeof msg.look === 'string' ? msg.look : '';
+        scaleOpen = {
+            pick: mine, def: def, base: sz.current(), looks: looks,
+            look: look, motion: msg.motion === true,
+            was: { look: look, motion: msg.motion === true },
+        };
+        scaleRange.min = String(min);
+        scaleRange.max = String(max);
+        // Numbers in the body font (the display font's figures are old-style).
+        scaleFit.querySelector('.pg-scale-num').textContent = fit + '%';
+        scaleFit.dataset.percent = String(fit);
+        scaleReset.querySelector('.pg-scale-num').textContent = def + '%';
+        scaleNote.textContent = max < top ? SCALE_NOTE + ' This screen goes up to ' + max + '%.' : SCALE_NOTE;
+
+        scaleLooks.innerHTML = '';
+        looks.forEach(function (l) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pg-btn pg-scale-chip';
+            b.setAttribute('role', 'radio');
+            b.setAttribute('data-look', String(l.id || ''));
+            b.textContent = shortLabel(l.label);
+            b.addEventListener('click', function () {
+                if (!scaleOpen) return;
+                scaleOpen.look = String(l.id || '');
+                sound('move');
+                showLook();
+            });
+            scaleLooks.appendChild(b);
+        });
+
+        scaleEl.classList.remove('hidden');
+        showScale(mine != null ? mine : def);
+        showLook();
+        setTimeout(function () { scaleRange.focus(); }, 30);
+    }
+
+    function closeScale(keep) {
+        if (!scaleOpen) return;
+        var st = scaleOpen;
+        scaleOpen = null;
+        scaleEl.classList.add('hidden');
+        scaleBar.style.zoom = '';
+        if (keep) {
+            sound('select');
+            post('poggy_core:uiprefs:save', { scale: st.pick, look: st.look, motion: !!st.motion });
+            return;
+        }
+        // Put back what was there: the size in force, the look and motion.
+        var sz = sizer();
+        if (sz) sz.preview(null);
+        scaleOpen = st;
+        st.look = st.was.look; st.motion = st.was.motion;
+        showLook();
+        scaleOpen = null;
+        sound('close');
+        post('poggy_core:uiprefs:close', {});
+    }
+
+    function pickScale(percent) {
+        if (!scaleOpen) return;
+        var n = Math.max(Number(scaleRange.min), Math.min(Number(scaleRange.max), roundFive(Number(percent))));
+        scaleOpen.pick = n;
+        showScale(n);
+    }
+
+    scaleRange.addEventListener('input', function () { pickScale(scaleRange.value); });
+    $('pg-scale-down').addEventListener('click', function () { pickScale(Number(scaleRange.value) - 5); });
+    $('pg-scale-up').addEventListener('click', function () { pickScale(Number(scaleRange.value) + 5); });
+    scaleFit.addEventListener('click', function () { pickScale(Number(scaleFit.dataset.percent) || 100); });
+    scaleReset.addEventListener('click', function () {
+        if (!scaleOpen) return;
+        scaleOpen.pick = null;                    // no choice of their own: the default size (100%)
+        showScale(scaleOpen.def);
+    });
+    scaleMotion.addEventListener('click', function () {
+        if (!scaleOpen) return;
+        scaleOpen.motion = !scaleOpen.motion;
+        showLook();
+    });
+    $('pg-scale-done').addEventListener('click', function () { closeScale(true); });
+    $('pg-scale-cancel').addEventListener('click', function () { closeScale(false); });
+
+    document.addEventListener('keydown', function (e) {
+        if (!scaleOpen) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeScale(false); }
+        else if (e.key === 'Enter' && e.target === scaleRange) { e.preventDefault(); closeScale(true); }
+    });
+
     window.addEventListener('message', function (event) {
         var msg = event.data || {};
         switch (msg.action) {
             case 'menu.open':  openMenu(msg);  break;
             case 'input.open': openInput(msg); break;
             case 'close':      hideAll();      break;
+            case 'uiprefs.open': openScale(msg); break;
             default: break;
         }
     });
