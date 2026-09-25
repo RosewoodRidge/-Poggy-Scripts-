@@ -100,6 +100,7 @@ html[data-skin="leather"] body { font-size: 15px; }
 
 html[data-skin="leather"] #customer-container,
 html[data-skin="leather"] #manager-container,
+html[data-skin="leather"] #admin-container,
 html[data-skin="leather"] .ex-modal {
     border-style: solid;
     border-width: var(--lx-frame);

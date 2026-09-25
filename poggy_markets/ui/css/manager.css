@@ -1803,3 +1803,91 @@ select.input-field option {
     padding: 9px 22px;
     font-size: 13px;
 }
+
+/* ============================================================================
+   SHOP ADMIN PANEL (/pmadmin) AND HANDING A SHOP OVER
+   Built from the manager's own classes; these rules only fill the gaps.
+   ============================================================================ */
+
+/* The window.  The manager's own look, keyed to its id, so repeated here; the
+   Poggy theme's tokens when poggy_core supplies them, the manager's otherwise. */
+#admin-container {
+    width: 92vw;
+    max-width: 1500px;
+    height: 82vh;
+    max-height: 900px;
+    background: var(--pg-panel-bg, var(--bg-primary));
+    border: 1px solid var(--pg-border, var(--border-secondary));
+    border-radius: var(--pg-radius, var(--radius-lg));
+    color: var(--pg-text, var(--text-primary));
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--pg-shadow, 0 8px 32px rgba(0, 0, 0, 0.5));
+    overflow: hidden;
+}
+
+.admin-layout { padding: 16px; box-sizing: border-box; }
+
+.admin-detail {
+    width: 420px;
+    overflow-y: auto;
+    padding-bottom: 12px;
+}
+
+.admin-table { table-layout: auto; }
+.admin-table td, .admin-table th { white-space: nowrap; }
+.admin-table td:nth-child(2), .admin-table td:nth-child(3) { white-space: normal; }
+
+.admin-detail .settings-input-row { flex-wrap: wrap; }
+.admin-detail .settings-input-row .input-field { flex: 1 1 120px; min-width: 0; }
+
+.admin-detail > .emp-hint,
+.admin-detail #admin-detail-body { padding: 0 14px; }
+
+.admin-detail .settings-card {
+    padding: 14px;
+    margin-bottom: 10px;
+}
+
+.admin-detail .settings-input-row { margin-top: 8px; }
+
+.admin-buttons {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0 12px;
+}
+
+.admin-row { cursor: pointer; }
+
+.admin-row.selected td { background: var(--accent-bg); }
+
+.admin-message {
+    margin: 0 14px 8px;
+    color: var(--green);
+}
+
+.admin-message.admin-message-bad { color: var(--red); }
+
+.emp-player-row.admin-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+#settings-transfer-card .emp-player-list { margin-top: 10px; max-height: 180px; }
+
+.admin-results { margin-top: 8px; max-height: 220px; overflow-y: auto; }
+
+.admin-online {
+    margin-left: 6px;
+    font-size: 11px;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.admin-ledger-diff {
+    flex: 1;
+    align-self: center;
+    margin: 0;
+    color: var(--green);
+}

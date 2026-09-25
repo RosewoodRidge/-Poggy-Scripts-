@@ -231,6 +231,12 @@ Config.Admin = {
     -- Framework groups treated as admin.
     groups = { "admin", "superadmin", "god", "owner" },
 
+    -- An ACE that also opens the shop admin panel (/pmadmin), for staff whose
+    -- framework group is not in the list above:
+    --     add_ace group.moderator poggy_markets.admin allow
+    -- false = groups only.
+    ace = "poggy_markets.admin",
+
     -- Command names.  Set any to false to unregister that command.
     commands = {
         giveShop   = "pmgiveshop",   -- /pmgiveshop <serverId>       create a shop at their feet
@@ -246,12 +252,38 @@ Config.Admin = {
                                      --   shop's job (Config.ShopJobs); /poggy's Shop jobs
                                      --   panel does the same.  none = no job,
                                      --   reset = back to config/stores.lua.
+        shopAdmin  = "pmadmin",      -- /pmadmin  the shop admin panel: every shop in a
+                                     --   searchable table; route to it, open its manager,
+                                     --   transfer, repossess / restore, adjust the ledger,
+                                     --   remove staff, set its job.
     },
 
     -- Discord webhook for admin-level shop events. Paste your webhook URL here;
     -- an empty value ("") or this placeholder disables it.
     webhook = "YOUR DISCORD WEBHOOK HERE",
     webhookAvatar = "",
+}
+
+-- ---------------------------------------------------------------------------
+--  Owners handing a shop over
+--  ---------------------------------------------------------------------------
+--  An owner can give their shop to a player standing near them, from the
+--  manager's Settings tab: they type the shop's name to confirm, and the other
+--  player has to accept.  Stock, ledger and staff go with the shop.  A
+--  storefront reserved for a job (purchaseJobs in config/stores.lua) can only
+--  go to someone holding that job, and nobody can end up with more than
+--  Config.PlayerShops.maxPerPlayer shops.  Admins can transfer any shop to
+--  anyone with /pmadmin.
+-- ---------------------------------------------------------------------------
+Config.Transfers = {
+    -- false = only admins can move a shop to a new owner.
+    enabled = true,
+
+    -- How close (metres) the other player must be.
+    distance = 10.0,
+
+    -- Seconds the other player has to accept.
+    offerSeconds = 60,
 }
 
 -- ===========================================================================

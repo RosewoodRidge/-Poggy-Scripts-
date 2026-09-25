@@ -98,6 +98,7 @@ store in `config/stores.lua` a `shopId` pointing at its `playershops` row.
 | `/pmshops` | Admins, console | Lists every shop with its ID, owner and ledger. |
 | `/pmreload` | Admins, console | Rebuilds the store index and reloads shops from the database. Config changes still need a restart. |
 | `/pmmanage [shopId]` | Admins | Opens any shop's manager. No ID means the shop you are in. |
+| `/pmadmin` | Admins | The shop admin panel: find any shop, route to it, open its manager, transfer, repossess or restore, adjust the ledger, remove staff, set its job. See [Managing shops](#managing-shops). |
 | `/pmgiveshop <serverId>` | Admins, console | Founds a shop at a player's feet. No deed needed. |
 | `/pmdelshop <shopId>` | Admins, console | Deletes a shop permanently. |
 | `/pmmoveshop <shopId> [x y z]` | Admins, console | Moves a shop. No coordinates means where you stand. |
@@ -107,9 +108,10 @@ store in `config/stores.lua` a `shopId` pointing at its `playershops` row.
 | `/openstore` | Everyone | Opens the "name your store" prompt where the deed cannot be used from the inventory. The deed is still used up. |
 
 **Admins** are characters whose framework group is in `Config.Admin.groups`
-(`admin`, `superadmin`, `god`, `owner` by default).
+(`admin`, `superadmin`, `god`, `owner` by default). `/pmadmin` also opens for
+anyone granted the ACE in `Config.Admin.ace` (`poggy_markets.admin`).
 
-The seven commands in `Config.Admin.commands` can be renamed, or removed by
+The eight commands in `Config.Admin.commands` can be renamed, or removed by
 setting them to `false`. `/pmdiag`, `/pmshops`, `/pmreload`, `/pmmanage` and
 `/openstore` have fixed names.
 
@@ -372,6 +374,23 @@ core's shared jobs (an unknown name is refused); on VORP jobs are free text.
 
 ---
 
+## Managing shops
+
+**Owners hand shops over.** In the manager's **Settings** tab the owner picks a
+player standing near them, types the shop's name to confirm, and the other
+player gets an Accept / Decline box. Stock, ledger and staff go with the shop.
+A storefront reserved for a job (`purchaseJobs`) only goes to someone holding
+that job, and nobody gets more shops than `Config.PlayerShops.maxPerPlayer`.
+Settings: `Config.Transfers` (`enabled`, `distance`, `offerSeconds`).
+
+**`/pmadmin` is the shop admin panel** for staff who do not use `/poggy`: every
+shop in one table, searched by shop ID, name, owner or job. Pick one to set a
+GPS route to it, open its manager, transfer it (search every character,
+online or not, by name or id, then type the shop ID to confirm; the job and
+shop limits do not apply), repossess or restore it, set its ledger balance
+with a reason, remove staff or set its job. The `/poggy` Player shops panel runs the same code, and every
+change is logged to the console and the admin webhook with who made it.
+
 ## Tax and repossession
 
 Shops pay tax from their ledger on a schedule you set, by the server's clock.
@@ -450,6 +469,7 @@ exports.poggy_markets:IsTracked(itemName)                    -- boolean
 
 ## Changelog
 
+- **1.6.0** — Shop owners can hand their shop to a player standing near them from the manager's Settings tab; the other player has to accept, and a storefront reserved for a job only goes to someone with that job (`Config.Transfers`). New `/pmadmin` panel for admins who do not use `/poggy`: every shop in a searchable table, with route, open manager, transfer to any character (searched by name or id, online or not), repossess / restore, the ledger balance edited in place with a reason, staff removal and shop job. Opens for `Config.Admin.groups` or the ACE `poggy_markets.admin`. The `/poggy` Player shops panel now uses the same code, and a new owner who was on the shop's staff is taken off it.
 - **1.5.0** — A storefront can be reserved for the holders of certain jobs: `purchaseJobs = { "valstables" }` in `config/stores.lua` (**Buyers' jobs** in `/poggy`). The job the buyer is wearing counts, and with poggy_multijob so does every job on their list, so a stable owner does not have to switch jobs to buy the stable. Anyone else is told which job they need and nothing is charged. Admins are never refused. Left out, a storefront sells to anyone, as before. Two fixes to the shop prompt: when two shops are within reach, the nearest one owns the prompt (before, one keypress opened both), and a storefront with nothing to trade shows only its FOR SALE prompt instead of an "open" prompt that led to an empty shop. A player shop's blip sprite may also be a hash written as a number (`playershops.blipsprite = "623069873"`), for sprites that have no known name.
 - **1.4.1** — A refused visit no longer traps the player. Pressing the prompt at a shop someone else is managing (or one the job lock keeps you out of) left you frozen with a cursor and no panel to close: the client had taken focus before the server answered, and the refusal only sent a notification. Every refusal now releases the player, and the client lets go by itself if no panel arrives within eight seconds.
 - **1.4.0** — Shop jobs (`Config.ShopJobs`, off by default). A shop with a job gives it to its owner and staff at the grade for their role (`grades = { employee = 1, manager = 2, owner = 3 }`) and takes it back when they are let go or the shop is sold, repossessed or deleted; promotions and demotions move the grade. With poggy_multijob 1.7.3 running the job is added to the character's job list (online or offline) instead of replacing their current job. Only server staff set a shop's job, saved in the database: the new **Shop jobs** panel in `/poggy` (on the Poggy Markets and Poggy Multijob pages, applies at once, exported as `HubPanel`), the optional `/pmshopjob <shopId> <job|none|reset>` (admins and console), or the store's `job` in `config/stores.lua`; the staff tab shows it to everyone as a locked title. Grants are recorded in the new `poggy_markets_job_grants` table, only jobs poggy_markets gave are ever taken, and every start and every character load checks and repairs them (one summary line in the console). Access by job now uses the configured grades. Three more `/poggy` data panels: **Player shops** (owner, stock, ledger, staff, repossession; transfer, repossess/restore, ledger adjustment, staff removal, shelf prices), **Market prices** (nudge or reset a live price, price history) and **Exchange accounts** (balance correction, close a position). The staff tab keeps RSG/QBR character ids as text, so hiring, role changes and letting go work there.

@@ -370,6 +370,27 @@
                             <button id="btn-save-webhook" class="btn-action">Save</button>
                         </div>
                     </div>
+
+                    <!-- Hand the shop over (Config.Transfers): the owner only -->
+                    <div class="settings-card hidden" id="settings-transfer-card">
+                        <h4 class="settings-card-title">Hand Over Shop</h4>
+                        <p class="settings-card-desc">Give this shop, with its stock, ledger and staff, to a player standing near you. They have to accept.</p>
+                        <div class="settings-input-row">
+                            <button id="btn-transfer-find" class="btn-action">Find players nearby</button>
+                        </div>
+                        <div id="transfer-player-list" class="emp-player-list hidden"></div>
+                        <div id="transfer-form" class="buylist-add-form hidden">
+                            <div class="selected-item-banner">
+                                <span id="transfer-selected-name" class="item-preview-name"></span>
+                                <button id="transfer-clear" class="btn-small-cancel">&times;</button>
+                            </div>
+                            <p class="settings-card-desc">Type the shop&rsquo;s name to confirm.</p>
+                            <div class="settings-input-row">
+                                <input type="text" id="transfer-confirm-name" class="input-field" maxlength="50" placeholder="Shop name...">
+                                <button id="btn-transfer-offer" class="btn-danger">Offer shop</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -866,11 +887,134 @@
         <div id="ex-toast-container" class="ex-toast-container"></div>
     </div><!-- /exchange-container -->
 
+    <!-- ================================================================ -->
+    <!-- SHOP ADMIN PANEL (/pmadmin)                                      -->
+    <!-- ================================================================ -->
+    <div id="admin-container" class="container hidden">
+        <div class="manager-header">
+            <div class="header-left">
+                <h1>SHOP ADMIN</h1>
+                <span id="admin-count" class="shop-id-badge">0 shops</span>
+            </div>
+            <button id="admin-btn-close" class="btn-close">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 3L3 11M3 3l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+
+        <div class="tab-content active">
+            <div class="employees-layout admin-layout">
+                <!-- Every shop -->
+                <div class="emp-current-panel">
+                    <div class="inv-toolbar" style="margin-bottom:10px">
+                        <input type="text" id="admin-search" class="input-field" placeholder="Search by shop ID, name, owner or job...">
+                        <select id="admin-filter" class="input-field" style="width:160px;flex:0 0 auto">
+                            <option value="all">All shops</option>
+                            <option value="owned">Owned</option>
+                            <option value="unowned">No owner</option>
+                            <option value="repo">Repossessed</option>
+                        </select>
+                        <button id="admin-btn-refresh" class="btn-action" style="white-space:nowrap">Refresh</button>
+                    </div>
+                    <div class="inv-table-wrapper">
+                        <table class="listings-table admin-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px">ID</th>
+                                    <th>Shop</th>
+                                    <th>Owner</th>
+                                    <th style="width:100px">Ledger</th>
+                                    <th style="width:70px">Stock</th>
+                                    <th style="width:60px">Staff</th>
+                                    <th style="width:120px">Job</th>
+                                    <th style="width:110px">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-tbody">
+                                <tr><td class="empty-cell" colspan="8">Loading shops...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- The picked shop -->
+                <div class="emp-add-panel admin-detail">
+                    <div class="inv-toolbar" style="margin-bottom:6px">
+                        <h3 class="panel-title" id="admin-detail-title" style="margin:0">Pick a shop</h3>
+                    </div>
+                    <p class="emp-hint" id="admin-detail-sub">Select a shop in the table to act on it.</p>
+                    <p class="emp-hint admin-message hidden" id="admin-message"></p>
+
+                    <div id="admin-detail-body" class="hidden">
+                        <div class="settings-input-row admin-buttons">
+                            <button id="admin-btn-route" class="btn-action">Route to shop</button>
+                            <button id="admin-btn-manage" class="btn-action">Open manager</button>
+                            <button id="admin-btn-repo" class="btn-danger">Repossess</button>
+                        </div>
+
+                        <div class="settings-card">
+                            <h4 class="settings-card-title">Transfer Owner</h4>
+                            <p class="settings-card-desc">Search every character, online or not, by name or character id. Stock, ledger and staff stay with the shop.</p>
+                            <div class="settings-input-row">
+                                <input type="text" id="admin-transfer-search" class="input-field" maxlength="40" placeholder="Search characters...">
+                            </div>
+                            <div id="admin-transfer-results" class="emp-player-list admin-results hidden"></div>
+                            <div id="admin-transfer-form" class="buylist-add-form hidden">
+                                <div class="selected-item-banner">
+                                    <span id="admin-transfer-selected" class="item-preview-name"></span>
+                                    <button id="admin-transfer-clear" class="btn-small-cancel">&times;</button>
+                                </div>
+                                <div class="settings-input-row">
+                                    <input type="text" id="admin-transfer-confirm" class="input-field" maxlength="10" placeholder="Type the shop ID to confirm">
+                                    <button id="admin-btn-transfer" class="btn-action">Transfer</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h4 class="settings-card-title">Ledger</h4>
+                            <p class="settings-card-desc">Change the balance and say why. The difference shows in the shop&rsquo;s ledger as an admin adjustment.</p>
+                            <div class="settings-input-row">
+                                <input type="number" id="admin-ledger-balance" class="input-field" min="0" step="0.01" style="width:140px;flex:0 0 auto">
+                                <input type="text" id="admin-ledger-reason" class="input-field" maxlength="80" placeholder="Reason">
+                            </div>
+                            <div class="settings-input-row">
+                                <span id="admin-ledger-diff" class="emp-hint admin-ledger-diff"></span>
+                                <button id="admin-btn-ledger" class="btn-action">Save</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card" id="admin-job-card">
+                            <h4 class="settings-card-title">Shop Job</h4>
+                            <p class="settings-card-desc" id="admin-job-desc">The job the owner and staff are given. Empty = no job, &ldquo;reset&rdquo; = the job in config.</p>
+                            <div class="settings-input-row">
+                                <input type="text" id="admin-job" class="input-field" maxlength="64" placeholder="e.g. valstables">
+                                <button id="admin-btn-job" class="btn-action">Set</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h4 class="settings-card-title">Staff</h4>
+                            <div class="inv-table-wrapper">
+                                <table class="listings-table">
+                                    <thead>
+                                        <tr><th>Name</th><th style="width:100px">Role</th><th style="width:90px"></th></tr>
+                                    </thead>
+                                    <tbody id="admin-staff-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /admin-container -->
+
     <script src="js/skin.js"></script>
     <script src="lib/chart.min.js"></script>
     <script src="lib/chart-annotation.min.js"></script>
     <script src="js/manager.js"></script>
     <script src="js/exchange.js"></script>
     <script src="js/prompt.js"></script>
+    <script src="js/admin.js"></script>
 </body>
 </html>

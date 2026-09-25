@@ -16,6 +16,10 @@
     {
       "title": "Running the economy modules",
       "file": "docs/help/economy-modules.md"
+    },
+    {
+      "title": "Managing shops and owners",
+      "file": "docs/help/managing-shops.md"
     }
   ],
   "commands": [
@@ -128,6 +132,16 @@
       "usage": "/pmmanage [shopId]",
       "examples": [
         "/pmmanage 7"
+      ]
+    },
+    {
+      "command": "/pmadmin",
+      "configPath": "Config.Admin.commands.shopAdmin",
+      "who": "Admins",
+      "description": "Opens the shop admin panel in game: every shop in one table, searchable by shop ID, name, owner or job, and filterable by owned, no owner or repossessed. Pick a shop to set a GPS route to it, open its manager, transfer it to a new owner (search every character, online or not, by name or id, then type the shop ID to confirm), repossess or restore it, set its ledger balance with a reason, remove staff or set its job. For staff who cannot use /poggy; everything is logged with who did it.",
+      "usage": "/pmadmin",
+      "examples": [
+        "/pmadmin"
       ]
     },
     {
@@ -382,6 +396,37 @@
       "max": 100000,
       "step": 10,
       "unit": "$"
+    },
+    "Config.Transfers": {
+      "label": "Handing a shop over",
+      "tooltip": "Owners can give their shop to a player standing near them from the manager's Settings tab; the other player has to accept.",
+      "tab": "shops"
+    },
+    "Config.Transfers.enabled": {
+      "label": "Owners can hand shops over",
+      "tooltip": "On = an owner can give their shop (stock, ledger and staff) to a player near them, who has to accept. A storefront reserved for a job only goes to someone with that job, and nobody gets more shops than Shops per character allows. Off = only admins move shops, with /pmadmin or /poggy.",
+      "tab": "shops",
+      "group": "Handing a shop over"
+    },
+    "Config.Transfers.distance": {
+      "label": "Handover distance",
+      "tooltip": "How close, in metres, the other player must be standing.",
+      "tab": "shops",
+      "group": "Handing a shop over",
+      "min": 1,
+      "max": 100,
+      "step": 1,
+      "unit": "m"
+    },
+    "Config.Transfers.offerSeconds": {
+      "label": "Time to accept",
+      "tooltip": "Seconds the other player has to accept before the offer lapses.",
+      "tab": "shops",
+      "group": "Handing a shop over",
+      "min": 10,
+      "max": 600,
+      "step": 5,
+      "unit": "s"
     },
     "Config.PlayerShops.blipSprite": {
       "label": "Player shop blip",
@@ -825,6 +870,13 @@
       "group": "Admins",
       "picker": "group"
     },
+    "Config.Admin.ace": {
+      "label": "Admin ACE",
+      "tooltip": "An ACE that also opens the shop admin panel (/pmadmin), for staff whose framework group is not in Admin groups. Grant it in server.cfg, e.g. add_ace group.moderator poggy_markets.admin allow. false = groups only.",
+      "tab": "access",
+      "group": "Admins",
+      "advanced": true
+    },
     "Config.Admin.commands": {
       "label": "Admin command names",
       "tooltip": "The chat command for each admin tool, without the slash. Set one to false to remove that command.",
@@ -876,6 +928,13 @@
     "Config.Admin.commands.shopJob": {
       "label": "Shop job command",
       "tooltip": "Sets a shop's job (the Shop jobs panel does the same). Owners and staff cannot. Name without the slash; false removes the command.",
+      "tab": "access",
+      "group": "Admin command names",
+      "advanced": true
+    },
+    "Config.Admin.commands.shopAdmin": {
+      "label": "Shop admin command",
+      "tooltip": "Opens the shop admin panel in game: find any shop, route to it, open its manager, transfer, repossess or restore, adjust the ledger, remove staff, set its job. Name without the slash; false removes the command.",
       "tab": "access",
       "group": "Admin command names",
       "advanced": true
