@@ -494,9 +494,8 @@
             var html3 = '';
             recent.forEach(function (txn) {
                 var typeClass = 'txn-' + (txn.type || 'sale');
-                var amtClass = (txn.type === 'sale' || txn.type === 'deposit')
-                    ? 'txn-amount-positive' : 'txn-amount-negative';
-                var sign = (txn.type === 'sale' || txn.type === 'deposit') ? '+' : '-';
+                var amtClass = txnIsIncoming(txn) ? 'txn-amount-positive' : 'txn-amount-negative';
+                var sign = txnIsIncoming(txn) ? '+' : '-';
                 html3 += '<div class="recent-txn-row">' +
                     '<span class="txn-type-badge ' + typeClass + '">' + (txn.type || '?') + '</span>' +
                     '<span class="txn-item-name">' + escapeHtml(txn.itemLabel || '—') + '</span>' +
@@ -746,6 +745,11 @@
         $('#dash-ledger').textContent = fmt(State.ledger);
     }
 
+    /* Money into the ledger: a sale, a ghost sale or a deposit.  Everything
+       else (a purchase from a player, a withdrawal, tax) is money out. */
+    var INCOMING_TXN = { sale: true, ghost: true, deposit: true };
+    function txnIsIncoming(txn) { return INCOMING_TXN[txn.type || 'sale'] === true; }
+
     function renderTransactionHistory() {
         var tbody = $('#ledger-tbody');
         var txns = State.transactions || [];
@@ -763,7 +767,8 @@
                 '<td><span class="txn-type-badge ' + typeClass + '">' + escapeHtml(txn.type || '?') + '</span></td>' +
                 '<td><div class="item-cell">' + itemImgTag(txn.itemLabel) + escapeHtml(txn.itemLabel || '—') + '</div></td>' +
                 '<td style="text-align:center">' + (txn.quantity || '—') + '</td>' +
-                '<td>' + fmt(txn.total) + '</td>' +
+                '<td class="' + (txnIsIncoming(txn) ? 'txn-amount-positive' : 'txn-amount-negative') + '">' +
+                    (txnIsIncoming(txn) ? '+' : '-') + fmt(txn.total) + '</td>' +
                 '<td>' + escapeHtml(txn.charName || '—') + '</td>' +
                 '</tr>';
         });

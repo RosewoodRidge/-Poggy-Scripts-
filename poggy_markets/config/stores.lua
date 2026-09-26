@@ -147,7 +147,8 @@ Config.StoreTypes = {
 --             blipSprite   override the type's blip: a Config.BlipSprites
 --                          name or a sprite hash
 --             sell / buy   override the type's item lists
---             npc          false for no clerk, or a table:
+--             npc          false for no clerk, true for the type's clerk (or
+--                          the fallback clerk) on the prompt, or a table:
 --                            { model    = "...",
 --                              coords   = vector3(x, y, z),   -- where the CLERK stands
 --                              heading  = 0.0,

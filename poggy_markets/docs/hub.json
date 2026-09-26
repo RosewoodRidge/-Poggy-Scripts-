@@ -1459,7 +1459,7 @@
         },
         "npc": {
           "label": "Clerk",
-          "tooltip": "false = no clerk. A table sets the clerk's model, position and heading. Left out, the type's clerk is used."
+          "tooltip": "false = no clerk. true = a clerk of the type's model (or the fallback clerk) on the prompt. A table sets the clerk's model, position and heading. Left out, the type's clerk is used."
         },
         "npc.model": {
           "label": "Clerk model",
