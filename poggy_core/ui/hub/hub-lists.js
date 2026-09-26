@@ -2125,7 +2125,7 @@
         var ctl, get;
         if (f.picker === 'coords') {
             value = { __type: 'vec4', x: 0, y: 0, z: 0, w: 0 };
-            ctl = F.control({ value: value, meta: {} }, function (v) { value = v; }, errFn);
+            ctl = F.control({ value: value, path: f.field, meta: { ground: typeof f.ground === 'boolean' ? f.ground : undefined } }, function (v) { value = v; }, errFn);
             get = function () { return value && (value.x || value.y || value.z) ? { x: value.x, y: value.y, z: value.z, heading: value.w } : null; };
         } else if (arr(f.options).length) {
             value = value !== undefined && value !== null ? value : f.options[0].value;
@@ -2361,7 +2361,13 @@
                 var face = h('span.ph-cellmono', v && typeof v === 'object' ? [v.x, v.y, v.z].map(function (n) { return PH.num(Math.round(Number(n) * 100) / 100); }).join(', ') : '—');
                 var use = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Set it to where your character stands' }, [icon('target'), 'My position']);
                 use.addEventListener('click', function () {
-                    F.myPosition().then(function (p) { if (p) commit({ x: p.x, y: p.y, z: p.z, heading: p.heading }); });
+                    F.myPosition().then(function (p) {
+                        if (!p) return;
+                        if (!F.isGroundSpot(col.field, col)) { commit({ x: p.x, y: p.y, z: p.z, heading: p.heading }); return; }
+                        var z = F.groundZ(p.z);
+                        commit({ x: p.x, y: p.y, z: z, heading: p.heading });
+                        F.groundWarn('mine', p.z, z, function () { commit({ x: p.x, y: p.y, z: p.z, heading: p.heading }); });
+                    });
                 });
                 ctl = { el: h('span.ph-pcell__coords', [face, use]), disable: function (d) { use.disabled = d; } };
             } else if (col.picker && F.fetchers[col.picker]) {

@@ -1495,6 +1495,52 @@
     };
 
     /**
+     * Ground spots: where an NPC or a prop is placed. A position taken in game
+     * (Use my position, and what /coords and most copy tools print) is the
+     * character's own position, about 1 metre above their feet, so a ped or a
+     * prop put there floats. Those spots get their height lowered by 1 metre
+     * as the position goes in, with a warning that can undo it.
+     *
+     * hub.json `"ground": true` / `false` on the setting or field decides;
+     * without it, a path with an npc / ped / clerk / prop / object part is one
+     * (npc.coords, NPCs[1].pos, propCoords, Clerks[2]). A spot where a player
+     * stands (a prompt, a storage, a marker) is left as it is.
+     */
+    F.GROUND_DROP = 1;
+    var GROUND_WORDS = ['npc', 'ped', 'clerk', 'prop', 'object'];
+    F.isGroundSpot = function (path, meta) {
+        if (meta && typeof meta.ground === 'boolean') return meta.ground;
+        var segs = String(path == null ? '' : path).split(/[^A-Za-z0-9]+/);
+        return segs.some(function (seg) {
+            var low = seg.toLowerCase();
+            return GROUND_WORDS.some(function (w) {
+                if (low.indexOf(w) !== 0) return false;
+                var rest = seg.slice(w.length);
+                return rest === '' || rest === 's' || /^s?[A-Z0-9_]/.test(rest);
+            });
+        });
+    };
+    /** The height to store for a ground spot, from a height taken in game. */
+    F.groundZ = function (z) { return Math.round((Number(z) - F.GROUND_DROP) * 100) / 100; };
+    /**
+     * Say that a ground spot's height was lowered, and offer to undo it.
+     * `how` is 'paste' or 'mine'; keep() puts the original height back.
+     */
+    F.groundWarn = function (how, from, to, keep) {
+        var said = how === 'mine'
+            ? 'Your position is read at your character\u2019s waist, about 1 metre above their feet and the ground.'
+            : 'A position copied in game (Use my position, /coords and most copy tools) is read at the character\u2019s waist, about 1 metre above their feet and the ground.';
+        PH.toast({
+            kind: 'warning',
+            title: 'Height lowered by 1 metre',
+            text: said + ' This spot places an NPC or a prop, which would float 1 metre in the air at that height, so its height (z) was lowered from ' +
+                PH.num(from) + ' to ' + PH.num(to) + '. If the height you gave was already measured at ground level, press Keep my height.',
+            timeout: 15000,
+            actions: keep ? [{ label: 'Keep my height (' + PH.num(from) + ')', onClick: keep }] : null,
+        });
+    };
+
+    /**
      * Ask for a pasted position. The clipboard cannot be read from a button in
      * the game's browser, so this opens a small box to press Ctrl+V into; where
      * the browser does allow reading, the box is skipped.
@@ -1529,10 +1575,19 @@
      * spread over the boxes. `grid` holds the row's fields; keys = { x, y, z, h }
      * gives each axis' path (z and h may be missing).
      */
-    F.xyzTools = function (grid, keys, onChange) {
+    F.xyzTools = function (grid, keys, onChange, meta) {
         function fieldOf(path) { return grid.querySelector('.ph-field[data-path="' + String(PH.canon(path)).replace(/"/g, '\\"') + '"]'); }
-        function put(values) {
+        var ground = !!keys.z && F.isGroundSpot(keys.z, meta);
+        function setZ(z) {
+            S.set(keys.z, z);
+            var f = fieldOf(keys.z);
+            if (f && f.refresh) f.refresh();
+            if (onChange) onChange();
+        }
+        function put(values, how) {
             if (S.isReadOnly()) return;
+            var fromZ = values.z;
+            if (ground && typeof fromZ === 'number') values.z = F.groundZ(fromZ);
             var said = [];
             ['x', 'y', 'z', 'h'].forEach(function (a) {
                 if (!keys[a] || typeof values[a] !== 'number') return;
@@ -1542,11 +1597,12 @@
                 if (f && f.refresh) f.refresh();
             });
             if (onChange) onChange();
-            if (said.length) PH.toast({ kind: 'success', title: 'Position set', text: said.join('  ') });
+            if (ground && typeof fromZ === 'number') F.groundWarn(how, fromZ, values.z, function () { setZ(fromZ); });
+            else if (said.length) PH.toast({ kind: 'success', title: 'Position set', text: said.join('  ') });
         }
-        function fromNums(nums) { put({ x: nums[0], y: nums[1], z: nums[2], h: nums[3] }); }
+        function fromNums(nums) { put({ x: nums[0], y: nums[1], z: nums[2], h: nums[3] }, 'paste'); }
         var use = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: keys.h ? 'Where your character stands now, and the way they face' : 'Where your character stands now' }, [icon('target'), 'Use my position']);
-        use.addEventListener('click', function () { F.myPosition().then(function (p) { if (p) put({ x: p.x, y: p.y, z: p.z, h: p.heading }); }); });
+        use.addEventListener('click', function () { F.myPosition().then(function (p) { if (p) put({ x: p.x, y: p.y, z: p.z, h: p.heading }, 'mine'); }); });
         var paste = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Paste a vector3 / vector4, or x, y, z' }, [icon('clipboard'), 'Paste coordinates']);
         paste.addEventListener('click', function () { if (!S.isReadOnly()) F.askVector(paste, fromNums); });
         // A vector pasted straight into one of the boxes fills them all.
@@ -1570,6 +1626,17 @@
         var v = PH.clone(spec.value);
         var axes = PH.vecAxes(v);
         var inputs = {};
+        var ground = axes.indexOf('z') !== -1 && F.isGroundSpot(spec.path, spec.meta);
+        function show() { axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); inputs[a].classList.remove('is-bad'); }); }
+        /** A ground spot set from a height `fromZ` taken in game: lower it, and say so. */
+        function settle(how, fromZ) {
+            if (!ground || typeof fromZ !== 'number') return false;
+            v.z = F.groundZ(fromZ);
+            show();
+            commit(PH.clone(v));
+            F.groundWarn(how, fromZ, v.z, function () { v.z = fromZ; show(); commit(PH.clone(v)); });
+            return true;
+        }
         var boxes = axes.map(function (a) {
             var inp = h('input.ph-input.ph-input--num', { type: 'text', inputmode: 'decimal', spellcheck: 'false', value: PH.num(v[a]) });
             inp.addEventListener('input', function () {
@@ -1591,8 +1658,9 @@
         });
         function fill(nums) {
             axes.forEach(function (a, i) { if (typeof nums[i] === 'number') v[a] = nums[i]; });
-            axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); inputs[a].classList.remove('is-bad'); });
+            show();
             err('');
+            if (settle('paste', typeof nums[2] === 'number' ? nums[2] : undefined)) return;
             commit(PH.clone(v));
             PH.toast({ kind: 'success', title: 'Position set', text: axes.map(function (a) { return (a === 'w' ? 'h' : a) + ' ' + PH.num(v[a]); }).join('  ') });
         }
@@ -1606,8 +1674,9 @@
                 v.x = p.x; v.y = p.y;
                 if (axes.indexOf('z') !== -1) v.z = p.z;
                 if (axes.indexOf('w') !== -1) v.w = p.heading;
-                axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); inputs[a].classList.remove('is-bad'); });
+                show();
                 err('');
+                if (settle('mine', axes.indexOf('z') !== -1 ? p.z : undefined)) return;
                 commit(PH.clone(v));
                 PH.toast({ kind: 'success', title: 'Position set', text: axes.map(function (a) { return a + ' ' + PH.num(v[a]); }).join('  ') });
             });
@@ -1622,6 +1691,55 @@
             el: h('div.ph-vec', [h('div.ph-vec__axes.ph-vec__axes--' + axes.length, boxes), h('div.ph-vec__tools', [use, paste, copy])]),
             set: function (nv) { v = PH.clone(nv); axes.forEach(function (a) { inputs[a].value = PH.num(v[a]); }); },
             disable: function (d) { axes.forEach(function (a) { inputs[a].readOnly = d; }); use.disabled = d; paste.disabled = d; },
+        };
+    }
+
+    /**
+     * A list of positions (`locations = { vector3(...), vector3(...) }`): one
+     * position editor per entry, with Add and Remove. The list keeps at least
+     * one entry, so the hub still knows it is a list of positions.
+     */
+    function ctlVecList(spec, commit, err) {
+        var arr = PH.clone(spec.value) || [];
+        var wrap = h('div.ph-veclist');
+        var disabled = false;
+        function blank() {
+            var nv = { __type: (arr.length && arr[arr.length - 1].__type) || 'vec3' };
+            PH.vecAxes(nv).forEach(function (a) { nv[a] = 0; });
+            return nv;
+        }
+        function draw() {
+            PH.clear(wrap);
+            arr.forEach(function (item, i) {
+                var ctl = ctlVector({ path: spec.path, meta: spec.meta, value: item }, function (nv) {
+                    arr[i] = nv;
+                    return commit(PH.clone(arr));
+                }, err);
+                var del = h('button.ph-iconbtn', { type: 'button', title: arr.length > 1 ? 'Remove this position' : 'The list needs at least one position' }, icon('trash'));
+                del.disabled = disabled || arr.length <= 1;
+                del.addEventListener('click', function () {
+                    if (arr.length <= 1) return;
+                    arr.splice(i, 1);
+                    commit(PH.clone(arr));
+                    draw();
+                });
+                if (disabled) ctl.disable(true);
+                wrap.appendChild(h('div.ph-veclist__row', [h('span.ph-veclist__n', String(i + 1)), ctl.el, del]));
+            });
+            var add = h('button.ph-btn.ph-btn--ghost.ph-btn--sm', { type: 'button', title: 'Add another position, then use your position or paste one into it' }, [icon('plus'), 'Add position']);
+            add.disabled = disabled;
+            add.addEventListener('click', function () {
+                arr.push(blank());
+                commit(PH.clone(arr));
+                draw();
+            });
+            wrap.appendChild(h('div.ph-veclist__bar', [add]));
+        }
+        draw();
+        return {
+            el: wrap,
+            set: function (nv) { arr = PH.clone(nv) || []; draw(); },
+            disable: function (d) { disabled = d; draw(); },
         };
     }
 
@@ -1956,6 +2074,7 @@
         if (t === 'hash') return picker === 'key' ? ctlPicked(spec, commit, 'key') : ctlHash(spec, commit, err);
         if (/^vector/.test(t)) return ctlVector(spec, commit, err);
         if (t === 'array') {
+            if (v.length > 0 && v.every(PH.isVec)) return ctlVecList(spec, commit, err);
             var allNum = v.length > 0 && v.every(function (x) { return typeof x === 'number'; });
             if (allNum && v.length <= 4 && !spec.roleable) return ctlTuple(spec, commit, err);
             if (v.every(function (x) { return typeof x === 'string' || typeof x === 'number'; })) return ctlChips(spec, commit, err);
