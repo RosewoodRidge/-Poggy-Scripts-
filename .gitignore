@@ -13,6 +13,7 @@ pre-publish.bat
 pre-publish.ps1
 publish-updates.bat
 publish-updates.ps1
+publish-core-release.ps1
 release-scripts.psd1
 clean_bak.bat
 
