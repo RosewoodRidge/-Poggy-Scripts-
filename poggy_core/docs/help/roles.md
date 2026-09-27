@@ -49,3 +49,5 @@ The scripts never read it; only the hub does. Delete the comment to unlink by ha
 ## Law jobs and medical jobs in poggy_core
 
 `Law jobs` and `Medical jobs` on poggy_core's **Access & permissions** tab are used by every Poggy script that asks "is this player a lawman / a medic?". You can link them to a role too.
+
+**Framework law jobs count as law** (on by default): on RSG and QBCore, every job the framework's own jobs table marks as law enforcement (type `leo`, such as RSG's `vallaw` or `rholaw`) also counts as a law job, without adding it to the list. VORP and QBR have no job types, so there the list is all that counts.

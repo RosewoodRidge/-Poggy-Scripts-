@@ -89,7 +89,7 @@ H["players.list"] = function(C)     return ret(C.GetPlayers()) end
 
 -- 0.11.0
 H["char.offline"]   = function(C, p) return ret(C.GetCharOffline(p.charId, p.appearance)) end
-H["char.list"]      = function(C, p) return ret(C.ListChars({ search = p.search, limit = p.limit, offset = p.offset })) end
+H["char.list"]      = function(C, p) return ret(C.ListChars({ search = p.search, limit = p.limit, offset = p.offset, withJob = p.withJob == true })) end
 H["players.onDuty"] = function(C, p) return ret(C.GetPlayersOnDuty(p.job, p.minGrade)) end
 
 -- money ----------------------------------------------------------------------
@@ -107,6 +107,11 @@ H["money.supports"] = function(C, p) return true, C.Money.Supports(p.currency) a
 -- Markets and the Auction House default quietly when no treasury is installed.
 
 H["bank.register"]     = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "bank", p.fns)) end
+-- 0.25.0: held jobs, duty and law reports (server/sv_jobs.lua).
+H["jobs.register"]     = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "jobs", p.fns)) end
+H["duty.register"]     = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "duty", p.fns)) end
+H["law.register"]      = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "law", p.fns)) end
+H["law.report"]        = function(_, p, resource) return PoggyCore.Jobs.LawReport(p, resource) end
 H["treasury.register"] = function(_, p, resource) return did(PoggyCore.Providers.Register(resource, "treasury", p.fns)) end
 
 local function treasury(name, ...) return PoggyCore.Providers.Call("treasury", name, ...) end
@@ -135,7 +140,7 @@ end
 -- jobs -----------------------------------------------------------------------
 
 H["job.get"] = function(C, p)
-    local name, grade, label, gradeLabel, onDuty = C.Job.Get(p.src)
+    local name, grade, label, gradeLabel, onDuty = C.Job.Get(p.src, p.raw == true)
     if name == nil then return false, nil, Err.NO_CHAR end
     return true, {
         name = name, grade = grade, label = label,
@@ -144,7 +149,7 @@ H["job.get"] = function(C, p)
 end
 
 H["job.set"]       = function(C, p) return did(C.Job.Set(p.src, p.job, p.grade, p.label, p.persist)) end
-H["job.duty"]      = function(C, p) return did(C.Job.SetDuty(p.src, p.onDuty)) end
+H["job.duty"]      = function(C, p) return did(C.Job.SetDuty(p.src, p.onDuty, p.raw == true)) end
 H["job.has"]       = function(C, p) return true, C.Job.Has(p.src, p.job, p.minGrade) and true or false, nil end
 H["job.isLaw"]     = function(C, p) return true, C.Job.IsLaw(p.src) and true or false, nil end
 H["job.isMedical"] = function(C, p) return true, C.Job.IsMedical(p.src) and true or false, nil end
@@ -155,6 +160,14 @@ H["jobs.list"] = function()
     if not a or not a.jobsList then return true, {}, nil end
     return ret(a:jobsList())
 end
+
+-- 0.25.0. Held jobs, holders, profiles (server/sv_jobs.lua).
+H["jobs.of"]       = function(_, p) return PoggyCore.Jobs.Of(p) end
+H["jobs.holders"]  = function(_, p) return PoggyCore.Jobs.Holders(p) end
+H["jobs.add"]      = function(_, p) return PoggyCore.Jobs.Mutate("add", p) end
+H["jobs.remove"]   = function(_, p) return PoggyCore.Jobs.Mutate("remove", p) end
+H["jobs.setGrade"] = function(_, p) return PoggyCore.Jobs.Mutate("setGrade", p) end
+H["char.profile"]  = function(_, p) return PoggyCore.Jobs.Profile(p) end
 
 -- inventory ------------------------------------------------------------------
 

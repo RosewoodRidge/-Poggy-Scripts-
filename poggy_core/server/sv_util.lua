@@ -211,6 +211,33 @@ function Util.DbQuery(sql, params)
     return rows
 end
 
+--- 0.25.0. Does a table (or one of its columns) exist in this database? Asked
+--- once per name and kept: a framework that grew a column (VORP 3.3's
+--- characters.multijobs) is read with it, an older one without, and neither
+--- pays for the question twice. An answer that could not be had (no oxmysql,
+--- off a thread, a timeout) is not kept, and counts as "no".
+local schemaSeen = {}
+
+local function schemaAsk(key, sql, params)
+    if schemaSeen[key] ~= nil then return schemaSeen[key] end
+    local rows = Util.DbQuery(sql, params)
+    if not rows then return false end
+    schemaSeen[key] = rows[1] ~= nil
+    return schemaSeen[key]
+end
+
+function Util.DbTableExists(tbl)
+    return schemaAsk("t:" .. tostring(tbl):lower(),
+        "SELECT 1 AS found FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1",
+        { tostring(tbl) })
+end
+
+function Util.DbColumnExists(tbl, column)
+    return schemaAsk("c:" .. tostring(tbl):lower() .. "." .. tostring(column):lower(),
+        "SELECT 1 AS found FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1",
+        { tostring(tbl), tostring(column) })
+end
+
 --- UPDATE / INSERT / DELETE. Returns the affected row count, or nil plus an
 --- error code. Zero is a success: MySQL counts only rows whose value changed.
 function Util.DbExecute(sql, params)

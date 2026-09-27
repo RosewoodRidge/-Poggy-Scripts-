@@ -373,6 +373,11 @@ function QBR:charList(opts)
     local first = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.firstname'))"
     local last  = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.lastname'))"
     local sql = ("SELECT citizenid, license, %s AS firstname, %s AS lastname FROM players"):format(first, last)
+    if opts.withJob then   -- 0.25.0
+        local PJ = PoggyCore.PlayersJson
+        sql = sql:gsub(" FROM players$", (", %s AS job, %s AS joblabel, %s AS jobgrade FROM players")
+            :format(PJ.JOB_NAME, PJ.JOB_LABEL, PJ.JOB_GRADE))
+    end
     local params = {}
     if type(opts.search) == "string" and opts.search ~= "" then
         sql = sql .. (" WHERE CONCAT(%s, ' ', %s) LIKE ?"):format(first, last)
@@ -397,6 +402,9 @@ function QBR:charList(opts)
             firstName = r.firstname or "",
             lastName  = r.lastname or "",
             fullName  = fullName(r.firstname, r.lastname),
+            job       = opts.withJob and r.job or nil,
+            jobLabel  = opts.withJob and r.joblabel or nil,
+            jobGrade  = opts.withJob and tonumber(r.jobgrade) or nil,
         }
     end
     return out
@@ -1247,12 +1255,14 @@ function QBR:jobsList()
             for g, def in pairs(type(job.grades) == "table" and job.grades or {}) do
                 local n = tonumber(g)
                 if n then
-                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n) }
+                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n),
+                                            boss = type(def) == "table" and def.isboss == true or nil }   -- 0.25.0
                 end
             end
             table.sort(grades, function(a, b) return a.grade < b.grade end)
             local name = tostring(job.name or key)
-            out[#out + 1] = { name = name, label = job.label or name, grades = grades }
+            -- 0.25.0: the job's type ('leo' for law) where the framework keeps one.
+            out[#out + 1] = { name = name, label = job.label or name, type = job.type, grades = grades }
         end
     end
     table.sort(out, function(a, b) return a.name < b.name end)
@@ -1267,6 +1277,26 @@ end
 --- proxy for qbr-core, so `Core.Native():GetPlayer(src)` works.
 function QBR:nativeCore()
     return self.qb
+end
+
+-- ---------------------------------------------------------------------------
+-- Held jobs, holders, profiles (0.25.0)
+-- ---------------------------------------------------------------------------
+-- qbr-core keeps one job per character (players.job, qbcore.sql) and has no
+-- multijob of its own. The SQL is shared with RSG and QBCore
+-- (server/sv_jobs.lua, PoggyCore.PlayersJson); charinfo carries birthdate and
+-- nationality (qbr-core server/player.lua:489-491).
+
+function QBR:jobsOf(charId, src)
+    return PoggyCore.PlayersJson.JobsOf(self, charId, src)
+end
+
+function QBR:jobsHolders(names, online)
+    return PoggyCore.PlayersJson.Holders(self, names, online)
+end
+
+function QBR:charProfile(charId)
+    return PoggyCore.PlayersJson.Profile(self, charId)
 end
 
 PoggyCore.Adapters.qbr = QBR

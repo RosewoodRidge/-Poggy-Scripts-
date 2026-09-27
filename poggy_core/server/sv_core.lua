@@ -396,6 +396,11 @@ local function buildCore(resource)
     --- Does the detected framework support this capability? See PoggyCore.Caps.
     function Core.Has(capability)
         if not State.ready then return false end
+        -- 0.25.0: a duty provider answers and sets duty on every framework.
+        if (capability == "char.onduty" or capability == "job.duty")
+            and PoggyCore.Jobs and PoggyCore.Jobs.DutyProvided() then
+            return true
+        end
         return State.adapter.caps[capability] == true
     end
 
@@ -420,17 +425,27 @@ local function buildCore(resource)
     -- --- identity -----------------------------------------------------------
 
     ---@return PoggyChar|nil
-    function Core.GetChar(src)
+    --- 0.25.0: with a duty provider, onDuty is its answer on every framework.
+    --- raw = true is the framework's own character, duty included.
+    function Core.GetChar(src, raw)
         local a, n = guardSrc(src)
         if not a then return nil end
-        return a:getChar(n)
+        local char = a:getChar(n)
+        if char and not raw and PoggyCore.Jobs.DutyProvided() and not PoggyCore.Jobs.DutyBusy(n) then
+            char.onDuty = PoggyCore.Jobs.DutyOf(n)
+        end
+        return char
     end
 
     ---@return PoggyChar|nil
     function Core.GetCharByCharId(charId)
         local a = guard()
         if not a or charId == nil then return nil end
-        return a:getCharByCharId(charId)
+        local char = a:getCharByCharId(charId)
+        if char and char.source and PoggyCore.Jobs.DutyProvided() and not PoggyCore.Jobs.DutyBusy(char.source) then
+            char.onDuty = PoggyCore.Jobs.DutyOf(char.source)
+        end
+        return char
     end
 
     --- Canonical character id for a source, as a string.
@@ -454,11 +469,15 @@ local function buildCore(resource)
         return a:charOffline(charId, withAppearance and true or false)
     end
 
-    --- Every character, online or not. opts: search, limit, offset. Needs a thread.
+    --- Every character, online or not. opts: search, limit, offset, withJob
+    --- (0.25.0: rows gain job, jobLabel, jobGrade, online, src). Needs a thread.
     function Core.ListChars(opts)
         local a, err = guard()
         if not a then return nil, err end
-        return a:charList(type(opts) == "table" and opts or {})
+        opts = type(opts) == "table" and opts or {}
+        local rows, lerr = a:charList(opts)
+        if rows and opts.withJob then PoggyCore.Jobs.DecorateList(a, rows) end
+        return rows, lerr
     end
 
     --- Server ids of players on duty, optionally with a job (name or array) and
@@ -468,6 +487,10 @@ local function buildCore(resource)
         if not a then return nil, err end
         local list = job ~= nil and (type(job) == "table" and job or { job }) or nil
         minGrade = tonumber(minGrade)
+        -- 0.25.0: a duty provider is the truth for duty on every framework.
+        if PoggyCore.Jobs.DutyProvided() then
+            return PoggyCore.Jobs.OnDutyList(a, list, minGrade)
+        end
         local out = {}
         for _, src in ipairs(a:getPlayers()) do
             local char = a:getChar(src)
@@ -558,8 +581,9 @@ local function buildCore(resource)
     Core.Job = {}
 
     --- @return string name, number grade, string label, string|nil gradeLabel, boolean|nil onDuty
-    function Core.Job.Get(src)
-        local char = Core.GetChar(src)
+    --- raw = true (0.25.0): duty as the framework has it, past a duty provider.
+    function Core.Job.Get(src, raw)
+        local char = Core.GetChar(src, raw)
         if not char then return nil end
         return char.job, char.jobGrade, char.jobLabel, char.jobGradeLabel, char.onDuty
     end
@@ -594,10 +618,16 @@ local function buildCore(resource)
         return true
     end
 
-    function Core.Job.SetDuty(src, onDuty)
+    --- 0.25.0: a duty provider sets duty on every framework; raw = true sets
+    --- the framework's own (the provider itself uses it on RSG and QBR so
+    --- job.onduty stays in step for scripts that read it).
+    function Core.Job.SetDuty(src, onDuty, raw)
         local a, n, err = guardSrc(src)
         if not a then return false, err end
-        if not Core.Has("job.duty") then
+        if not raw and PoggyCore.Jobs.DutyProvided() and not PoggyCore.Jobs.DutySetBusy(n) then
+            return PoggyCore.Jobs.SetDuty(n, onDuty)
+        end
+        if State.adapter.caps["job.duty"] ~= true then
             Util.WarnOnce(tag, "job.duty", "%s cannot set duty state.", State.framework)
             return false, Err.UNSUPPORTED
         end
@@ -614,9 +644,10 @@ local function buildCore(resource)
         return true
     end
 
+    --- LawJobs, plus (0.25.0, LeoJobsAreLaw) every job the framework types "leo".
     function Core.Job.IsLaw(src)
-        local char = Core.GetChar(src)
-        return char and PoggyCore.InList(char.job, PoggyCoreConfig.LawJobs) or false
+        local char = Core.GetChar(src, true)
+        return char and PoggyCore.Jobs.IsLawJob(char.job) or false
     end
 
     function Core.Job.IsMedical(src)

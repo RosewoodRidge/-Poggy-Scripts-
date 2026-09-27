@@ -81,7 +81,13 @@ PoggyCoreConfig.StorageDefaults = {
 PoggyCoreConfig.LawJobs = {
     "police", "sheriff", "marshal", "lawman", "deputy",
     "ranger", "constable", "fib", "agent", "detective", "trooper",
+    "vallaw", "rholaw", "blklaw", "strlaw", "stdenlaw",
 }
+
+--- Also count every job your framework itself marks as law enforcement
+--- (type = 'leo' in RSG's and QBCore's jobs table) as a law job, as well as
+--- the names above. VORP and QBR have no job types, so this changes nothing there.
+PoggyCoreConfig.LeoJobsAreLaw = true
 
 --- Jobs that Core.Job.IsMedical() treats as medical.
 PoggyCoreConfig.MedicalJobs = {

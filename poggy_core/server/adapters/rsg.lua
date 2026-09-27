@@ -315,6 +315,11 @@ function RSG:charList(opts)
     local first = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.firstname'))"
     local last  = "JSON_UNQUOTE(JSON_EXTRACT(charinfo, '$.lastname'))"
     local sql = ("SELECT citizenid, license, %s AS firstname, %s AS lastname FROM players"):format(first, last)
+    if opts.withJob then   -- 0.25.0
+        local PJ = PoggyCore.PlayersJson
+        sql = sql:gsub(" FROM players$", (", %s AS job, %s AS joblabel, %s AS jobgrade FROM players")
+            :format(PJ.JOB_NAME, PJ.JOB_LABEL, PJ.JOB_GRADE))
+    end
     local params = {}
     if type(opts.search) == "string" and opts.search ~= "" then
         sql = sql .. (" WHERE CONCAT(%s, ' ', %s) LIKE ?"):format(first, last)
@@ -339,6 +344,9 @@ function RSG:charList(opts)
             firstName = r.firstname or "",
             lastName  = r.lastname or "",
             fullName  = fullName(r.firstname, r.lastname),
+            job       = opts.withJob and r.job or nil,
+            jobLabel  = opts.withJob and r.joblabel or nil,
+            jobGrade  = opts.withJob and tonumber(r.jobgrade) or nil,
         }
     end
     return out
@@ -1088,12 +1096,14 @@ function RSG:jobsList()
             for g, def in pairs(type(job.grades) == "table" and job.grades or {}) do
                 local n = tonumber(g)
                 if n then
-                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n) }
+                    grades[#grades + 1] = { grade = n, label = type(def) == "table" and def.name or tostring(n),
+                                            boss = type(def) == "table" and def.isboss == true or nil }   -- 0.25.0
                 end
             end
             table.sort(grades, function(a, b) return a.grade < b.grade end)
             local name = tostring(job.name or key)
-            out[#out + 1] = { name = name, label = job.label or name, grades = grades }
+            -- 0.25.0: the job's type ('leo' for law) where the framework keeps one.
+            out[#out + 1] = { name = name, label = job.label or name, type = job.type, grades = grades }
         end
     end
     table.sort(out, function(a, b) return a.name < b.name end)
@@ -1106,6 +1116,61 @@ end
 
 function RSG:nativeCore()
     return self.core
+end
+
+-- ---------------------------------------------------------------------------
+-- Held jobs, holders, profiles (0.25.0)
+-- ---------------------------------------------------------------------------
+-- The worn job is players.job (live PlayerData for an online character); the
+-- SQL is shared with QBR and QBCore (server/sv_jobs.lua, PoggyCore.PlayersJson).
+-- rsg-multijob, when it runs, keeps every held job in its own table
+-- player_jobs (citizenid, job, grade) (rsg-multijob server/exports.lua and
+-- server.lua on the RSG test server), written as it changes, so it is read
+-- from the table for online characters too. It holds the worn job as well;
+-- poggy_core keeps one entry per job, the worn one winning.
+
+function RSG:hasRsgMultijob()
+    return GetResourceState("rsg-multijob") == "started" and Util.DbTableExists("player_jobs")
+end
+
+function RSG:jobsOf(charId, src)
+    local PJ = PoggyCore.PlayersJson
+    local out, err = PJ.JobsOf(self, charId, src)
+    if not out then return nil, err end
+    if self:hasRsgMultijob() then
+        local rows = Util.DbQuery("SELECT job, grade FROM player_jobs WHERE citizenid = ?", { tostring(charId) })
+        for _, r in ipairs(rows or {}) do
+            if r.job and r.job ~= "" then
+                out[#out + 1] = { name = r.job, grade = tonumber(r.grade) or 0, active = false, source = "rsg_multijob" }
+            end
+        end
+    end
+    return out
+end
+
+function RSG:jobsHolders(names, online)
+    local PJ = PoggyCore.PlayersJson
+    local out, err = PJ.Holders(self, names, online)
+    if not out then return nil, err end
+    if self:hasRsgMultijob() then
+        local rows = Util.DbQuery(("SELECT pj.citizenid, pj.job, pj.grade, "
+            .. "JSON_UNQUOTE(JSON_EXTRACT(p.charinfo, '$.firstname')) AS firstname, "
+            .. "JSON_UNQUOTE(JSON_EXTRACT(p.charinfo, '$.lastname')) AS lastname "
+            .. "FROM player_jobs pj LEFT JOIN players p ON p.citizenid = pj.citizenid "
+            .. "WHERE pj.job IN (%s) LIMIT 5000"):format(PJ.Marks(#names)), names)
+        for _, r in ipairs(rows or {}) do
+            out[#out + 1] = {
+                charId = tostring(r.citizenid), firstName = r.firstname, lastName = r.lastname,
+                job = r.job, grade = tonumber(r.grade) or 0, active = false, source = "rsg_multijob",
+            }
+        end
+    end
+    return out
+end
+
+--- charinfo: birthdate, nationality, gender; players.last_updated.
+function RSG:charProfile(charId)
+    return PoggyCore.PlayersJson.Profile(self, charId)
 end
 
 PoggyCore.Adapters.rsg = RSG

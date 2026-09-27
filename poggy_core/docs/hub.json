@@ -347,6 +347,12 @@
       "group": "Job types",
       "picker": "job"
     },
+    "PoggyCoreConfig.LeoJobsAreLaw": {
+      "label": "Framework law jobs count as law",
+      "tooltip": "On: every job your framework marks as law enforcement (type 'leo' in the RSG or QBCore jobs table) counts as a law job too, as well as the list above. VORP and QBR have no job types, so this does nothing there.",
+      "tab": "access",
+      "group": "Job types"
+    },
     "PoggyCoreConfig.MedicalJobs": {
       "label": "Medical jobs",
       "tooltip": "Jobs that Poggy scripts treat as medical. Names must match your framework's job names exactly.",

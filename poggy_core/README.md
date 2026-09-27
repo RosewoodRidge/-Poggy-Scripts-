@@ -500,7 +500,7 @@ with `no_funds`.
 -- server
 local name, grade, label, gradeLabel, onDuty = Core.Job.Get(src)
 Core.Job.Set(src, 'sheriff', 2)        --> ok, err    (one call on every framework)
-Core.Job.SetDuty(src, true)            --> ok, err    (unsupported on VORP)
+Core.Job.SetDuty(src, true)            --> ok, err    (unsupported on VORP without a duty provider, 0.25.0)
 Core.Job.Has(src, 'sheriff', 1)        --> boolean    (name or array, case-insensitive)
 Core.Job.IsLaw(src) / Core.Job.IsMedical(src)
 Core.Job.OnChange(function(src, job, grade, oldJob, oldGrade) end)
@@ -543,10 +543,15 @@ the job itself is always read back from qbr-core, nothing from the client is
 trusted. A duty toggle is not relayed. `persist = true` writes the `job` JSON
 column of `players`.
 
-Which jobs count as law or medical is in `config.lua`, not in code. RSG's stock
-job names (`vallaw`, `rholaw`, `blklaw`, `strlaw`, `stdenlaw`) are not in the
-default `LawJobs` list; add them there on an RSG server. QBR's stock `police`
-and `ambulance` are in the default lists.
+Which jobs count as law or medical is in `config.lua`, not in code. Since
+0.25.0 RSG's stock law jobs (`vallaw`, `rholaw`, `blklaw`, `strlaw`,
+`stdenlaw`) are in the default `LawJobs` list, and `LeoJobsAreLaw = true` (the
+default) also counts every job the framework itself types `leo` (RSG and
+QBCore) as law, so a server that edited its list before 0.25.0 is covered
+too. QBR's stock `police` and `ambulance` are in the default lists.
+
+Held jobs (multijob), everyone holding a job, character profiles, and duty
+supplied by a law script are in **Verbs added in 0.25.0** below.
 
 ### Inventory — server
 
@@ -1115,7 +1120,7 @@ have no such column and cap by weight instead. A script calling them declares
 
 | Verb | Side | Payload | Value | Notes |
 |---|---|---|---|---|
-| `jobs.list` | server, thread | | array of `{ name, label, grades = { { grade, label } } }`, sorted by name | RSG and QBR: the core's shared jobs table. VORP keeps a job as free text on the character, so it is the distinct jobs and grades in the `characters` table, with the name as the label (best effort; empty without oxmysql). Standalone: `{}`. The settings hub's job picker uses it. |
+| `jobs.list` | server, thread | | array of `{ name, label, type?, grades = { { grade, label, boss? } } }`, sorted by name | RSG and QBR: the core's shared jobs table. VORP keeps a job as free text on the character, so it is the distinct jobs and grades in the `characters` table, with the name as the label (best effort; empty without oxmysql). Standalone: `{}`. The settings hub's job picker uses it. `type` and `boss` since 0.25.0. |
 
 ## Bans (0.19.0)
 
@@ -1194,6 +1199,58 @@ and registers once at start; poggy_core then routes the matching verbs to it
 Every provider function answers the verb contract (`ok, value, err`) and runs
 under `pcall`; one that throws is named once and the caller sees
 `framework_error`. A script calling these declares `poggy_core_min '0.17.0'`.
+
+## Verbs added in 0.25.0: held jobs, holders, profiles, duty and law
+
+Before 0.25.0 poggy_core knew one job per character, the one being worn. A
+server can keep more in three places: VORP 3.3's own multijob
+(`characters.multijobs`), rsg-multijob (`player_jobs`) and Poggy Multijob. These
+verbs read them together, so a law script's roster, a boss menu or a records
+book can ask "who are the deputies" once and get every one, offline included.
+Code: `server/sv_jobs.lua`.
+
+| Verb | Side | Payload | Value | Notes |
+|---|---|---|---|---|
+| `jobs.of` | server, thread | `charId` or `src`, `raw?` | array of `{ name, label, grade, gradeLabel, active, source }`, the worn job first | Every job the character holds. `active` = the one worn. `source` is `framework` (the worn job), `vorp_multijob`, `rsg_multijob`, or the jobs provider's resource name. |
+| `jobs.holders` | server, thread | `job` (name or array), `minGrade?`, `activeOnly?`, `limit?`, `offset?`, `raw?` | array of `{ charId, fullName, firstName, lastName, job, label, grade, gradeLabel, active, online, src?, source }`, by name | Online and offline. One row per character per matching job. `activeOnly` keeps only those wearing it. Online characters are read live, never from a row the framework has not saved yet. |
+| `char.list` + `withJob = true` | server, thread | as before | rows gain `job`, `jobLabel`, `jobGrade`, `online`, `src?` | The worn job only. |
+| `char.profile` | server, thread | `charId` | `{ charId, fullName, online, dob?, age?, gender, nationality?, nickname?, description?, lastSeen? }` | Whatever the framework keeps; a key it has no field for is absent. VORP: `age`, `nickname`, `description` (`character_desc`), `lastSeen` (`LastLogin`). RSG / QBR / QBCore: `dob` (`charinfo.birthdate`), `nationality`, `lastSeen` (`players.last_updated`). ESX: `dob`, `height`, `lastSeen` (`last_seen`) when esx_identity added them. `lastSeen` is unix seconds, now for an online character. |
+| `jobs.list` | server, thread | | adds `type` and per-grade `boss` | `type` is the framework's (`leo` for RSG and QBCore law jobs); `boss = true` on RSG / QBR / QBCore `isboss` grades and ESX's `boss` grade. |
+| `jobs.register` | server | `fns` = `{ of(charId, src?), holders(query) [, add, remove, setGrade] }` | `true` | A multijob script becomes the truth for held jobs: `jobs.of` and `jobs.holders` go to it (`raw = true` bypasses it; the provider uses that to read the worn job). Poggy Multijob registers itself from 1.7.5. |
+| `jobs.add` / `jobs.remove` / `jobs.setGrade` | server, thread | `job`, `charId` or `src`, `grade` (`setGrade`; optional on `add`), `label?` (`add`) | `true` | Change the held list without switching the worn job (removing the worn job is the provider's call; Poggy Multijob switches to its default job). Only through a jobs provider: `unsupported` without one, so hire and fire with `job.set` instead. |
+| `duty.register` | server | `fns` = `{ get(src), set(src, onDuty) [, list(jobs?, minGrade?)] }` | `true` | A law script with its own duty becomes the duty truth on **every** framework: `char.get` / `char.byId` / `job.get` `onDuty`, `players.onDuty` and `job.duty` go to it, and `core.has 'char.onduty'` / `'job.duty'` answer true. `get` answers `true, onDuty` (`nil` = cannot tell). |
+| `job.get` / `job.duty` + `raw = true` | server | as before | as before | The framework's own duty, past a duty provider. On RSG and QBR the provider calls `job.duty` raw as well, so `job.onduty` stays right for scripts that read it. |
+| `law.register` | server | `fns` = `{ report(report) }` | `true` | The law script (Poggy Police) receives every `law.report`. |
+| `law.report` | server | `event`, `suspect?`, `coords?`, `extra?`, `src?` | whatever the provider answers | Any script reports a crime without naming the law script. The provider gets `{ event, suspect, coords, extra, src, source, at }`; `source` is the calling resource, never taken from the payload. `unsupported` when no law script is installed: carry on without one. |
+
+Provider functions are called across resources and may wait (a database
+read); the verbs that reach them need a thread, as the table says. A provider's
+`holders` returns every match: poggy_core filters by grade and `activeOnly`,
+sorts and pages, the same for every source. A provider that asks poggy_core the
+same question from inside its own answer (a duty provider's `get` calling
+`char.get`, a jobs provider's `of` calling `jobs.of` without `raw`) gets the
+framework's answer instead of looping.
+
+**Where the answers come from without a provider.**
+
+| | worn job | other held jobs | holders query |
+|---|---|---|---|
+| VORP | the character (online) or `characters.job/jobgrade/joblabel` | VORP 3.3's `characters.multijobs` (`multiJobs` in memory for an online character); asked for only when the column exists | `job IN (...)`, plus `multijobs LIKE '%"<job>"%'` checked again in Lua |
+| RSG | `PlayerData.job` or `players.job` (JSON) | rsg-multijob's `player_jobs`, when rsg-multijob is started | `JSON_EXTRACT(job, '$.name') IN (...)`, plus `player_jobs` |
+| QBR, QBCore | `PlayerData.job` or `players.job` (JSON) | none | `JSON_EXTRACT(job, '$.name') IN (...)` |
+| ESX | `xPlayer.job` or `users.job/job_grade` | none | `users.job IN (...)` |
+
+**Duty on the client.** A duty provider's answer is mirrored into the
+replicated player state bag `poggyDuty`; the client's `char.get` and `job.get`
+read it, so they agree with the server without a round trip. With no provider
+the bag is empty and the framework's answer stands.
+
+**Law jobs on the client.** With `LeoJobsAreLaw`, the server publishes the
+framework's `leo` jobs in `GlobalState.poggyLeoJobs`; the client's
+`job.isLaw` reads it.
+
+A script calling these declares `poggy_core_min '0.25.0'`, or checks
+`core.version` first and falls back.
 
 ---
 
@@ -1453,7 +1510,7 @@ Honest list. Phase 0 was scoped to everything except menus.
 | RSG adapter | **Proven in game (14 September 2026).** `poggycore selftest full` passes 64/64 on the RSG test server (rsg-core 2.3.13 / rsg-inventory 2.8.5); every Poggy script starts and its menus, shops, storage and auctions work there. |
 | QBR adapter | **Proven in game (14 September 2026).** 0.14.1 against qbr-core 1.0.3 / qbr-inventory 1.0.1; `poggycore selftest full` passes on the QBR test server and every Poggy script runs there. |
 | RedEM:RP, RPX | **Not supported, not planned.** Detection still names them so `Core.HasAdapter()` is false and every framework verb refuses honestly. |
-| `Core.Job.SetDuty` on VORP | Unsupported. `vorp_core` has no duty concept and `vorp_police` exposes no setter. |
+| `Core.Job.SetDuty` on VORP | Unsupported by the framework: `vorp_core` has no duty concept and `vorp_police` exposes no setter. **Since 0.25.0** a duty provider (`duty.register`) answers and sets duty on every framework, VORP included. |
 | `money.bank` on VORP | Unsupported by `vorp_core` itself. **Since 0.17.0** a bank provider (Poggy Banking, `bank.register`) answers for `'bank'` on every framework, VORP included. |
 | Client prompt natives | Written but **not yet verified in game.** Nothing consumes `Core.Prompt` yet, so the risk is contained; test before relying on it. |
 | Kind-specific notification styling | Notifications render, but `kind` does not yet change icon or colour. Icon dictionaries differ per framework and were not guessable from source alone. |

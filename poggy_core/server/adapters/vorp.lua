@@ -260,7 +260,9 @@ end
 
 --- Every character in the characters table, sorted by name.
 function VORP:charList(opts)
-    local sql, params = "SELECT charidentifier, identifier, firstname, lastname FROM characters", {}
+    local cols = "charidentifier, identifier, firstname, lastname"
+    if opts.withJob then cols = cols .. ", job, joblabel, jobgrade" end   -- 0.25.0
+    local sql, params = "SELECT " .. cols .. " FROM characters", {}
     if type(opts.search) == "string" and opts.search ~= "" then
         sql = sql .. " WHERE CONCAT(firstname, ' ', lastname) LIKE ?"
         params[1] = "%" .. opts.search .. "%"
@@ -284,9 +286,171 @@ function VORP:charList(opts)
             firstName = r.firstname or "",
             lastName  = r.lastname or "",
             fullName  = ((r.firstname or "") .. " " .. (r.lastname or "")):gsub("^%s+", ""),
+            job       = opts.withJob and r.job or nil,
+            jobLabel  = opts.withJob and r.joblabel or nil,
+            jobGrade  = opts.withJob and tonumber(r.jobgrade) or nil,
         }
     end
     return out
+end
+
+-- ---------------------------------------------------------------------------
+-- Held jobs, holders, profiles (0.25.0)
+-- ---------------------------------------------------------------------------
+-- vorp_core 3.3 has its own multijob: characters.multijobs is JSON
+-- { [job] = { grade, label } } (server/class/character.lua, user.lua:193/230),
+-- the online character carries it as multiJobs, and the switch menu
+-- (vorp:SwitchMultiJobMenu) moves one of them into job / jobgrade / joblabel.
+-- The worn job is not necessarily in the map. Older vorp_core has no such
+-- column, so it is asked for only when information_schema says it is there.
+-- The character saves to the table on drop and on its own timer, so an online
+-- character is always read from memory, never from the row.
+
+local function decodeJson(v)
+    if type(v) == "table" then return v end
+    if type(v) ~= "string" or v == "" then return {} end
+    local ok, t = pcall(json.decode, v)
+    return (ok and type(t) == "table") and t or {}
+end
+
+local function nz(v)
+    if v == nil or v == "" then return nil end
+    return v
+end
+
+--- LIKE treats % and _ as wildcards; a job name is matched literally.
+local function likeLiteral(s)
+    return (tostring(s):gsub("[\\%%_]", "\\%0"))
+end
+
+function VORP:hasMultiJobs()
+    return Util.DbColumnExists("characters", "multijobs")
+end
+
+--- The map's jobs other than the worn one, as entries.
+local function multiJobEntries(map, wornName)
+    local out = {}
+    if type(map) ~= "table" then return out end
+    for job, v in pairs(map) do
+        if type(job) == "string" and job ~= "" and job ~= wornName then
+            v = type(v) == "table" and v or {}
+            out[#out + 1] = { name = job, label = nz(v.label), grade = tonumber(v.grade) or 0,
+                              active = false, source = "vorp_multijob" }
+        end
+    end
+    table.sort(out, function(a, b) return a.name < b.name end)
+    return out
+end
+
+--- The worn job, then VORP's own multijobs.
+function VORP:jobsOf(charId, src)
+    local _, char = nil, nil
+    if src then _, char = self:raw(src) end
+    local worn, map
+    if char then
+        worn = { name = char.job or "unemployed", label = nz(char.jobLabel), grade = tonumber(char.jobGrade) or 0 }
+        map = char.multiJobs
+    else
+        local id = tonumber(charId)
+        if not id then return nil, Err.BAD_ARG end
+        local mj = self:hasMultiJobs()
+        local rows, err = Util.DbQuery("SELECT job, jobgrade, joblabel" .. (mj and ", multijobs" or "")
+            .. " FROM characters WHERE charidentifier = ? LIMIT 1", { id })
+        if not rows then return nil, err end
+        local r = rows[1]
+        if not r then return nil, Err.NOT_FOUND end
+        worn = { name = nz(r.job) or "unemployed", label = nz(r.joblabel), grade = tonumber(r.jobgrade) or 0 }
+        map = mj and decodeJson(r.multijobs) or nil
+    end
+    worn.active, worn.source = true, "framework"
+    local out = { worn }
+    for _, e in ipairs(multiJobEntries(map, worn.name)) do out[#out + 1] = e end
+    return out
+end
+
+--- Everyone wearing or holding one of `names`. Offline characters from the
+--- table (the worn job by column, VORP's multijobs by a LIKE on the JSON that
+--- is then checked properly in Lua), online ones from memory.
+function VORP:jobsHolders(names, online)
+    local want = {}
+    for _, n in ipairs(names) do want[n:lower()] = true end
+    local mj = self:hasMultiJobs()
+
+    local marks, params = {}, {}
+    for i, n in ipairs(names) do marks[i] = "?"; params[#params + 1] = n end
+    local where = { "job IN (" .. table.concat(marks, ", ") .. ")" }
+    if mj then
+        for _, n in ipairs(names) do
+            where[#where + 1] = "multijobs LIKE ?"
+            params[#params + 1] = '%"' .. likeLiteral(n) .. '"%'
+        end
+    end
+    local rows, err = Util.DbQuery("SELECT charidentifier, firstname, lastname, job, jobgrade, joblabel"
+        .. (mj and ", multijobs" or "") .. " FROM characters WHERE " .. table.concat(where, " OR ")
+        .. " LIMIT 5000", params)
+    if not rows then return nil, err end
+
+    local out = {}
+    local function add(cid, first, last, e)
+        e.charId, e.firstName, e.lastName, e.job = cid, first, last, e.name
+        out[#out + 1] = e
+    end
+    for _, r in ipairs(rows) do
+        local cid = tostring(r.charidentifier)
+        if not online[cid] then
+            local wornName = nz(r.job)
+            if wornName and want[wornName:lower()] then
+                add(cid, r.firstname, r.lastname, { name = wornName, label = nz(r.joblabel),
+                    grade = tonumber(r.jobgrade) or 0, active = true, source = "framework" })
+            end
+            if mj then
+                for _, e in ipairs(multiJobEntries(decodeJson(r.multijobs), wornName)) do
+                    if want[e.name:lower()] then add(cid, r.firstname, r.lastname, e) end
+                end
+            end
+        end
+    end
+    for cid, o in pairs(online) do
+        for _, e in ipairs(self:jobsOf(cid, o.src) or {}) do
+            if want[e.name:lower()] then add(cid, o.char.firstName, o.char.lastName, e) end
+        end
+    end
+    return out
+end
+
+--- age, gender, nickname, description (character_desc) and lastSeen
+--- (LastLogin, which vorp_core stamps on every character select), each only
+--- when the characters table has the column.
+function VORP:charProfile(charId)
+    local id = tonumber(charId)
+    if not id then return nil, Err.BAD_ARG end
+
+    local live = self:getCharByCharId(id)
+    if live and type(live.native) == "table" then
+        local c = live.native
+        return {
+            charId = tostring(id), firstName = live.firstName, lastName = live.lastName, fullName = live.fullName,
+            age = tonumber(c.age), gender = live.gender, nickname = nz(c.nickname),
+            description = nz(c.charDescription), lastSeen = os.time(), online = true,
+        }
+    end
+
+    local cols = { "firstname", "lastname", "gender" }
+    for _, c in ipairs({ "age", "nickname", "character_desc", "LastLogin" }) do
+        if Util.DbColumnExists("characters", c) then cols[#cols + 1] = c end
+    end
+    -- None of these names is a reserved word, so no quoting is needed.
+    local rows, err = Util.DbQuery("SELECT " .. table.concat(cols, ", ")
+        .. " FROM characters WHERE charidentifier = ? LIMIT 1", { id })
+    if not rows then return nil, err end
+    local r = rows[1]
+    if not r then return nil, Err.NOT_FOUND end
+    return {
+        charId = tostring(id), firstName = r.firstname or "", lastName = r.lastname or "",
+        fullName = ((r.firstname or "") .. " " .. (r.lastname or "")):gsub("^%s+", ""),
+        age = tonumber(r.age), gender = r.gender, nickname = nz(r.nickname),
+        description = nz(r.character_desc), lastSeen = r.LastLogin, online = false,
+    }
 end
 
 -- ---------------------------------------------------------------------------

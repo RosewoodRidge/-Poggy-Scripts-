@@ -74,7 +74,12 @@ function panel(kicker, title) {
     return body;
 }
 
-$("tp-close").addEventListener("click", () => act("stand"));
+// The corner x: after a game it goes back to "Choose a game" (like Continue);
+// anywhere else it stands the player up, as it always has.
+$("tp-close").addEventListener("click", () => {
+    if (Screens.overOpen && App.over) return Screens.overContinue();
+    act("stand");
+});
 $("tp-close").dataset.tip = "";
 
 function seatName(seat) {
@@ -348,15 +353,18 @@ function renderOver() {
     }
     const row = el("div", { cls: "btn-row panel-actions" });
     if (sm.gameId && sm.moves > 0) row.appendChild(button(t("review"), () => Record.review(sm.gameId)));
-    row.appendChild(button(t("continue"), () => {
-        Screens.overOpen = false;
-        App.over = null;
-        act("overDone");
-        Screens.render();
-    }, "pg-btn--primary"));
+    row.appendChild(button(t("continue"), () => Screens.overContinue(), "pg-btn--primary"));
     body.appendChild(row);
     body.appendChild(el("div", { cls: "btn-row" }, button(t("stand_up"), () => act("stand"), "pg-btn--danger")));
 }
+
+/** Leave the result and go back to choosing a game (Continue, or the corner x). */
+Screens.overContinue = function () {
+    Screens.overOpen = false;
+    App.over = null;
+    act("overDone");
+    Screens.render();
+};
 
 // ─── Which one ───────────────────────────────────────────────────────────────
 

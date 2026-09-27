@@ -12,6 +12,16 @@
                   and money.supports 'bank' answers true even on VORP, which
                   has no bank of its own.
       * treasury  every treasury.* verb.
+      * jobs      (0.25.0) jobs.of and jobs.holders go to the provider (a
+                  multijob script) instead of the adapter; raw = true
+                  bypasses it. jobs.add / jobs.remove / jobs.setGrade exist
+                  only through a provider.
+      * duty      (0.25.0) char.get().onDuty, job.get().onDuty,
+                  players.onDuty and job.duty, on every framework. The answer
+                  is mirrored into the replicated state bag poggyDuty, so a
+                  client's job.get agrees without a round trip.
+      * law       (0.25.0) law.report: any script reports a crime without
+                  naming the law script that handles it.
 
     Without a provider nothing changes: the adapter answers for 'bank' where
     the framework has one (RSG, QBR) and refuses where it does not (VORP), and
@@ -41,11 +51,41 @@ PoggyCore.Providers = Providers
 Providers.KINDS = {
     bank     = { "get", "add", "remove", "set" },
     treasury = { "collect", "index", "rates", "state", "disburse", "balance", "report" },
+    -- 0.25.0. of(charId, src?) holders(query); add / remove / setGrade optional.
+    jobs     = { "of", "holders" },
+    -- 0.25.0. get(src) set(src, onDuty); list(jobs?, minGrade?) optional.
+    duty     = { "get", "set" },
+    -- 0.25.0. report(report)
+    law      = { "report" },
+}
+
+--- kind -> functions a provider MAY supply; a verb that needs a missing one
+--- answers not_implemented. Documentation for /poggycore status and the README.
+Providers.OPTIONAL = {
+    jobs = { "add", "remove", "setGrade" },
+    duty = { "list" },
 }
 
 --- kind -> { resource, fns, registeredAt }
 local registry = {}
 PoggyCore.ProviderRegistry = registry
+
+--- kind -> functions told when that kind gains or loses its provider:
+--- fn(kind, resourceOrNil). poggy_core's own files use it (the duty state
+--- bags in sv_jobs.lua); nothing a payload can reach.
+local watchers = {}
+
+function Providers.Watch(kind, fn)
+    watchers[kind] = watchers[kind] or {}
+    table.insert(watchers[kind], fn)
+end
+
+local function tell(kind, resource)
+    for _, fn in ipairs(watchers[kind] or {}) do
+        local ok, err = pcall(fn, kind, resource)
+        if not ok then Util.Warn("provider watcher for %s errored: %s", kind, tostring(err)) end
+    end
+end
 
 local function started(folder)
     local ok, state = pcall(GetResourceState, folder)
@@ -79,12 +119,19 @@ function Providers.Register(resource, kind, fns)
     if not old or old.resource ~= resource then
         Util.Log("^2%s is the %s provider.^7", resource, kind)
     end
+    tell(kind, resource)
     return true
 end
 
 --- Is there a provider for `kind`?
 function Providers.Has(kind)
     return registry[kind] ~= nil
+end
+
+--- Does the provider for `kind` supply the (optional) function `name`?
+function Providers.HasFn(kind, name)
+    local e = registry[kind]
+    return e ~= nil and PoggyCore.IsCallable(e.fns[name])
 end
 
 --- The resource providing `kind`, or nil.
@@ -123,8 +170,11 @@ function Providers.Forget(resource)
     for kind, e in pairs(registry) do
         if e.resource == resource then
             registry[kind] = nil
-            complained[kind] = nil
+            for key in pairs(complained) do
+                if key:sub(1, #kind + 1) == kind .. "." then complained[key] = nil end
+            end
             Util.Log("^9%s stopped; no %s provider until it is back.^7", resource, kind)
+            tell(kind, nil)
         end
     end
 end

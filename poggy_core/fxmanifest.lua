@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.24.1"
+version "0.25.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -47,6 +47,7 @@ server_scripts {
     "server/sv_storage.lua",
     "server/sv_usables.lua",         -- usable-item registry; before sv_core.lua, which binds it
     "server/sv_providers.lua",       -- bank / treasury providers (0.17.0); before sv_core.lua, which routes to them
+    "server/sv_jobs.lua",            -- held jobs, holders, profiles, duty and law (0.25.0); after sv_providers.lua, before sv_core.lua
     "server/sv_core.lua",
     "server/sv_dispatch.lua",
     "server/sv_callbacks.lua",

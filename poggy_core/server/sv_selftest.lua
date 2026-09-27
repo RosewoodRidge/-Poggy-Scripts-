@@ -182,6 +182,93 @@ local function runTests(src, full)
         return ("%d character(s) (limit 5)"):format(type(v) == "table" and #v or 0)
     end)
 
+    -- --- 0.25.0: held jobs, holders, profiles, providers (all reads) --------
+    local P = PoggyCore.Providers
+    local function by(kind) return P.Has(kind) and (" via " .. tostring(P.Owner(kind))) or "" end
+    local okList, listed = check("char.list", { limit = 3, withJob = true }, "ok", UNSUPPORTED, function(v)
+        local r = type(v) == "table" and v[1] or nil
+        return ("withJob: %d row(s)%s"):format(type(v) == "table" and #v or 0,
+            r and (", first holds " .. tostring(r.job)) or "")
+    end)
+    if okList and type(listed) == "table" and listed[1] and (listed[1].job == nil or listed[1].online == nil) then
+        note("fail", "char.list", "withJob rows lack job / online")
+    end
+    local okJobs, held = check("jobs.of", { src = src }, "ok", UNSUPPORTED, function(v)
+        local names = {}
+        for _, e in ipairs(type(v) == "table" and v or {}) do
+            names[#names + 1] = e.name .. (e.active and "*" or "") .. "(" .. tostring(e.source) .. ")"
+        end
+        return ("%d job(s): %s%s"):format(#names, table.concat(names, ", "), by("jobs"))
+    end)
+    if okJobs and type(held) == "table" and okJob and type(job) == "table" then
+        local worn
+        for _, e in ipairs(held) do if e.active then worn = e end end
+        if not worn then
+            note("fail", "jobs.of", "no entry is marked as the worn job")
+        elseif worn.name:lower() ~= tostring(job.name):lower() then
+            note("fail", "jobs.of", ("worn job is %s but job.get says %s"):format(worn.name, tostring(job.name)))
+        else
+            note("pass", "jobs.of", "the worn job matches job.get")
+        end
+    end
+    if selfId then
+        check("jobs.of", { charId = selfId }, "ok", UNSUPPORTED, function(v)
+            return ("by charId: %d job(s)"):format(type(v) == "table" and #v or 0)
+        end)
+        check("char.profile", { charId = selfId }, "ok", UNSUPPORTED, function(v)
+            if type(v) ~= "table" then return "?" end
+            local keys = {}
+            for _, k in ipairs({ "dob", "age", "gender", "nationality", "nickname", "description", "lastSeen" }) do
+                if v[k] ~= nil then keys[#keys + 1] = k end
+            end
+            return ("online = %s, has: %s"):format(tostring(v.online), table.concat(keys, ", "))
+        end)
+    else
+        note("skip", "char.profile", "no character id to look up")
+    end
+    if okJob and type(job) == "table" and job.name then
+        local okH, holders = check("jobs.holders", { job = job.name, limit = 500 }, "ok", UNSUPPORTED, function(v)
+            return ("%d holder(s) of %s%s"):format(type(v) == "table" and #v or 0, job.name, by("jobs"))
+        end)
+        if okH and type(holders) == "table" and selfId then
+            local found = false
+            for _, r in ipairs(holders) do if r.charId == selfId then found = true end end
+            note(found and "pass" or "fail", "jobs.holders",
+                found and "you are listed as a holder of your own job" or "you are NOT listed as a holder of your own job")
+        end
+        local okA, worn = check("jobs.holders", { job = job.name, activeOnly = true, limit = 5 }, "ok", UNSUPPORTED, function(v)
+            return ("activeOnly: %d (limit 5)"):format(type(v) == "table" and #v or 0)
+        end)
+        if okA and type(worn) == "table" then
+            for _, r in ipairs(worn) do
+                if not r.active then note("fail", "jobs.holders", "activeOnly returned a job that is not worn"); break end
+            end
+        end
+    end
+    check("jobs.holders", { job = "definitely_not_a_job" }, "ok", UNSUPPORTED, function(v)
+        return ("%d holder(s) of a made-up job"):format(type(v) == "table" and #v or 0)
+    end)
+    check("jobs.list", {}, "ok", nil, function(v)
+        local leo, boss = 0, 0
+        for _, j in ipairs(type(v) == "table" and v or {}) do
+            if tostring(j.type or ""):lower() == "leo" then leo = leo + 1 end
+            for _, g in ipairs(j.grades or {}) do if g.boss then boss = boss + 1; break end end
+        end
+        return ("%d job(s), %d typed leo, %d with a boss grade"):format(type(v) == "table" and #v or 0, leo, boss)
+    end)
+    note(P.Has("duty") and "pass" or "skip", "duty.register",
+        P.Has("duty") and ("duty answered by " .. tostring(P.Owner("duty"))) or "no duty provider; the framework answers")
+    -- law.report would file a report nobody can take back, so it is only
+    -- checked where there is nothing to file it with.
+    if P.Has("law") then
+        note("skip", "law.report", "not sent: " .. tostring(P.Owner("law")) .. " would keep it")
+    else
+        check("law.report", { event = "poggy_selftest" }, "refuse", UNSUPPORTED)
+    end
+    if not P.Has("jobs") then
+        check("jobs.add", { src = src, job = "poggy_selftest" }, "refuse", UNSUPPORTED)
+    end
+
     if full and okJob and type(job) == "table" and job.name then
         -- Re-setting the job the player already has. Exercises the write path
         -- without changing anything about them.
@@ -199,6 +286,20 @@ local function runTests(src, full)
             check("job.duty", { src = src, onDuty = job.onDuty }, "ok", UNSUPPORTED)
         else
             note("skip", "job.duty", "this framework cannot report duty, so nothing to restore")
+        end
+        -- 0.25.0: a probe job added to the held list and taken off again. The
+        -- worn job is not touched; only with a jobs provider that can do both.
+        if P.HasFn("jobs", "add") and P.HasFn("jobs", "remove") then
+            local okAdd = check("jobs.add", { src = src, job = "poggy_selftest", grade = 0 }, "ok", UNSUPPORTED)
+            if okAdd then
+                check("jobs.remove", { src = src, job = "poggy_selftest" }, "ok", nil)
+                local _, after = PoggyCore.Do("jobs.of", { src = src })
+                for _, e in ipairs(type(after) == "table" and after or {}) do
+                    if e.name == "poggy_selftest" then note("fail", "jobs.remove", "the probe job is still held") end
+                end
+            end
+        else
+            note("skip", "jobs.add", "no jobs provider that can add and remove, so nothing to exercise")
         end
     end
 
@@ -540,6 +641,14 @@ function PoggyCore.SelfTest(src, full, chat)
         ["menu.open"]      = "opens a menu on the player's screen and waits for a choice",
         ["menu.close"]     = "only meaningful after menu.open or input.text",
         ["input.text"]     = "opens a text box on the player's screen and waits for an answer",
+        -- 0.25.0
+        ["jobs.register"]  = "a multijob script registers at start; poggycore status names it",
+        ["duty.register"]  = "a law script registers at start; poggycore status names it",
+        ["law.register"]   = "a law script registers at start; poggycore status names it",
+        ["law.report"]     = "a law script is installed and would keep the report",
+        ["jobs.add"]       = "needs a jobs provider that can add and remove (full mode)",
+        ["jobs.remove"]    = "only in full mode, after jobs.add, with a jobs provider",
+        ["jobs.setGrade"]  = "would change a grade on your real job list",
     }
     if #untested > 0 then
         reply(("^3%d verb(s) deliberately not exercised:^7"):format(#untested))

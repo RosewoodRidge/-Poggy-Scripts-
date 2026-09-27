@@ -140,13 +140,35 @@ end
 function PoggyCore.GetLocalChar(force)
     local now = GetGameTimer()
     if not force and State.char and (now - State.charAt) < CACHE_MS then
-        return State.char
+        return PoggyCore.WithDutyBag(State.char)
     end
     local char = fetchChar()
     if char then
         State.char, State.charAt = char, now
     end
+    return PoggyCore.WithDutyBag(char)
+end
+
+--- 0.25.0: a duty provider on the server (duty.register) mirrors its answer
+--- into the replicated state bag poggyDuty. When it is set it is the truth,
+--- on every framework; nil means no provider, and the framework's answer
+--- stands. Read on every call, so the cache never holds stale duty.
+function PoggyCore.WithDutyBag(char)
+    if not char then return char end
+    local ok, duty = pcall(function() return LocalPlayer.state.poggyDuty end)
+    if ok and duty ~= nil then char.onDuty = duty == true end
     return char
+end
+
+--- 0.25.0: is `job` a law job? LawJobs, plus the jobs the framework itself
+--- types "leo" (RSG, QBCore) when LeoJobsAreLaw is on; the server publishes
+--- those in GlobalState.poggyLeoJobs.
+function PoggyCore.IsLawJob(job)
+    if type(job) ~= "string" then return false end
+    if PoggyCore.InList(job, PoggyCoreConfig.LawJobs or {}) then return true end
+    if PoggyCoreConfig.LeoJobsAreLaw ~= true then return false end
+    local ok, list = pcall(function() return GlobalState.poggyLeoJobs end)
+    return ok and type(list) == "table" and PoggyCore.InList(job, list) or false
 end
 
 -- ---------------------------------------------------------------------------
@@ -233,7 +255,7 @@ local function buildCore(resource)
 
     function Core.Job.IsLaw()
         local c = PoggyCore.GetLocalChar()
-        return c and PoggyCore.InList(c.job, PoggyCoreConfig.LawJobs) or false
+        return c and PoggyCore.IsLawJob(c.job) or false
     end
 
     function Core.Job.IsMedical()

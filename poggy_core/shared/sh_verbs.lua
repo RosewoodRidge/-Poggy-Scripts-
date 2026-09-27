@@ -36,12 +36,21 @@ PoggyCore.Verbs = {
     ["char.offline"]    = { side = "server", yields = true, args = {"charId"}, optional = {"appearance"},       returns = "character table with online = boolean" },
     -- 0.11.0. Every character, online or not, sorted by name. search matches
     -- the full name; limit/offset page through it.
-    ["char.list"]       = { side = "server", yields = true, args = {}, optional = {"search", "limit", "offset"}, returns = "array of { charId, ownerId, firstName, lastName, fullName }" },
+    -- withJob = true (0.25.0) adds the worn job and whether they are online:
+    -- job, jobLabel, jobGrade, online, src (online only).
+    ["char.list"]       = { side = "server", yields = true, args = {}, optional = {"search", "limit", "offset", "withJob"}, returns = "array of { charId, ownerId, firstName, lastName, fullName }" },
+    -- 0.25.0. What the framework keeps about a character beyond the name, online
+    -- or not. A key the framework has no field for is absent, never guessed:
+    -- VORP age, gender, nickname, description, lastSeen; RSG / QBR / QBCore
+    -- dob, gender, nationality, lastSeen; ESX dob, gender, height, lastSeen.
+    -- lastSeen is unix seconds (now, for an online character).
+    ["char.profile"]    = { side = "server", yields = true, args = {"charId"}, returns = "{ charId, fullName, online, dob?, age?, gender, nationality?, nickname?, description?, lastSeen? }" },
     -- 0.11.0. Re-apply the local player's saved appearance and clothing.
     ["char.reloadSkin"] = { side = "client", args = {},                            returns = "true" },
     -- 0.11.0. Players who are on duty, optionally only those with `job` (a
     -- name or an array) and at least `minGrade`. Duty nobody can report counts
     -- as off duty, so this never returns a player who might not be working.
+    -- 0.25.0: with a duty provider (duty.register) the provider decides.
     ["players.onDuty"]  = { side = "server", args = {}, optional = {"job", "minGrade"},                        returns = "array of server ids" },
 
     -- -------------------------------------------------------------- money --
@@ -73,16 +82,40 @@ PoggyCore.Verbs = {
     -- Activity, fire-and-forget: what players did, so the treasury can build
     -- a baseline. metric is a short name ('shop_sale'); value a number.
     ["treasury.report"]   = { side = "server", args = {"metric", "value"}, optional = {"source", "meta"},       returns = "true" },
+    -- 0.25.0.
+    --   jobs:  of(charId, src?) -> array of { name, label?, grade, gradeLabel?, active?, source? }
+    --          holders({ jobs, minGrade?, activeOnly? }) -> array of { charId, firstName, lastName,
+    --            job, label?, grade, gradeLabel?, active? } (every match: poggy_core filters,
+    --            sorts and pages); optional add(charId, job, grade, label?), remove(charId, job),
+    --            setGrade(charId, job, grade).
+    --          -> jobs.of / jobs.holders go there (raw = true bypasses it).
+    --   duty:  get(src) -> true, onDuty (true | false | nil = cannot tell); set(src, onDuty);
+    --          optional list(jobs?, minGrade?) -> array of server ids.
+    --          -> char.get / job.get onDuty, players.onDuty and job.duty go there on every
+    --             framework; the answer is mirrored into the state bag poggyDuty.
+    --   law:   report({ event, suspect?, coords?, extra?, src?, source, at })
+    ["jobs.register"]     = { side = "server", args = {"fns"},                                                 returns = "true" },
+    ["duty.register"]     = { side = "server", args = {"fns"},                                                 returns = "true" },
+    ["law.register"]      = { side = "server", args = {"fns"},                                                 returns = "true" },
+    -- 0.25.0. Report a crime to whatever law script is installed, without naming
+    -- it. event is a short name ('shop_robbery'); suspect a server id or a
+    -- character id; coords a vector3 or { x, y, z }; extra any table. The
+    -- calling resource is passed on as `source`. 'unsupported' when no law
+    -- script has registered: carry on without one.
+    ["law.report"]        = { side = "server", args = {"event"}, optional = {"suspect", "coords", "extra", "src"},  returns = "whatever the law provider answers" },
 
     -- --------------------------------------------------------------- jobs --
-    ["job.get"]         = { side = "both",   args = {},        optional = {"src"},
+    -- raw = true (0.25.0, server): onDuty as the framework has it, past a
+    -- duty provider; only the provider itself has a use for it.
+    ["job.get"]         = { side = "both",   args = {},        optional = {"src", "raw"},
                             returns = "{ name, grade, label, gradeLabel, onDuty }" },
     -- persist = true (0.11.0) also writes the job to the framework's database,
     -- so resources that read the table see it now. From a thread the write is
     -- awaited and a failure returns false (the in-memory job is still set);
     -- off a thread it runs on its own and a failure is logged.
     ["job.set"]         = { side = "server", args = {"src", "job"}, optional = {"grade", "label", "persist"}, returns = "true" },
-    ["job.duty"]        = { side = "server", args = {"src", "onDuty"},                                      returns = "true" },
+    -- raw = true (0.25.0): set the framework's own duty past a duty provider.
+    ["job.duty"]        = { side = "server", args = {"src", "onDuty"}, optional = {"raw"},                   returns = "true" },
     ["job.has"]         = { side = "both",   args = {"job"},   optional = {"src", "minGrade"},              returns = "boolean" },
     ["job.isLaw"]       = { side = "both",   args = {},        optional = {"src"},                          returns = "boolean" },
     ["job.isMedical"]   = { side = "both",   args = {},        optional = {"src"},                          returns = "boolean" },
@@ -90,7 +123,28 @@ PoggyCore.Verbs = {
     -- RSG and QBR: the core's shared jobs table. VORP keeps jobs as free text,
     -- so it is the distinct jobs in the characters table, labels = names, best
     -- effort. Standalone: an empty list.
-    ["jobs.list"]       = { side = "server", yields = true, args = {},                                      returns = "array of { name, label, grades = { { grade, label }, ... } }" },
+    -- 0.25.0: type where the framework has one (RSG, QBCore: 'leo' for law),
+    -- and boss = true on a grade the framework marks as the boss.
+    ["jobs.list"]       = { side = "server", yields = true, args = {},                                      returns = "array of { name, label, type?, grades = { { grade, label, boss? }, ... } }" },
+    -- 0.25.0. Every job a character holds, worn or not: charId or src.
+    -- source is 'framework' for the worn job, 'vorp_multijob' / 'rsg_multijob'
+    -- for the framework's own multijob, or the jobs provider's resource name.
+    -- raw = true skips a jobs provider.
+    ["jobs.of"]         = { side = "server", yields = true, args = {}, optional = {"charId", "src", "raw"},
+                            returns = "array of { name, label, grade, gradeLabel, active, source }, the worn job first" },
+    -- 0.25.0. Every character holding `job` (a name or an array), online or
+    -- not, sorted by name. activeOnly = only those wearing it; minGrade;
+    -- limit / offset page through it. raw = true skips a jobs provider.
+    ["jobs.holders"]    = { side = "server", yields = true, args = {"job"}, optional = {"minGrade", "activeOnly", "limit", "offset", "raw"},
+                            returns = "array of { charId, fullName, firstName, lastName, job, label, grade, gradeLabel, active, online, src?, source }" },
+    -- 0.25.0. Change the jobs a character holds without switching the one they
+    -- wear (removing the worn job is the provider's call: Poggy Multijob then
+    -- switches them to its default job). Only through a jobs provider (a
+    -- multijob script): 'unsupported' without one, so hire and fire with
+    -- job.set instead.
+    ["jobs.add"]        = { side = "server", yields = true, args = {"job"}, optional = {"charId", "src", "grade", "label"}, returns = "true" },
+    ["jobs.remove"]     = { side = "server", yields = true, args = {"job"}, optional = {"charId", "src"},                  returns = "true" },
+    ["jobs.setGrade"]   = { side = "server", yields = true, args = {"job", "grade"}, optional = {"charId", "src"},         returns = "true" },
 
     -- ---------------------------------------------------------- inventory --
     ["inv.add"]         = { side = "server", yields = true, args = {"src", "item"}, optional = {"qty", "meta"},            returns = "true" },

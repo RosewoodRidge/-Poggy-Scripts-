@@ -95,6 +95,15 @@ local function status(src)
             #uparts > 0 and (" — " .. table.concat(uparts, ", ")) or ""))
     end
 
+    if PoggyCore.Providers then
+        local pparts = {}
+        for _, e in ipairs(PoggyCore.Providers.List()) do
+            pparts[#pparts + 1] = ("%s=%s"):format(e.kind, e.resource)
+        end
+        reply(src, ("providers: %s"):format(#pparts > 0 and table.concat(pparts, ", ")
+            or "none (bank, treasury, jobs, duty and law answer from the framework, or refuse)"))
+    end
+
     if PoggyCore.Identity then
         local list, dup = PoggyCore.Identity.List()
         reply(src, ("Poggy scripts registered: %d%s — poggycore scripts"):format(#list,
