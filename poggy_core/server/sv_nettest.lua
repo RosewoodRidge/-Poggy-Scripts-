@@ -36,11 +36,15 @@ end
 
 function PoggyCore.Updates.NetTest(say, opts)
     opts = opts or {}
-    local site = "rosewoodridge.xyz"
-    local feed = (opts.url or (PoggyCoreConfig.Updates or {}).Url or ("https://" .. site .. "/api/updates/scripts"))
+    -- The Poggy site is poggy.app. The old rosewoodridge.xyz still answers (it
+    -- forwards to poggy.app), and the address-by-IP lines below are its host.
+    local site, oldSite = "poggy.app", "rosewoodridge.xyz"
+    local configured = (PoggyCoreConfig.Updates or {}).Url
+    if configured and PoggyCore.Updates.SiteUrl then configured = PoggyCore.Updates.SiteUrl(configured) end
+    local feed = (opts.url or configured or ("https://" .. site .. "/api/updates/scripts"))
         :gsub("/+$", "") .. "/index.json"
 
-    local byIp = { ["Host"] = site, ["User-Agent"] = "poggy_core-updater" }
+    local byIp = { ["Host"] = oldSite, ["User-Agent"] = "poggy_core-updater" }
     local up = PoggyCoreConfig.Updates or {}
     local feedRepo, feedBranch = up.Repo or "RosewoodRidge/Poggy-Updates", up.Branch or "main"
     local tok = GetConvar("poggy_github_token", "")
@@ -56,10 +60,11 @@ function PoggyCore.Updates.NetTest(say, opts)
         { "site file (plain http)",        "http://" .. site .. "/robots.txt" },
         { "www. subdomain (https)",        "https://www." .. site .. "/robots.txt" },
         { "explicit port 443 (https)",     "https://" .. site .. ":443/robots.txt" },
+        { "old site, .xyz (https)",        "https://" .. oldSite .. "/robots.txt" },
         { "another .xyz site (https)",     "https://abc.xyz/" },
-        { "site by IP, no DNS (http)",     "http://159.198.67.238/robots.txt", byIp },
+        { "old site by IP, no DNS (http)", "http://159.198.67.238/robots.txt", byIp },
         { "feed by IP, no DNS (http)",     "http://159.198.67.238/api/updates/scripts/index.json", byIp },
-        { "site by IP (https)",            "https://159.198.67.238/robots.txt", byIp },
+        { "old site by IP (https)",        "https://159.198.67.238/robots.txt", byIp },
         { "known https by IP (1.1.1.1)",   "https://1.1.1.1/cdn-cgi/trace" },
         { "GitHub API (worked before)",    "https://api.github.com/zen" },
         { "Cloudflare (https, ECDSA)",     "https://www.cloudflare.com/cdn-cgi/trace" },

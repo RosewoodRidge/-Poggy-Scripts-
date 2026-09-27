@@ -1371,10 +1371,10 @@ lookup the updater uses) and prints the rest once, as one grey and blue block:
 
 ```
 [Poggy Core] Other Poggy scripts (not installed here):
-[Poggy Core]    Poggy Markets                https://rosewoodridge.xyz/store/poggy-markets
-[Poggy Core]    Poggy Fishing                https://rosewoodridge.xyz/store/poggy-fishing
-[Poggy Core]    Poggy Admin Blips (free)     https://rosewoodridge.xyz/store/poggy-admin-blips
-[Poggy Core]    … see https://rosewoodridge.xyz/store
+[Poggy Core]    Poggy Markets                https://poggy.app/store/poggy-markets
+[Poggy Core]    Poggy Fishing                https://poggy.app/store/poggy-fishing
+[Poggy Core]    Poggy Admin Blips (free)     https://poggy.app/store/poggy-admin-blips
+[Poggy Core]    … see https://poggy.app/store
 ```
 
 It is a notice, not an advert: never red or yellow, at most ten rows and then
@@ -1390,7 +1390,7 @@ a publish may add, each with a fallback:
 | Field | Meaning | When missing |
 |---|---|---|
 | `label` | the display name, e.g. `"Poggy Markets"` | the id is shown |
-| `store` | the absolute product page, e.g. `https://rosewoodridge.xyz/store/poggy-markets` (must start with `http`) | the store front, `https://rosewoodridge.xyz/store` |
+| `store` | the absolute product page, e.g. `https://poggy.app/store/poggy-markets` (must start with `http`) | the store front, `https://poggy.app/store`. A `store` on the old `rosewoodridge.xyz` is shown as the same page on `poggy.app` |
 | `free` | `true` for a free script: `(free)` is shown after the name | not free |
 
 Rows are sorted by label.

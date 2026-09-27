@@ -20,7 +20,9 @@
     Lists of entries (locations, stalls, job tables, anything with positional or
     [bracketed] keys) are one opaque value in a config. They are never merged
     item by item, because their contents are the owner's data: re-adding a job
-    they deliberately removed would hand that job access again.
+    they deliberately removed would hand that job access again. A table keyed by
+    plain names counts as such a list once the owner has replaced its entries
+    (taken out some we ship and put in their own): it is then left whole.
 
     Translation and locale files are different: their ["key"] = "text" entries
     are strings the script needs. Merge them with { dictKeys = true } and a
@@ -752,6 +754,43 @@ function M.Merge(baseText, newText, userText, opts)
     local changed, skipped = {}, {}      -- path -> entry / true
     local touched = {}                   -- entries added, removed or replaced
 
+    -- A settings table whose entries the owner replaced (they took out entries we
+    -- ship AND put in their own, e.g. job ranks keyed `Police` instead of
+    -- `police`/`sheriff`) is a list of their data that happens to use name keys.
+    -- It is left whole, like any other list: re-adding the entries they took out
+    -- would hand those jobs access again.
+    local ownerData = {}                 -- path -> true
+    local ref = B or N
+    for _, u in ipairs(U.list) do
+        if u.kind == "map" and ref.map[u.path] and not underAny(u, ownerData) then
+            local theirs, dropped = {}, {}
+            for _, c in ipairs(U.list) do
+                if c.parent == u.path and not ref.map[c.path] and not N.map[c.path] then
+                    theirs[#theirs + 1] = c.parts[#c.parts]
+                end
+            end
+            if #theirs > 0 then
+                for _, r in ipairs(ref.list) do
+                    if r.parent == u.path and not U.map[r.path] then
+                        dropped[#dropped + 1] = r.parts[#r.parts]
+                    end
+                end
+            end
+            if #theirs > 0 and #dropped > 0 then
+                ownerData[u.path] = true
+                skipped[u.path] = true
+                report[#report + 1] = ("? left %s as it is: your entries (%s) replace ours (%s)")
+                    :format(u.path, table.concat(theirs, ", "), table.concat(dropped, ", "))
+            end
+        end
+    end
+    local function insideOwnerData(e)
+        for _, p in ipairs(e.chain) do
+            if p ~= e.path and ownerData[p] then return true end
+        end
+        return false
+    end
+
     local function push(list)
         for _, e in ipairs(list) do
             seq = seq + 1
@@ -762,7 +801,7 @@ function M.Merge(baseText, newText, userText, opts)
 
     -- Settings in the owner's file that the new version no longer has.
     for _, u in ipairs(U.list) do
-        if not N.map[u.path] and not containedIn(claimedU, u.keyS, spanEnd(u)) then
+        if not N.map[u.path] and not insideOwnerData(u) and not containedIn(claimedU, u.keyS, spanEnd(u)) then
             if B and B.map[u.path] then
                 push({ planRemove(U, u) })
                 claimedU[#claimedU + 1] = { u.keyS, spanEnd(u) }
@@ -778,7 +817,7 @@ function M.Merge(baseText, newText, userText, opts)
 
     -- Settings the new version has.
     for _, n in ipairs(N.list) do
-        if not containedIn(claimedN, n.keyS, spanEnd(n)) then
+        if not insideOwnerData(n) and not containedIn(claimedN, n.keyS, spanEnd(n)) then
             local u = U.map[n.path]
             if not u then
                 local list, why = planAdd(N, U, n)

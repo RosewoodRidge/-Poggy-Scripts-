@@ -738,7 +738,7 @@
     },
     "PoggyCoreConfig.Updates.Url": {
       "label": "Website address",
-      "tooltip": "Only used when Feed source is Website. Must not be a .xyz address.",
+      "tooltip": "Only used when Feed source is Website. Must not be a .xyz address. The old default on rosewoodridge.xyz is read as poggy.app.",
       "tab": "updates",
       "group": "Feed",
       "advanced": true

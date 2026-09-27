@@ -158,6 +158,25 @@ local function cfg()
     return PoggyCoreConfig.Updates or {}
 end
 
+-- The Poggy site moved from rosewoodridge.xyz to poggy.app (0.25.0). The old
+-- address is still in owners' configs (the merge keeps their values) and in
+-- older feed entries, so it is read as the new one wherever a link is used or
+-- shown. Any other address, an owner's own included, is returned unchanged.
+Updates.SITE = "poggy.app"
+local OLD_SITE_HOSTS = { ["rosewoodridge.xyz"] = true, ["www.rosewoodridge.xyz"] = true }
+
+--- An http(s) address on the old site, as the same page on poggy.app.
+function Updates.SiteUrl(url)
+    if type(url) ~= "string" then return url end
+    local scheme, host, rest = url:match("^(%a+)://([^/?#]+)(.*)$")
+    if not scheme then return url end
+    scheme = scheme:lower()
+    if (scheme == "http" or scheme == "https") and OLD_SITE_HOSTS[host:lower()] then
+        return "https://" .. Updates.SITE .. rest
+    end
+    return url
+end
+
 local function token()
     local t = GetConvar("poggy_github_token", "")
     return t ~= "" and t or nil
@@ -1043,7 +1062,7 @@ local function chooseSource(resource, opts, all)
         local source = githubSource(repo, opts.branch or c.SourceBranch or "main")
         return source, ("source repository %s (token: %s)"):format(source.label, token() and "set" or "none")
     elseif kind == "website" then
-        local url = opts.url or c.Url
+        local url = opts.url or Updates.SiteUrl(c.Url)
         if not url or url == "" then return nil, "^1❌ no update address set. Add PoggyCoreConfig.Updates.Url.^7" end
         local source = websiteSource(url)
         return source, source.label
@@ -1232,7 +1251,7 @@ end
 -- and the store front stand in. Never red or yellow: it is a notice.
 -- ---------------------------------------------------------------------------
 
-local STORE_FRONT = "https://rosewoodridge.xyz/store"
+local STORE_FRONT = "https://poggy.app/store"
 local CATALOG_ROWS = 10
 
 Updates.catalogShown = false
@@ -1272,7 +1291,7 @@ function Updates.Catalog(say, opts)
         local okLook, folder, problem = pcall(localFolder, id)
         if okLook and not folder and problem ~= "duplicate" and type(entry) == "table" then
             local label = (type(entry.label) == "string" and entry.label:match("%S")) and entry.label or id
-            local store = (type(entry.store) == "string" and entry.store:match("^https?://")) and entry.store or STORE_FRONT
+            local store = (type(entry.store) == "string" and entry.store:match("^https?://")) and Updates.SiteUrl(entry.store) or STORE_FRONT
             missing[#missing + 1] = { id = id, label = label, store = store, free = entry.free == true }
         end
     end
@@ -1310,7 +1329,7 @@ function Updates.Describe()
     local c = cfg()
     local from
     if (c.Source or "github") == "website" then
-        from = ("website ^5%s^7"):format(tostring(c.Url))
+        from = ("website ^5%s^7"):format(tostring(Updates.SiteUrl(c.Url)))
     else
         from = ("GitHub ^5%s@%s^7 ^9(%s)^7"):format(tostring(c.Repo), tostring(c.Branch or "main"),
             token() and "token set" or "public, no token")

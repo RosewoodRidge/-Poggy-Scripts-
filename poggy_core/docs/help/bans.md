@@ -53,7 +53,7 @@ A **cheating** ban is shared with every server running poggy_core, as one vote. 
 
 **Status:** `poggycore bannet`
 
-A blocked player is sent to **rosewoodridge.xyz/appeal**, where they log in with Cfx and see which servers banned them and how to appeal to each.
+A blocked player is sent to **poggy.app/appeal**, where they log in with Cfx and see which servers banned them and how to appeal to each.
 
 ## If something breaks
 

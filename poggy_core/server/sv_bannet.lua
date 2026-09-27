@@ -36,7 +36,7 @@ PoggyCore.BanNet = Net
 --     set poggy_bannet_list "https://raw.githubusercontent.com/…/bans.json"
 local DEFAULT_API  = "https://poggy-bans.poggy-bans.workers.dev"
 local DEFAULT_LIST = "https://raw.githubusercontent.com/RosewoodRidge/Poggy-Bans/main/bans.json"
-local APPEAL_PAGE  = "rosewoodridge.xyz/appeal"
+local APPEAL_PAGE  = "poggy.app/appeal"
 
 local REFRESH_MS   = 10 * 60 * 1000
 local BEAT_SECONDS = 6 * 3600

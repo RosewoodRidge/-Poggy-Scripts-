@@ -153,11 +153,12 @@ PoggyCoreConfig.Sql = {
 PoggyCoreConfig.Updates = {
     -- "github":  the published update feed in the GitHub repository Repo.
     -- "website": the same feed served from Url (not usable on a .xyz domain:
-    --            FXServer refuses every .xyz hostname).
+    --            FXServer refuses every .xyz hostname). The old default,
+    --            rosewoodridge.xyz, is read as poggy.app.
     Source = "github",
     Repo   = "RosewoodRidge/Poggy-Updates",
     Branch = "main",
-    Url    = "https://rosewoodridge.xyz/api/updates/scripts",
+    Url    = "https://poggy.app/api/updates/scripts",
 
     -- Development only: `poggycore update <resource> repo=Owner/Name` reads a
     -- source repository directly instead of the published feed. SourceRepo is
