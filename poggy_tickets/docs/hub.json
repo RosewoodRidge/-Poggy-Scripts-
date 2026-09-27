@@ -157,7 +157,7 @@
       "tab": "web",
       "export": "HubPanel",
       "itemLabel": "line",
-      "tooltip": "Your community's one ID for rosewoodridge.xyz/tickets. It is made for you the first time the website is switched on, and nobody types it in here: everyone sees it in game, at the top of /ticket and /tickets. Also shows when the server last synced and how many people are linked."
+      "tooltip": "Your community's one ID for poggy.app/tickets. It is made for you the first time the website is switched on, and nobody types it in here: everyone sees it in game, at the top of /ticket and /tickets. Also shows when the server last synced and how many people are linked."
     },
     {
       "id": "replies",
@@ -346,7 +346,7 @@
     },
     "Config.Web.Enabled": {
       "label": "Web panel",
-      "tooltip": "Tickets in a browser at rosewoodridge.xyz/tickets, signed in with Cfx.re: players read, answer and write their OWN tickets under each character, and anyone with a ticket role gets the staff desk as well. READ FIRST: your server cannot talk to a website directly, so copies of your OPEN tickets (names, what players wrote, the conversations, internal notes) are sent to a relay run by Rosewood Ridge, and kept while a ticket is open and for 7 days after it closes. For each person who uses the website it also keeps their Cfx.re account id, name and character names. Turning this off tells the relay to forget your community at once. Warn, kick and ban stay in game, and every web action is checked again by this server. Needs a restart of the script.",
+      "tooltip": "Tickets in a browser at poggy.app/tickets, signed in with Cfx.re: players read, answer and write their OWN tickets under each character, and anyone with a ticket role gets the staff desk as well. READ FIRST: your server cannot talk to a website directly, so copies of your OPEN tickets (names, what players wrote, the conversations, internal notes) are sent to a relay run by Rosewood Ridge, and kept while a ticket is open and for 7 days after it closes. For each person who uses the website it also keeps their Cfx.re account id, name and character names. Turning this off tells the relay to forget your community at once. Warn, kick and ban stay in game, and every web action is checked again by this server. Needs a restart of the script.",
       "tab": "web",
       "group": "Web panel"
     },
@@ -379,7 +379,7 @@
     },
     "Config.Web.Appeals": {
       "label": "Take ban appeals from the website",
-      "tooltip": "Banned players can appeal to you at rosewoodridge.xyz/appeal. Each appeal arrives as a ticket of the kind 'Ban appeal', seen by every role that may lift bans, and the conversation happens in the ticket. This also lists your community BY NAME on that page. Needs the web panel on.",
+      "tooltip": "Banned players can appeal to you at poggy.app/appeal. Each appeal arrives as a ticket of the kind 'Ban appeal', seen by every role that may lift bans, and the conversation happens in the ticket. This also lists your community BY NAME on that page. Needs the web panel on.",
       "tab": "web",
       "group": "Ban appeals"
     },

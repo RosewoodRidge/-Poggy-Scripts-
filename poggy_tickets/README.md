@@ -93,11 +93,11 @@ The audit trail keeps who deleted which ticket, and when.
 
 ### Tickets on the website (off by default)
 
-At **rosewoodridge.xyz/tickets**, signed in with Cfx.re, with your community's one ID (shown to everyone at the top of `/ticket` and `/tickets`):
+At **poggy.app/tickets**, signed in with Cfx.re, with your community's one ID (shown to everyone at the top of `/ticket` and `/tickets`):
 
 - **players** read and answer their own tickets, under each character, and write new ones when they are not in game;
 - **anyone with a ticket role** gets the staff desk as well: read, reply, internal notes, claim, release, close. **Warn, kick and ban stay in game** unless you switch on `Config.Web.Moderation`. With `Config.Web.VerifyDevices` (on by default) each browser must be confirmed once with a link code from the game before it opens the staff desk, so a stolen Cfx.re login is not enough.
-- **banned players** can appeal to you by name at **rosewoodridge.xyz/appeal**; an appeal arrives as a *Ban appeal* ticket.
+- **banned players** can appeal to you by name at **poggy.app/appeal**; an appeal arrives as a *Ban appeal* ticket.
 
 A person is linked to their Cfx.re account by itself at login when their game names one, or with a six-character **link code** from the **Website** tab of `/ticket`, typed on the website. Turn it on with `Config.Web.Enabled`, and read the note above it first: your server cannot talk to a website directly, so copies of your **open tickets** are held on a relay run by Rosewood Ridge while they are open and for 7 days after, with the Cfx.re id, name and character names of each person who uses the website. Switch it off and the relay forgets your community at once. Your own server checks every web action again. See `docs/help/web.md`.
 

@@ -4,11 +4,11 @@ Both are **off** until you turn them on. `/poggy` → Tickets → **Web panel**.
 
 ## What it is
 
-Tickets in a browser, at **rosewoodridge.xyz/tickets**. Everyone signs in with their Cfx.re account and types your **community ID**.
+Tickets in a browser, at **poggy.app/tickets**. Everyone signs in with their Cfx.re account and types your **community ID**.
 
 - **Players** read and answer their **own** tickets, under each of their characters, and write new ones when they are not in game.
 - **Anyone with a ticket role** gets the **staff desk** as well. Nothing to set up: it follows their role.
-- **Banned players** can appeal to you at **rosewoodridge.xyz/appeal**. Each appeal arrives as a ticket of the kind **Ban appeal**.
+- **Banned players** can appeal to you at **poggy.app/appeal**. Each appeal arrives as a ticket of the kind **Ban appeal**.
 
 ## Read this before you turn it on
 
@@ -47,7 +47,7 @@ Your server knows people by their game account. The website knows them by their 
 **With a link code**, when that did not happen, or they use a different Cfx.re account on the website:
 
 1. In game: `/ticket` (or `/tickets`) → **Website** → **Get my link code**. Six letters and numbers, good for ten minutes, once.
-2. At rosewoodridge.xyz/tickets: sign in, type the community ID, type the code.
+2. At poggy.app/tickets: sign in, type the community ID, type the code.
 3. Your server checks the code within a few seconds and tells them in game.
 
 A code must **never be given to anyone**: whoever types it gets that person's tickets, and their staff desk if they have one. The tab says so in red.

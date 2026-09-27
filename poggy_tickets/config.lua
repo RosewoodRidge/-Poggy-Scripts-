@@ -184,7 +184,7 @@ Config.PurgeClosedAfterDays = 0
 -- The web panel (off by default)
 -- ---------------------------------------------------------------------------
 
--- Tickets in a browser, at rosewoodridge.xyz/tickets, signed in with Cfx.re:
+-- Tickets in a browser, at poggy.app/tickets, signed in with Cfx.re:
 --   - every PLAYER reads and answers their own tickets, under each character, and
 --     writes new ones when they are not in game
 --   - anyone whose account holds a ticket role gets the staff desk as well
@@ -211,7 +211,7 @@ Config.Web = {
     -- Where the relay is. Do not change it.
     Api = "https://poggy-tickets.poggy-bans.workers.dev",
 
-    -- true lets banned players appeal to you from rosewoodridge.xyz/appeal. Each
+    -- true lets banned players appeal to you from poggy.app/appeal. Each
     -- appeal arrives as a ticket of the kind "Ban appeal", seen by every role
     -- that may lift bans. It also lists your community BY NAME on that page.
     Appeals = false,
