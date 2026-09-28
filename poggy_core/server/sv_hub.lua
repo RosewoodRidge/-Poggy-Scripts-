@@ -3988,6 +3988,43 @@ register("jobs", function()
     return I.ok(list or {})
 end)
 
+-- The radial builder (a list with "view": "radial" in hub.json, 0.26.0):
+-- every script's commands, to add one as an option in a click, and whether
+-- the resources the options name are running (names: a list of folders).
+register("radial", function(src, names)
+    local commands = {}
+    for _, s in ipairs(Hub.Scripts()) do
+        local okBuild, b = true, I.lastBuilt(s)
+        if not b then okBuild, b = pcall(Hub.Build, s) end
+        if okBuild and b then
+            local label = type(b.meta.label) == "string" and b.meta.label or I.folderLabel(s.folder)
+            for _, c in ipairs(I.commands(b)) do
+                if type(c.command) == "string" and c.command ~= "" then
+                    commands[#commands + 1] = {
+                        script = s.id, label = label, folder = s.folder, running = s.running,
+                        command = c.command, who = type(c.who) == "string" and c.who or nil,
+                        usage = type(c.usage) == "string" and clip(c.usage, 120) or nil,
+                        description = clip(c.description, 200),
+                    }
+                end
+            end
+        end
+    end
+    local resources = {}
+    if type(names) == "table" then
+        local n = 0
+        for _, name in ipairs(names) do
+            n = n + 1
+            if n > 200 then break end
+            if type(name) == "string" and #name <= 64 and name:match("^[%w_%-%.%[%]]+$") then
+                local okState, state = pcall(GetResourceState, name)
+                resources[name] = okState and state or "missing"
+            end
+        end
+    end
+    return I.ok({ commands = commands, resources = resources })
+end)
+
 -- §10: data panels. No edit lock (each write is one change the owning script
 -- validates), but register() still requires the permission to edit.
 -- ctx (optional, last) = { parent, root, confirm }: a drill-down panel's row

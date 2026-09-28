@@ -1371,6 +1371,9 @@
             wrap.appendChild(L.panel(it));
         } else if (it.kind === 'keytable') {
             wrap.appendChild(L.keytable(it.node));
+        } else if (PH.Radial && PH.Radial.wants(it.node)) {
+            // A menu of options (poggy_menu): edited on a mock of the wheel (hub-radial.js).
+            wrap.appendChild(PH.Radial.section(it.node, { label: it.label, flag: v.flag, onFlag: function (f) { v.flag = f; }, onChange: function () { onFieldChange(); } }));
         } else {
             wrap.appendChild(L.section(it.node, { label: it.label, flag: v.flag, onFlag: function (f) { v.flag = f; }, onChange: function () { onFieldChange(); } }));
         }

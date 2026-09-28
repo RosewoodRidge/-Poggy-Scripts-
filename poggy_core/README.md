@@ -294,6 +294,13 @@ labels, tooltips, limits, pickers, `live` (no restart needed), `advanced`,
 `'docs/icon.png'` to the manifest's `files` for the card's icon. The format is
 in `docs/reference/poggy-hub-spec.md` §5 (in the development repository).
 
+A list of radial menu options (a menu script's `Config.Menu`) can say
+`"view": "radial"` (0.26.0): /poggy then edits it on a picture of the wheel,
+with the option picked edited below, instead of in a table. Its optional
+`"radial"` block names the script's icon library and the settings for options
+per ring, icon colours, built-ins and the admin ace (spec §11). Older cores
+show the table.
+
 Anything a script runs as code (a Lua string passed to `load`, text spliced
 into SQL) must be marked `"readonly": true`: the server then refuses to change
 it from the hub.

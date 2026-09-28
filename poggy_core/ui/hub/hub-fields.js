@@ -9,7 +9,7 @@
         number                           number box (+ slider when min and max are set, unit label)
         number + picker heading          heading dial with "use my heading"
         number/string + picker color     colour swatch and hex box
-        string                           text; multiline, webhook, item, job, group, role, key pickers
+        string                           text; multiline, webhook, item, job, group, role, key, icon pickers
         any + options                    select (values keep their type: false stays false)
         vector2/3/4                      x/y/z(/w) boxes + "use my position"
         hash                             text (the control name)
@@ -2067,6 +2067,7 @@
             if (picker === 'color') return ctlColor(spec, commit, err);
             if (picker === 'multiline') return ctlText(spec, commit, err, true);
             if (picker === 'item' && IC.enabled()) return ctlItemText(spec, commit);
+            if (picker === 'icon' && PH.Radial && PH.Radial.iconControl) return PH.Radial.iconControl(spec, commit);
             if (picker && F.fetchers[picker]) return ctlPicked(spec, commit, picker);
             if (String(v).length > 90 || String(v).indexOf('\n') !== -1) return ctlText(spec, commit, err, true);
             return ctlText(spec, commit, err, false);
