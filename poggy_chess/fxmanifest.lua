@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_chess'
 author 'Poggy'
 description 'Chess and checkers tables: play a friend or the AI, four checkers variants and house rules, wagers held safely, and a record of every game with a move-by-move review.'
-version '2.0.1'
+version '2.1.0'
 poggy_core_min '0.23.0'
 
 dependencies {
@@ -42,6 +42,7 @@ server_scripts {
     'server/sv_ai.lua',
     'server/sv_wager.lua',
     'server/sv_ratings.lua',
+    'server/sv_clock.lua',
     'server/sv_game.lua',
     'server/sv_records.lua',
     'server/sv_main.lua',

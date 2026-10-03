@@ -24,6 +24,10 @@
     {
       "title": "Ratings and the leaderboard",
       "file": "docs/help/ratings.md"
+    },
+    {
+      "title": "The chess clock",
+      "file": "docs/help/clock.md"
     }
   ],
   "commands": [
@@ -146,13 +150,67 @@
     },
     "Config.Game.IdleClaimMinutes": {
       "label": "Idle claim",
-      "tooltip": "In a game between two players, if one takes longer than this over a move, the other can claim the win. Keeps a wager from being held hostage by someone who walked away. 0 turns the claim off.",
+      "tooltip": "In a game between two players, if one takes longer than this over a move, the other can claim the win. Keeps a wager from being held hostage by someone who walked away. Once a game's clock is running the clock settles it instead, so the claim covers only the first move of a game with a clock. 0 turns the claim off.",
       "tab": "games",
       "group": "Between players",
       "min": 0,
       "max": 60,
       "step": 1,
       "unit": "min"
+    },
+    "Config.Clock.Enabled": {
+      "label": "Chess clock",
+      "tooltip": "Let the player who sets up a game pick a clock: minutes each for the whole game, plus seconds added after every move. A player whose time runs out loses. Off, every game is untimed.",
+      "tab": "games",
+      "group": "Clock"
+    },
+    "Config.Clock.Default": {
+      "label": "Clock shown first",
+      "tooltip": "What the start menu opens on: none for no clock, or one of the times below written minutes+seconds, such as 10+0. Players can still pick any of them.",
+      "tab": "games",
+      "group": "Clock"
+    },
+    "Config.Clock.AgainstAI": {
+      "label": "Clock against the AI",
+      "tooltip": "Offer the clock in games against the AI as well. The AI's time runs while it thinks, so at the fastest times a strong level can run out.",
+      "tab": "games",
+      "group": "Clock"
+    },
+    "Config.Clock.Custom": {
+      "label": "Custom times",
+      "tooltip": "Let players type their own minutes and seconds, within the two limits below. Off, only the times in the list can be picked.",
+      "tab": "games",
+      "group": "Clock"
+    },
+    "Config.Clock.MaxMinutes": {
+      "label": "Longest custom time",
+      "tooltip": "The most minutes each a player may type in for a custom clock.",
+      "tab": "games",
+      "group": "Clock",
+      "min": 1,
+      "max": 600,
+      "step": 1,
+      "unit": "min"
+    },
+    "Config.Clock.MaxIncrement": {
+      "label": "Most seconds a move",
+      "tooltip": "The most seconds a custom clock may add after each move.",
+      "tab": "games",
+      "group": "Clock",
+      "min": 0,
+      "max": 300,
+      "step": 1,
+      "unit": "s"
+    },
+    "Config.Clock.LowSeconds": {
+      "label": "Low time warning",
+      "tooltip": "With this many seconds left a clock turns red, and under 10 seconds it shows tenths.",
+      "tab": "games",
+      "group": "Clock",
+      "min": 0,
+      "max": 120,
+      "step": 1,
+      "unit": "s"
     },
     "Config.Interaction.SitRadius": {
       "label": "Sit distance",
@@ -771,6 +829,44 @@
     }
   },
   "lists": {
+    "Config.Clock.Presets": {
+      "label": "Clock times",
+      "itemLabel": "time",
+      "tab": "games",
+      "kind": "list",
+      "titleField": "minutes",
+      "subtitleField": "increment",
+      "columns": [
+        {
+          "field": "minutes",
+          "label": "Minutes each"
+        },
+        {
+          "field": "increment",
+          "label": "Seconds a move"
+        }
+      ],
+      "fields": {
+        "minutes": {
+          "label": "Minutes each",
+          "tooltip": "Each player's time for the whole game.",
+          "min": 1,
+          "max": 600,
+          "step": 1
+        },
+        "increment": {
+          "label": "Seconds a move",
+          "tooltip": "Added to a player's clock after each of their moves. 0 for none.",
+          "min": 0,
+          "max": 300,
+          "step": 1
+        }
+      },
+      "template": {
+        "minutes": 10,
+        "increment": 5
+      }
+    },
     "Config.Tables": {
       "label": "Tables",
       "itemLabel": "table",

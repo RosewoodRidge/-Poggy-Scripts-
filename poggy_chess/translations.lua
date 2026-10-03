@@ -45,6 +45,7 @@ Translations.en = {
     ["resume_in_play"] = "That game is already being played at another table.",
     ["resume_wrong_player"] = "This saved game is %s's. Only they can take that chair for it.",
     ["invite_declined"] = "%s declined your game.",
+    ["clock_bad"] = "That clock is not allowed here. Pick another time.",
 
     -- playing
     ["not_your_turn"] = "It is not your turn.",
@@ -107,6 +108,7 @@ Translations.en = {
         ["your_turn"] = "your move",
         ["their_turn"] = "their move",
         ["stake_pill"] = "Stake %s",
+        ["clock_pill"] = "Clock %s",
 
         -- difficulty levels (a level with no line here shows its id)
         ["level_beginner"] = "Beginner",
@@ -198,6 +200,16 @@ Translations.en = {
         ["start_ai"] = "Start the game",
         ["start_invite"] = "Invite %s",
         ["start_wait"] = "Wait for an opponent",
+        ["setup_clock"] = "Clock",
+        ["clock_none"] = "None",
+        ["clock_custom"] = "Custom",
+        ["clock_short"] = "%d+%d",
+        ["clock_tip"] = "%d minutes each, %d seconds added after every move",
+        ["clock_minutes"] = "Minutes each",
+        ["clock_increment"] = "Seconds a move",
+        ["clock_explain"] = "Each player has the minutes for the whole game, and the seconds are added after every move. It starts with the first move. Run out and you lose.",
+        ["clock_explain_none"] = "No clock: take as long as you like.",
+        ["clock_line"] = "Clock: %d minutes each, %d seconds added after every move. Run out and you lose.",
 
         -- waiting and invitations
         ["waiting_title"] = "Waiting",
@@ -273,6 +285,9 @@ Translations.en = {
         ["reason_agreement"] = "Both players agreed to a draw.",
         ["reason_death"] = "A player died at the table.",
         ["reason_admin"] = "An admin ended the game.",
+        ["reason_timeout"] = "%s ran out of time.",
+        -- %s is the player who ran out, then the other player
+        ["reason_timeoutdraw"] = "%s ran out of time, but %s has too little left to checkmate.",
         ["reason_saved"] = "%s left the table. The game is saved, and either of you can pick it up from the start menu.",
         ["reason_short_checkmate"] = "checkmate",
         ["reason_short_resign"] = "resigned",
@@ -288,6 +303,8 @@ Translations.en = {
         ["reason_short_agreement"] = "agreed",
         ["reason_short_death"] = "a player died",
         ["reason_short_admin"] = "ended by an admin",
+        ["reason_short_timeout"] = "out of time",
+        ["reason_short_timeoutdraw"] = "out of time, no mate possible",
         ["reason_short_stale"] = "left unfinished",
         ["reason_short_restart"] = "server restart",
         ["reason_short_saved"] = "saved",

@@ -113,6 +113,35 @@ Config.Game = {
     IdleClaimMinutes = 5,
 }
 
+-- The chess clock, for chess and checkers. Whoever sets up a game picks the
+-- time: minutes each for the whole game, plus seconds added to a player's
+-- clock after each of their moves ("5+3" is 5 minutes and 3 seconds a move).
+-- A clock starts with the first move. A player whose time runs out loses; in
+-- chess it is a draw when the other side has only a king, or a king and one
+-- bishop or knight. While a clock runs, the idle claim is not needed and is off.
+Config.Clock = {
+    Enabled = true,
+    -- What the start menu opens on: "none" for no clock, or a time from Presets, such as "10+0".
+    Default = "none",
+    -- Offer the clock in games against the AI too (the AI's time runs while it thinks).
+    AgainstAI = true,
+    -- Let the player type their own minutes and seconds, within the limits below.
+    Custom = true,
+    MaxMinutes = 180,
+    MaxIncrement = 60,
+    -- Seconds left at which a clock turns red and shows tenths.
+    LowSeconds = 20,
+    -- The times offered as buttons, in this order.
+    Presets = {
+        { minutes = 1,  increment = 0 },
+        { minutes = 3,  increment = 2 },
+        { minutes = 5,  increment = 0 },
+        { minutes = 10, increment = 0 },
+        { minutes = 15, increment = 10 },
+        { minutes = 30, increment = 0 },
+    },
+}
+
 Config.Checkers = {
     -- The variant the start menu opens on: american, russian, brazilian, pool or custom.
     DefaultVariant = "american",

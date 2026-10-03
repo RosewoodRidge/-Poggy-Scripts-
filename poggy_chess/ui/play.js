@@ -13,6 +13,7 @@
 const Play = {
     sel: null, path: [], hover: null, hint: null, hintTimer: null,
     pending: false, drawBanner: false, lastMeta: null, visible: false,
+    clockAt: 0,       // Date.now() when the server's clock reading arrived
 };
 
 Play.reset = function () {
@@ -189,7 +190,23 @@ function renderPlayers() {
         box.querySelector(".player-rating").textContent = ratings && ratings[seat] != null ? String(ratings[seat]) : "";
         box.classList.toggle("is-turn", s.toMove === seat);
     }
+    renderClocks();
     $("turn-mark").textContent = s.toMove === s.mySeat ? t("your_move_short") : t("their_move_short");
+}
+
+/** Both clocks, counted down from the server's last reading. */
+function renderClocks() {
+    const s = st(), c = s && s.clock;
+    const low = ((App.cfg.clock && App.cfg.clock.lowSeconds) || 20) * 1000;
+    for (const seat of ["white", "black"]) {
+        const box = $(seat === "white" ? "p-white" : "p-black").querySelector(".player-clock");
+        if (!c) { hide(box); continue; }
+        show(box);
+        const ms = c[seat] - (c.running === seat ? Date.now() - Play.clockAt : 0);
+        box.textContent = clockTime(ms, ms < low);
+        box.classList.toggle("is-running", c.running === seat);
+        box.classList.toggle("is-low", ms < low);
+    }
 }
 
 function renderVariant() {
@@ -202,6 +219,7 @@ function renderVariant() {
         for (const p of Screens.rulePills(s.rules)) bar.appendChild(el("span", { cls: "pg-pill", text: p.text, title: p.tip }));
     }
     if (g.isAI) bar.appendChild(el("span", { cls: "pg-pill pg-pill--info", text: t("vs_ai", levelName(s.gameType, g.aiLevel)) }));
+    if (g.timeControl) bar.appendChild(el("span", { cls: "pg-pill", text: t("clock_pill", clockText(g.timeControl)), title: t("clock_tip", g.timeControl.minutes, g.timeControl.increment) }));
     if (g.wager) bar.appendChild(el("span", { cls: "pg-pill pg-pill--warning", text: t("stake_pill", money(g.wager.amount, g.wager.currency)) }));
     bar.appendChild(button(t("rules_button"), () => Screens.showRulesModal(s.gameType, s.variant, s.rules), "pg-btn--quiet"));
 }
@@ -363,6 +381,7 @@ Handlers.state = m => {
     App.state = m.state;
     const s = App.state;
     Play.pending = false;
+    Play.clockAt = Date.now();
     if (s.meta) {
         Play.lastMeta = s.meta;
         Play.clearHint();
@@ -417,6 +436,12 @@ setInterval(() => {
     }
     if (s && (!Play.claimAt || Date.now() < Play.claimAt)) Play.claimShown = false;
 }, 1000);
+
+// the clocks tick between the server's readings
+setInterval(() => {
+    const s = st();
+    if (Play.visible && s && s.clock && s.clock.running) renderClocks();
+}, 100);
 
 // ─── Mouse ───────────────────────────────────────────────────────────────────
 

@@ -9,6 +9,7 @@ Runs on VORP, RSG and QBR through poggy_core.
 - **Chess**, with every rule: castling (never out of or through check), en passant, promotion to any piece, and draws by stalemate, repetition, the fifty-move rule or insufficient material.
 - **Checkers** in American, Russian, Brazilian and Pool rules, or house rules picked at the table. Captures are picked one jump at a time, so a capture that can go two ways is the player's choice. Pieces that must capture are ringed, and the rules of the game are always on screen.
 - **Against a friend or the AI.** Chess uses the server's own engine and, for the strong levels, Stockfish (chess-api.com), with the server's engine as the fallback. Everything runs on the server, and the player's game never picks the AI's move.
+- **A chess clock** for chess and checkers: the player who sets up the game picks the time (5+0, 3+2, 15+10 and the rest, or their own), the clocks show beside the names, and running out of time loses. The server keeps the time. The times on offer are set in `/poggy`.
 - **Wagers** between players. Both stakes are taken when the game starts and paid out when it ends. Leaving a game loses it, and an idle opponent can be claimed against, so money can never be dodged or held hostage.
 - **Characters walk to the chair and sit down** the way the game's own people do. If the way is blocked, they are placed in the chair.
 - **Deaths** end the game for both players and stand them up. By default no result is recorded and the stakes are returned.
@@ -28,7 +29,7 @@ Requires poggy_core 0.23.0 or newer, and oxmysql.
 ## Playing
 
 - Walk up to a chair and press **G** to sit. The first player seated chooses the game.
-- The player in the other chair is invited, and sees the rules and any wager before accepting. Sitting alone, a player can play the AI instead.
+- The player in the other chair is invited, and sees the rules, the clock and any wager before accepting. Sitting alone, a player can play the AI instead.
 - Click a piece, then where it goes, on the table or on the small board. **G** picks the square under the mouse. **F** or a right-click lets go, or takes back the last jump of a capture.
 - **Z** offers a draw, **H** asks for a hint (against the AI), **C** changes the view, hold **R** to resign, and **E** stands up.
 

@@ -100,7 +100,73 @@ function defaultSetup() {
         variant: last.variant || c.defaultVariant || "american",
         custom: Object.assign({}, c.presets.american, last.variant === "custom" ? last.rules : {}),
         wager: 0,
+        clock: clockChoice(last.clock || (c.clock && c.clock.default) || "none"),
     };
+}
+
+// ─── The clock ───────────────────────────────────────────────────────────────
+
+/** "5+3": how a time control is saved, whatever the translation shows. */
+const clockId = tc => `${tc.minutes}+${tc.increment}`;
+
+function clockPresets() {
+    const k = App.cfg.clock;
+    return k && Array.isArray(k.presets) ? k.presets : [];
+}
+
+/** "none", "5+3" or a custom time, as the setup holds it. */
+function clockChoice(id) {
+    const m = /^(\d+)\+(\d+)$/.exec(String(id || ""));
+    if (!m) return { pick: "none", minutes: 10, increment: 0 };
+    const tc = { minutes: Number(m[1]), increment: Number(m[2]) };
+    const preset = clockPresets().some(p => p.minutes === tc.minutes && p.increment === tc.increment);
+    if (!preset && !(App.cfg.clock && App.cfg.clock.custom)) return { pick: "none", minutes: 10, increment: 0 };
+    return { pick: preset ? clockId(tc) : "custom", minutes: tc.minutes, increment: tc.increment };
+}
+
+/** The time control to send, or null for no clock. */
+function clockToSend(s) {
+    const k = s.clock;
+    if (!clockOffered(s) || k.pick === "none") return null;
+    if (k.pick === "custom") return { minutes: k.minutes, increment: k.increment };
+    const p = clockPresets().find(x => clockId(x) === k.pick);
+    return p ? { minutes: p.minutes, increment: p.increment } : null;
+}
+
+function clockOffered(s) {
+    const k = App.cfg.clock;
+    return !!(k && k.enabled && (s.opponent !== "ai" || k.againstAI));
+}
+
+function clockField(s) {
+    const k = App.cfg.clock, choice = s.clock;
+    const box = el("div", { cls: "stack" });
+    const opts = [{ label: t("clock_none"), value: "none" }];
+    for (const p of clockPresets()) opts.push({ label: clockText(p), value: clockId(p), hint: t("clock_tip", p.minutes, p.increment), cls: "btn-num" });
+    if (k.custom) opts.push({ label: t("clock_custom"), value: "custom" });
+    const row = seg(opts, choice.pick, val => { choice.pick = val; renderSetup(); }, true);
+    row.classList.add("seg-wrap");
+    box.appendChild(field(t("setup_clock"), row));
+    if (choice.pick === "custom") {
+        const num = (key, min, max) => {
+            const input = el("input", { cls: "pg-input pg-num", attrs: { type: "number", min: String(min), max: String(max), step: "1" } });
+            input.value = String(choice[key]);
+            input.addEventListener("input", () => {
+                const n = Math.floor(Number(input.value));
+                if (input.value !== "" && Number.isFinite(n)) choice[key] = Math.max(min, Math.min(max, n));
+            });
+            input.addEventListener("change", () => { input.value = String(choice[key]); });
+            return input;
+        };
+        box.appendChild(field(t("clock_minutes"), num("minutes", 1, k.maxMinutes)));
+        box.appendChild(field(t("clock_increment"), num("increment", 0, k.maxIncrement)));
+    }
+    box.appendChild(el("div", { cls: "hint-line", text: t(choice.pick === "none" ? "clock_explain_none" : "clock_explain") }));
+    return box;
+}
+
+function clockLine(tc) {
+    return el("div", { cls: "pg-box pg-text", text: t("clock_line", tc.minutes, tc.increment) });
 }
 
 function currentRules(s) {
@@ -112,6 +178,8 @@ function seg(options, value, onPick, quiet) {
     for (const o of options) {
         const b = button(o.label, () => onPick(o.value), (value === o.value ? "is-on" : "") + (quiet ? " pg-btn--quiet" : ""));
         if (o.disabled) { b.disabled = true; if (o.tip) b.dataset.tip = o.tip; }
+        if (o.hint) b.dataset.tip = o.hint;
+        if (o.cls) b.classList.add(o.cls);
         row.appendChild(b);
     }
     return row;
@@ -141,7 +209,8 @@ function renderSetup() {
         const rows = el("div", { cls: "rows" });
         for (const g of Screens.resumable) {
             const who = g.opponent ? t("vs_name", g.opponent) : t("vs_ai", levelName(g.gameType, g.aiLevel));
-            const sub = [gameName(g.gameType, g.variant), movesText(Math.ceil(g.moves / 2)), g.myTurn ? t("your_turn") : t("their_turn")].join(" · ");
+            const sub = [gameName(g.gameType, g.variant), g.timeControl ? clockText(g.timeControl) : null,
+                movesText(Math.ceil(g.moves / 2)), g.myTurn ? t("your_turn") : t("their_turn")].filter(Boolean).join(" · ");
             rows.appendChild(el("div", { cls: "pg-row" },
                 el("div", { cls: "row-main" }, el("div", { cls: "row-title", text: who }), el("div", { cls: "row-sub", text: sub })),
                 el("div", { cls: "row-actions" }, button(t("resume"), () => act("resume", { gameId: g.id }), "pg-btn--quiet"))));
@@ -220,6 +289,9 @@ function renderSetup() {
         body.appendChild(rulesCard("checkers", currentRules(s)));
     }
 
+    // the clock
+    if (clockOffered(s)) body.appendChild(clockField(s));
+
     // a wager, against a player
     const w = c.wagers;
     if (s.opponent === "player" && w.enabled) {
@@ -241,6 +313,8 @@ function renderSetup() {
             const opts = { gameType: s.gameType, opponent: s.opponent, level: s.level };
             if (s.gameType === "checkers") { opts.variant = s.variant; if (s.variant === "custom") opts.rules = s.custom; }
             if (s.opponent === "player" && s.wager > 0) opts.wager = s.wager;
+            const tc = clockToSend(s);
+            if (tc) opts.clock = tc;
             act("create", { opts });
         }, "pg-btn--primary"));
     body.appendChild(el("div", { cls: "sticky-actions stack" }, actions, el("div", { cls: "btn-row" },
@@ -282,6 +356,7 @@ function renderInvite() {
     if (inv.resumeId) body.appendChild(el("p", { cls: "pg-text", text: t("invite_resume") }));
     if (inv.gameType === "checkers") body.appendChild(el("div", { cls: "pg-text", text: t(`variant_${inv.variant}_desc`) }));
     body.appendChild(rulesCard(inv.gameType, inv.rules));
+    if (inv.timeControl) body.appendChild(clockLine(inv.timeControl));
     if (inv.wager) body.appendChild(el("div", { cls: "pg-box pg-text", text: wagerLine(inv.wager) }));
     body.appendChild(el("div", { cls: "btn-row panel-actions" },
         button(inv.wager ? t("accept_stake", money(inv.wager.amount, inv.wager.currency)) : t("accept"),
@@ -302,6 +377,7 @@ function renderInviteWait() {
     body.appendChild(el("p", { cls: "pg-text", text }));
     body.appendChild(el("div", { cls: "pills" }, el("span", { cls: "pg-pill", text: t("you_play", colourName(inv.gameType, v.mySeat)) })));
     body.appendChild(rulesCard(inv.gameType, inv.rules));
+    if (inv.timeControl) body.appendChild(clockLine(inv.timeControl));
     if (inv.wager) body.appendChild(el("div", { cls: "pg-box pg-text", text: wagerLine(inv.wager) }));
     body.appendChild(el("div", { cls: "btn-row panel-actions" },
         button(t("cancel"), () => act("cancelInvite")),
@@ -314,6 +390,11 @@ function reasonText(sm) {
     if (sm.reason === "saved") {
         const other = sm.mySeat === "white" ? "black" : "white";
         return t("reason_saved", sm.names[other] || colourName(sm.gameType, other));
+    }
+    if (sm.reason === "timeoutdraw" && sm.flagged) {
+        const other = sm.flagged === "white" ? "black" : "white";
+        return t("reason_timeoutdraw", sm.names[sm.flagged] || colourName(sm.gameType, sm.flagged),
+            sm.names[other] || colourName(sm.gameType, other));
     }
     const winnerSeat = sm.result === "white" || sm.result === "black" ? sm.result : null;
     const loserSeat = winnerSeat ? (winnerSeat === "white" ? "black" : "white") : null;

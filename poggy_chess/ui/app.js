@@ -62,6 +62,19 @@ function money(amount, currency) {
     return t(currency === "gold" ? "money_gold" : "money_cash", Math.floor(amount || 0));
 }
 
+/** "5+3" for a time control { minutes, increment }. */
+function clockText(tc) { return tc ? t("clock_short", tc.minutes, tc.increment) : ""; }
+
+/** Time on a clock: 1:05:00, 4:59, and 0:09.4 when it is low. */
+function clockTime(ms, low) {
+    ms = Math.max(0, ms);
+    if (low && ms < 10000) return "0:0" + (Math.floor(ms / 100) / 10).toFixed(1);
+    const total = Math.ceil(ms / 1000);
+    const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+    const ss = String(s).padStart(2, "0");
+    return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
 /** A seat's colour in this game: white / black, or red / black in checkers. */
 function colourOf(gameType, seat) {
     if (gameType === "checkers") return seat === "white" ? "red" : "black";

@@ -19,6 +19,8 @@
 --  state is the position (a FEN for chess, 32 squares + turn for checkers);
 --  moves is the whole game as JSON, one entry per move with the position after
 --  it, which is what the game review in "My Record" replays.
+--  time_control is "minutes+increment" ("5+3"), empty for a game without a
+--  clock; white_ms / black_ms are the time left on each clock at the last save.
 --  Character ids are the framework's own, as text.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `poggy_chess_games` (
@@ -55,6 +57,9 @@ CREATE TABLE IF NOT EXISTS `poggy_chess_games` (
     `white_rating_change` INT          DEFAULT NULL,
     `black_rating`        INT          DEFAULT NULL,
     `black_rating_change` INT          DEFAULT NULL,
+    `time_control`        VARCHAR(16)  DEFAULT NULL,
+    `white_ms`            INT          DEFAULT NULL,
+    `black_ms`            INT          DEFAULT NULL,
     `created_at`          DATETIME     DEFAULT CURRENT_TIMESTAMP,
     `updated_at`          DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `last_moved_at`       DATETIME     DEFAULT NULL,
@@ -81,6 +86,11 @@ ALTER TABLE `poggy_chess_games` ADD COLUMN `white_rating` INT DEFAULT NULL;
 ALTER TABLE `poggy_chess_games` ADD COLUMN `white_rating_change` INT DEFAULT NULL;
 ALTER TABLE `poggy_chess_games` ADD COLUMN `black_rating` INT DEFAULT NULL;
 ALTER TABLE `poggy_chess_games` ADD COLUMN `black_rating_change` INT DEFAULT NULL;
+
+-- Added in 2.1.0: the chess clock.
+ALTER TABLE `poggy_chess_games` ADD COLUMN `time_control` VARCHAR(16) DEFAULT NULL;
+ALTER TABLE `poggy_chess_games` ADD COLUMN `white_ms` INT DEFAULT NULL;
+ALTER TABLE `poggy_chess_games` ADD COLUMN `black_ms` INT DEFAULT NULL;
 
 -- 1.x stored character ids as numbers; every framework's id fits as text.
 ALTER TABLE `poggy_chess_games` MODIFY COLUMN `white_char_id` VARCHAR(64) DEFAULT NULL;
