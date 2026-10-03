@@ -291,6 +291,13 @@ Config.TableLight = {
     Range = 3.0,
 }
 
+-- ─── The marble set ──────────────────────────────────────────────────────────
+-- A black and white marble board and chess pieces, from the poggy_chess_props
+-- resource that comes with this script (start it before this one). Turn this
+-- off to play on the game's own wooden set. When poggy_chess_props is not
+-- running, the wooden set is used whatever this says.
+Config.MarbleSet = true
+
 -- ─── Models and layout (advanced) ────────────────────────────────────────────
 -- Change these only to use other props. Distances are in metres from the
 -- table's origin: x towards the white chair, y towards the h-file, z up.

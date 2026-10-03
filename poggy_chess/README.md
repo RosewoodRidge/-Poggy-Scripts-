@@ -7,6 +7,7 @@ Runs on VORP, RSG and QBR through poggy_core.
 ## Features
 
 - **Chess**, with every rule: castling (never out of or through check), en passant, promotion to any piece, and draws by stalemate, repetition, the fifty-move rule or insufficient material.
+- **A marble chess set**: a black and white marble board and pieces, every piece veined differently, in the `poggy_chess_props` resource that comes with the script. One switch in `/poggy` goes back to the game's wooden set.
 - **Checkers** in American, Russian, Brazilian and Pool rules, or house rules picked at the table. Captures are picked one jump at a time, so a capture that can go two ways is the player's choice. Pieces that must capture are ringed, and the rules of the game are always on screen.
 - **Against a friend or the AI.** Chess uses the server's own engine and, for the strong levels, Stockfish (chess-api.com), with the server's engine as the fallback. Everything runs on the server, and the player's game never picks the AI's move.
 - **A chess clock** for chess and checkers: the player who sets up the game picks the time (5+0, 3+2, 15+10 and the rest, or their own), the clocks show beside the names, and running out of time loses. The server keeps the time. The times on offer are set in `/poggy`.
@@ -20,7 +21,7 @@ Runs on VORP, RSG and QBR through poggy_core.
 
 ## Installation
 
-1. Put `poggy_chess` in your resources, and `ensure` it **after** `poggy_core` and `oxmysql`.
+1. Put `poggy_chess` and `poggy_chess_props` in your resources. `ensure` them **after** `poggy_core` and `oxmysql`, with `poggy_chess_props` before `poggy_chess`.
 2. Restart the server. The database tables are created on the first start; there is nothing to import.
 3. Add your tables in `/poggy` → Chess & Checkers → Tables, or in `config.lua`.
 

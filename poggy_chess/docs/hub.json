@@ -716,6 +716,12 @@
       "unit": "m",
       "advanced": true
     },
+    "Config.MarbleSet": {
+      "label": "Marble board and pieces",
+      "tooltip": "Play on the black and white marble set from poggy_chess_props (start that resource before this one). Off, or when poggy_chess_props is not running: the game's own wooden set.",
+      "tab": "tables",
+      "group": "Board and pieces"
+    },
     "Config.Models.Table": {
       "label": "Table prop",
       "tooltip": "The table model placed at each table.",
@@ -724,7 +730,7 @@
     },
     "Config.Models.Board": {
       "label": "Board prop",
-      "tooltip": "The board model on the table.",
+      "tooltip": "The board model on the table when the marble set is off.",
       "tab": "advanced",
       "group": "Props"
     },
@@ -793,7 +799,7 @@
     },
     "Config.Models.Chess": {
       "label": "Chess piece props",
-      "tooltip": "The prop for each chess piece: capital letters are white, small are black (P pawn, N knight, B bishop, R rook, Q queen, K king).",
+      "tooltip": "The prop for each chess piece when the marble set is off: capital letters are white, small are black (P pawn, N knight, B bishop, R rook, Q queen, K king).",
       "tab": "advanced",
       "group": "Props"
     },
