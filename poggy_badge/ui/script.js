@@ -15,10 +15,14 @@ const badgePreviewImg = document.getElementById('badge-preview-img');
 const editorPanel = document.querySelector('.editor-panel');
 const toggleAttachBtn = document.getElementById('btn-toggle-attach');
 const boneSelect = document.getElementById('bone-select');
+const sizeSection = document.getElementById('size-section');
+const sizeSlider = document.getElementById('size-slider');
+const sizeVal = document.getElementById('size-val');
 
 /* ── State ─────────────────────────────────────────────────── */
 let currentValues = { ox: 0, oy: 0, oz: 0, rx: 0, ry: 0, rz: 0 };
 let currentBone = 'SKEL_Spine5';
+let currentSize = 0;      // 0 = this prop has one size
 let presets = [];
 let sendThrottle = null;
 let isAttached = false;
@@ -27,6 +31,7 @@ let isAttached = false;
 const sliderRows = document.querySelectorAll('.slider-row');
 sliderRows.forEach(row => {
   const key   = row.dataset.key;
+  if (!key) return;       // the size row is bound on its own below
   const range = row.querySelector('.slider');
   const num   = row.querySelector('.slider-val');
 
@@ -65,6 +70,29 @@ sliderRows.forEach(row => {
   range.addEventListener('wheel', wheelHandler, { passive: false });
   num.addEventListener('wheel', wheelHandler, { passive: false });
 });
+
+/* ── Size (swaps the prop for a larger or smaller one) ─────── */
+function setSize(count, size) {
+  currentSize = count > 1 ? clamp(size || 1, 1, count) : 0;
+  sizeSection.classList.toggle('hidden', currentSize === 0);
+  if (currentSize === 0) return;
+  sizeSlider.max = count;
+  sizeVal.max = count;
+  sizeSlider.value = currentSize;
+  sizeVal.value = currentSize;
+}
+function pickSize(v) {
+  v = Math.round(parseFloat(v));
+  if (isNaN(v) || currentSize === 0) return;
+  v = clamp(v, 1, parseInt(sizeSlider.max, 10));
+  sizeSlider.value = v;
+  sizeVal.value = v;
+  if (v === currentSize) return;
+  currentSize = v;
+  postNUI('badge_size', { size: v });
+}
+sizeSlider.addEventListener('input', () => pickSize(sizeSlider.value));
+sizeVal.addEventListener('change', () => pickSize(sizeVal.value));
 
 /* ── Utility ───────────────────────────────────────────────── */
 function clamp(v, mn, mx) { return Math.min(mx, Math.max(mn, v)); }
@@ -139,7 +167,7 @@ function renderPresets() {
     name.textContent = p.name;
     name.title = 'Click to load';
     name.addEventListener('click', () => {
-      postNUI('badge_load_preset', { id: p.id, bone: p.bone || 'SKEL_Spine5', offset_x: p.offset_x, offset_y: p.offset_y, offset_z: p.offset_z, rot_x: p.rot_x, rot_y: p.rot_y, rot_z: p.rot_z });
+      postNUI('badge_load_preset', { id: p.id, bone: p.bone || 'SKEL_Spine5', size: p.size || 0, offset_x: p.offset_x, offset_y: p.offset_y, offset_z: p.offset_z, rot_x: p.rot_x, rot_y: p.rot_y, rot_z: p.rot_z });
     });
 
     const del = document.createElement('button');
@@ -187,7 +215,7 @@ toggleAttachBtn.addEventListener('click', () => {
 document.getElementById('btn-save-preset').addEventListener('click', () => {
   const name = presetNameInput.value.trim();
   if (!name) return;
-  postNUI('badge_save_preset', { name, bone: currentBone, ...currentValues });
+  postNUI('badge_save_preset', { name, bone: currentBone, size: currentSize, ...currentValues });
   presetNameInput.value = '';
 });
 
@@ -214,6 +242,7 @@ window.addEventListener('message', (ev) => {
       isAttached = !!d.attached;
       currentBone = d.bone || 'SKEL_Spine5';
       boneSelect.value = currentBone;
+      setSize(d.sizes || 0, d.size || 0);
       updateToggleBtn();
       if (d.badgeImage) {
         badgePreviewImg.src = 'images/' + d.badgeImage + '.png';
@@ -237,6 +266,7 @@ window.addEventListener('message', (ev) => {
         currentBone = d.bone;
         boneSelect.value = currentBone;
       }
+      if (currentSize > 0 && d.size) setSize(parseInt(sizeSlider.max, 10), d.size);
       break;
 
     case 'update_presets':

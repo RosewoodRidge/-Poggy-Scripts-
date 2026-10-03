@@ -19,6 +19,8 @@ Config.showDistance   = 2             -- how far away others can see the badge d
 --   SKEL_Spine1  – stomach / upper abdomen
 --   SKEL_Spine0  – waist / belt line
 --   SKEL_SpineRoot – pelvis / hip center
+-- And for armbands:
+--   SKEL_L_UpperArm / SKEL_R_UpperArm – left / right upper arm
 --
 Config.defaultBone   = "SKEL_Spine5"
 Config.defaultOffset = vector3(0.081, 0.169, 0.142)
@@ -49,6 +51,17 @@ Config.showAnimDuration = 5000   -- ms the badge is held up before the outro pla
 --
 -- `badge` is the image filename (without .png) in ui/images/
 -- `prop`  is the in-game prop model spawned on the player
+--
+-- Optional, per grade, for a prop that does not belong on the chest (an armband):
+--   bone     = "SKEL_L_UpperArm" or "SKEL_R_UpperArm" (or any bone above)
+--   offset   = vector3(x, y, z)   starting position from that bone
+--   rotation = vector3(x, y, z)   starting rotation
+-- Left out, the grade starts from Config.defaultBone / defaultOffset / defaultRotation.
+--
+-- Optional, per grade, for a prop that comes in several sizes (the game cannot
+-- scale a prop, so each size is its own model):
+--   sizes = { "model_small", "model_medium", "model_large" }   smallest first
+-- The editor then shows a Size slider. `prop` is the size a player starts with.
 --
 -- Job names are matched EXACTLY (case-sensitive) against the character's
 -- job, so list every spelling your server uses.  A job that matches but has

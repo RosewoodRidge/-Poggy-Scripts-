@@ -96,7 +96,9 @@
         {"value": "SKEL_Spine2", "label": "Lower chest"},
         {"value": "SKEL_Spine1", "label": "Stomach"},
         {"value": "SKEL_Spine0", "label": "Waist / belt"},
-        {"value": "SKEL_SpineRoot", "label": "Pelvis / hip"}
+        {"value": "SKEL_SpineRoot", "label": "Pelvis / hip"},
+        {"value": "SKEL_L_UpperArm", "label": "Left upper arm"},
+        {"value": "SKEL_R_UpperArm", "label": "Right upper arm"}
       ]
     },
     "Config.defaultOffset": {
@@ -150,6 +152,37 @@
             "prop": {
               "label": "Prop model",
               "tooltip": "The 3D model pinned to the chest. Stock props: s_badgesherif01x, s_badgedeputy01x, s_badgepolice01x, s_badgeusmarshal01x, s_badgepinkerton01x. Streamed badge packs work too."
+            },
+            "bone": {
+              "label": "Starting bone",
+              "tooltip": "Only for a prop that does not belong on the chest, such as an armband: the bone this grade's prop starts on. Leave it unset to use the Starting bone under Badges.",
+              "advanced": true,
+              "options": [
+                {"value": "SKEL_L_UpperArm", "label": "Left upper arm"},
+                {"value": "SKEL_R_UpperArm", "label": "Right upper arm"},
+                {"value": "SKEL_Spine5", "label": "Collar / upper chest"},
+                {"value": "SKEL_Spine4", "label": "Upper chest"},
+                {"value": "SKEL_Spine3", "label": "Mid chest (heart)"},
+                {"value": "SKEL_Spine2", "label": "Lower chest"},
+                {"value": "SKEL_Spine1", "label": "Stomach"},
+                {"value": "SKEL_Spine0", "label": "Waist / belt"},
+                {"value": "SKEL_SpineRoot", "label": "Pelvis / hip"}
+              ]
+            },
+            "offset": {
+              "label": "Starting offset",
+              "tooltip": "Where this grade's prop starts, in metres from its bone. Leave it unset to use the Starting offset under Badges.",
+              "advanced": true
+            },
+            "rotation": {
+              "label": "Starting rotation",
+              "tooltip": "The rotation this grade's prop starts with, in degrees. Leave it unset to use the Starting rotation under Badges.",
+              "advanced": true
+            },
+            "sizes": {
+              "label": "Sizes",
+              "tooltip": "Only for a prop that comes in several sizes, such as an armband: every size's model name, smallest first. The editor then shows a Size slider, and Prop model is the size a player starts with. The game cannot scale a prop, so each size is its own model.",
+              "advanced": true
             },
             "useName": {
               "label": "Show character name",

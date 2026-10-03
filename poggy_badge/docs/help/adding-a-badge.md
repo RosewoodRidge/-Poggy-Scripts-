@@ -34,4 +34,5 @@ Click **Save & Restart**. Then test it: `/badge` with a character in that job.
 
 - Only the **first** set that lists a job is used. Do not list the same job in two sets.
 - Want your own badge picture? Put a `.png` in `ui/images/` and use its name.
+- Using the **Poggy Badge Props** pack? Its pictures are already here: use `poggy_` plus the badge's name, for example prop `p_poggy_badge_sheriff` with image `poggy_sheriff`.
 - Trying a new prop? Admins can use `/bprop <model>` to see it on the chest before adding it.

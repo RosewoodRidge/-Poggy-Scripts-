@@ -61,6 +61,18 @@
         </div>
       </div>
 
+      <!-- Size (only for props that come in several sizes, such as armbands) -->
+      <div id="size-section" class="hidden">
+        <div class="section-label">Size</div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-label">Size</span>
+            <input type="range" id="size-slider" class="slider" min="1" max="1" step="1" value="1">
+            <input type="number" id="size-val" class="slider-val" min="1" max="1" step="1" value="1">
+          </div>
+        </div>
+      </div>
+
       <!-- Action buttons -->
       <div class="editor-actions">
         <button id="btn-show" class="btn btn-show">Show Badge</button>
@@ -88,6 +100,8 @@
           <option value="SKEL_Spine1">Stomach</option>
           <option value="SKEL_Spine0">Waist / Belt</option>
           <option value="SKEL_SpineRoot">Pelvis / Hip</option>
+          <option value="SKEL_L_UpperArm">Left Upper Arm</option>
+          <option value="SKEL_R_UpperArm">Right Upper Arm</option>
         </select>
       </div>
     </div>

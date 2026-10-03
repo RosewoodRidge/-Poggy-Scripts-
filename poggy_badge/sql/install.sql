@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `poggy_badge_presets` (
     `rot_x`    FLOAT        NOT NULL DEFAULT 0,
     `rot_y`    FLOAT        NOT NULL DEFAULT 0,
     `rot_z`    FLOAT        NOT NULL DEFAULT 0,
+    `size`     INT(11)      NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
     INDEX `idx_charid` (`charid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -28,3 +29,7 @@ CREATE TABLE IF NOT EXISTS `poggy_badge_presets` (
 -- get SKEL_Spine5 (collar / upper chest).
 ALTER TABLE `poggy_badge_presets`
     ADD COLUMN `bone` VARCHAR(32) NOT NULL DEFAULT 'SKEL_Spine5' AFTER `name`;
+
+-- Which size of the prop the preset uses (0 = the prop has one size). Added in 1.4.0.
+ALTER TABLE `poggy_badge_presets`
+    ADD COLUMN `size` INT(11) NOT NULL DEFAULT 0 AFTER `rot_z`;

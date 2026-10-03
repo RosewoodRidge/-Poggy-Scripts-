@@ -10,11 +10,13 @@ Players with a listed job and grade can pin a badge prop to their chest. They pl
 
 - **Job and grade locked.** Each job and grade gets its own badge image and prop. Nobody else can open the editor.
 - **Live 3D editor.** Sliders for X / Y / Z position and pitch / roll / yaw. The badge moves as you drag.
-- **Bone picker.** Pin the badge to the collar, chest, stomach, waist or hip.
+- **Size slider.** A prop that comes in several sizes (an armband) gets a Size slider, so it fits a bare arm or a thick coat.
+- **Bone picker.** Pin the badge to the collar, chest, stomach, waist or hip, or an armband to either upper arm.
 - **Presets.** Save named positions per character, one for each outfit. Stored in the database.
 - **Show Badge.** A pocket-watch style animation with the badge in hand. Nearby players see the badge image, the character's name and your server name.
 - **Camera orbit.** Click and hold outside the panel to look around; let go to lock the camera again.
 - **Streamed badge packs.** Use any prop model. Fix packs that face the wrong way with a rotation override.
+- **Poggy Badge Props ready.** The flash pictures for every badge and armband in the Poggy Badge Props pack are included (`poggy_sheriff`, `poggy_armband_medic` and so on).
 - **Admin prop swap.** `/bprop <model>` tries any prop in the current position.
 
 ---
@@ -90,6 +92,8 @@ Players move the badge from there with the editor.
 | `SKEL_Spine1` | Stomach |
 | `SKEL_Spine0` | Waist / belt |
 | `SKEL_SpineRoot` | Pelvis / hip |
+| `SKEL_L_UpperArm` | Left upper arm (armbands) |
+| `SKEL_R_UpperArm` | Right upper arm (armbands) |
 
 ### Badge sets
 
@@ -112,6 +116,8 @@ Players move the badge from there with the editor.
 | `badge` | Image for the flash: a file in `ui/images/`, without `.png`. |
 | `prop` | The 3D prop model on the chest. |
 | `useName`, `useServerName` | Reserved. The flash currently always shows both. |
+| `sizes` | Optional. For a prop that comes in several sizes: every size's model name, smallest first, for example `sizes = { "p_poggy_armband_medic_s1", "p_poggy_armband_medic_s2" }`. The editor shows a Size slider; `prop` is the size a player starts with. |
+| `bone`, `offset`, `rotation` | Optional. Where this grade's prop starts, when it does not belong on the chest. An armband: `bone = "SKEL_L_UpperArm"`, with an `offset` and `rotation` as `vector3(x, y, z)`. Left out, the starting position above is used. |
 
 The shipped sets cover `sheriff`, `deputy`, `police` / `Police` (vorp_police's name), `marshal` / `usmarshal` and `pinkerton`, grades 0 to 5.
 

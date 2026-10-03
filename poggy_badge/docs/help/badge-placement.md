@@ -22,6 +22,23 @@ Change the starting values in **/poggy** → **Poggy Badge** → **Badges** → 
 
 A quick way to find good numbers: put a badge where you want it with the editor, then copy the slider values into the settings.
 
+## An armband should start on the arm
+
+A prop that does not belong on the chest can have its own starting position.
+
+1. Open **Badges** → **Badge sets**, then the set and the grade that uses the armband.
+2. Turn on advanced settings and set **Starting bone** to **Left upper arm** or **Right upper arm**.
+3. Set that grade's **Starting offset** and **Starting rotation** (find the numbers with the editor, as above).
+
+Players can still pick either arm in the editor's bone list.
+
+## An armband is too tight or too loose
+
+The game cannot stretch a prop, so an armband comes as several models, one per size.
+
+- **Players:** type `/badge` and move the **Size** slider. Save a preset per outfit: a coat needs a bigger size than a shirt.
+- **Owners:** the slider shows when the grade lists its **Sizes** (advanced), smallest first. **Prop model** is the size players start with.
+
 ## A streamed badge pack faces the wrong way
 
 Stock `s_` badges are fine with the shipped rotation. Custom packs often are not.
