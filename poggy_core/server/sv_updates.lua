@@ -850,6 +850,10 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
             ignoredFxap = ignoredFxap + 1
         elseif f.rel == "fxmanifest.lua" then
             manifestFile = f
+        elseif f.rel:sub(1, 15) == "update_backups/" then
+            -- The backups folder is the owner's, not part of a version. Feeds up
+            -- to 0.26.0 listed its README, which stopped poggy_core's own update
+            -- on a server copied in without that folder.
         else
             files[#files + 1] = f
         end
@@ -862,7 +866,7 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
     local own = GetCurrentResourceName()
     local stamp = os.date("%Y%m%d-%H%M%S")
     local wrote, unchanged, failed, mismatch, keptConfigs, mergedConfigs = 0, 0, 0, 0, 0, 0
-    local baseNoted = false
+    local baseNoted, backupsInRoot = false, false
 
     -- A server script cannot create folders (writetest on a live server,
     -- 13 September 2026). Before anything else is written, try the first new file
@@ -973,8 +977,14 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
                 elseif existing then
                     -- Backups never go beside the file. poggy_core keeps them in
                     -- its own update_backups folder, one flat file per original.
-                    local bak = ("update_backups/%s__%s__%s"):format(localRes, stamp, (f.rel:gsub("[/\\]", "__")))
-                    local bakOk, bakWhy = writeFile(own, bak, existing)
+                    -- A server script cannot create that folder, so when it is
+                    -- missing the backup goes into poggy_core's main folder
+                    -- (update_backups__<name>), as the settings hub does.
+                    local bakName = ("%s__%s__%s"):format(localRes, stamp, (f.rel:gsub("[/\\]", "__")))
+                    local bakOk, bakWhy = writeFile(own, "update_backups/" .. bakName, existing)
+                    if not bakOk and writeFile(own, "update_backups__" .. bakName, existing) then
+                        bakOk, backupsInRoot = true, true
+                    end
                     if not bakOk then
                         failed = failed + 1
                         proceed = false
@@ -1030,7 +1040,12 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
         return "staged"
     end
     if wrote > 0 then
-        say(("   ^9backups: poggy_core/update_backups/%s__%s__*^7"):format(localRes, stamp))
+        if backupsInRoot then
+            say(("   ^9backups: poggy_core/update_backups__%s__%s__* ^3(the folder poggy_core/update_backups is missing;"
+                .. " make it, empty is fine, and backups go there again)^7"):format(localRes, stamp))
+        else
+            say(("   ^9backups: poggy_core/update_backups/%s__%s__*^7"):format(localRes, stamp))
+        end
         if not opts.auto then
             local min, running = needsNewerCore(localRes)
             if min then

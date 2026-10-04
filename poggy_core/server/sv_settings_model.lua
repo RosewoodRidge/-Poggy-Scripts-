@@ -352,10 +352,19 @@ local function quoteString(s, q)
     return q .. out .. q
 end
 
+--- string.format follows the server's C locale, and on one that writes 1,5 a
+--- number must still reach the file as 1.5 (a comma there splits the value in
+--- two). %f and %g never group thousands, so any comma is the decimal point.
+local function fmtFloat(pattern, v)
+    local s = pattern:format(v)
+    if s:find(",", 1, true) then s = s:gsub(",", ".") end
+    return s
+end
+
 local function shortestFloat(v)
     local s
     for p = 1, 17 do
-        s = ("%." .. p .. "g"):format(v)
+        s = fmtFloat("%." .. p .. "g", v)
         if tonumber(s) == v then break end
     end
     if not s:find("[%.eEn]") then s = s .. ".0" end
@@ -381,7 +390,7 @@ local function fmtNumber(v, hintSrc, floatish)
         end
         local dec = hs:match("^%d*%.(%d*)$")
         if dec then
-            local s = ("%." .. math.max(#dec, 1) .. "f"):format(v)
+            local s = fmtFloat("%." .. math.max(#dec, 1) .. "f", v)
             if tonumber(s) == v then return s end
             return shortestFloat(v)
         end
@@ -391,7 +400,7 @@ local function fmtNumber(v, hintSrc, floatish)
         end
     end
     if int then
-        return floatish and ("%.1f"):format(v) or ("%d"):format(int)
+        return floatish and fmtFloat("%.1f", v) or ("%d"):format(int)
     end
     return shortestFloat(v)
 end
@@ -1775,20 +1784,38 @@ function serValue(v, ctx, hint, depth)
     return serTable(v, ctx, hint, depth)
 end
 
---- Check a value is plain data all the way down, before any work is done.
+--- Check a value is plain data all the way down, before any work is done, and
+--- return the copy that is written: a vector keeps only its tag and axes. A
+--- stray key on one ({ x, y, z, h } from a position-and-heading tool) is never
+--- written, so it must not be compared either, or the edit never settles.
 local function checkData(v, depth)
     depth = depth or 0
     if depth > 40 then fail("the value is nested too deeply") end
     local kind, why = valueKind(v)
     if not kind then fail(why .. " cannot be written into a config file; only data can") end
+    if kind == "vector" then
+        local tag = rawget(v, "__type")
+        local out = { __type = tag }
+        for i = 1, tonumber(tag:sub(4)) do
+            local c = rawget(v, COMP[i])
+            if type(c) ~= "number" then fail("a vector needs a number for " .. COMP[i]) end
+            out[COMP[i]] = c
+        end
+        return out
+    end
     if kind == "array" or kind == "object" then
+        local out = {}
         for k, x in pairs(v) do
             if k ~= "__int_keys" then
                 if type(k) ~= "string" and math.type(k) ~= "integer" then fail("a key must be text or a whole number") end
-                checkData(x, depth + 1)
+                out[k] = checkData(x, depth + 1)
+            else
+                out[k] = x
             end
         end
+        return out
     end
+    return v
 end
 
 -- ---------------------------------------------------------------------------
@@ -2085,6 +2112,7 @@ end
 
 --- Patch the value at keys until the file holds want (normally one pass).
 local function settle(text, keys, want, opts)
+    local wrote
     for _ = 1, 8 do
         local D = parseDoc(text, opts)
         local slot = resolve(D, keys)
@@ -2092,9 +2120,15 @@ local function settle(text, keys, want, opts)
         local edits, pending = {}, {}
         patch(D, slot.T, want, edits, pending)
         if #edits == 0 then return text end
+        wrote = edits[1][3]
         text = applyEdits(text, edits)
     end
-    fail("the change did not settle; nothing was written")
+    -- Say what was written and what the file reads back, so a report shows why.
+    local D = parseDoc(text, opts)
+    local slot = resolve(D, keys)
+    local got = slot and D.src:sub(slot.T.s, slot.T.e) or "nothing"
+    fail(("the change did not settle (it wrote %s and the file reads back %s); nothing was written")
+        :format(shorten(wrote, 80), shorten(got, 80)))
 end
 
 local function normOpts(opts)
@@ -2375,7 +2409,7 @@ function M.Set(text, path, value, opts)
     return guard(function()
         opts = normOpts(opts)
         local keys = parsePath(path)
-        checkData(value)
+        value = checkData(value)
         local D = parseDoc(text, opts)
         local node, deep = target(D, keys)
         local cell = codeUnder(D, keys)
@@ -2412,7 +2446,7 @@ function M.Insert(text, listPath, index, value, opts)
     return guard(function()
         opts = normOpts(opts)
         local keys = parsePath(listPath)
-        checkData(value)
+        value = checkData(value)
         local D = parseDoc(text, opts)
         local srows, _, anchor = statementRows(D, keys, opts)
         if srows then return stmtInsert(D, keys, srows, anchor, index, value, opts) end
@@ -2725,7 +2759,7 @@ end
 --- Only data: a function or anything else that is not data is refused.
 function M.Serialize(value, indentLevel)
     return guard(function()
-        checkData(value)
+        value = checkData(value)
         local D = { src = "", lines = { 1 }, toks = {}, nl = "\n", unit = "    " }
         local ctx = { D = D, indent = ("    "):rep(math.max(0, math.tointeger(indentLevel) or 0)), unit = "    ", nl = "\n" }
         return serValue(value, ctx, nil)

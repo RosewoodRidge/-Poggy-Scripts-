@@ -1300,7 +1300,8 @@ touched. For each such script it:
 1. installs the new files, merging config and translation files: settings the
    update adds are added, settings it removes are cleaned up, and the owner's
    values are never changed;
-2. backs up every original it replaced in `poggy_core/update_backups/`;
+2. backs up every original it replaced in `poggy_core/update_backups/` (if that
+   folder is missing, in poggy_core's main folder as `update_backups__...`);
 3. runs `refresh` once and restarts each updated script (`RestartUpdated`).
 
 The restarts happen immediately, at server start. poggy_core never restarts itself: its own
