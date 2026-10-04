@@ -319,8 +319,20 @@ local function writeFile(resource, rel, data)
     local own = GetCurrentResourceName()
     local how
 
+    -- A missing folder: the resource's own sv_folders.js makes it (0.26.2), if
+    -- its manifest lists that file. Without it the write fails as it always did.
+    local function makeFolder()
+        local folder = rel:match("^(.*)/[^/]+$")
+        if not folder then return false end
+        local okCall, made = pcall(function()
+            return exports[resource]:PoggyMakeOwnFolder(folder)
+        end)
+        return okCall and made == true
+    end
+
     if resource == own then
-        if not SaveResourceFile(own, rel, data, #data) then
+        if not SaveResourceFile(own, rel, data, #data)
+            and not (makeFolder() and SaveResourceFile(own, rel, data, #data)) then
             return false, "SaveResourceFile returned false (does the folder exist?)"
         end
         how = "SaveResourceFile"
@@ -337,7 +349,12 @@ local function writeFile(resource, rel, data)
                 .. " (shared_script '@poggy_core/template/poggy.lua' in its fxmanifest.lua) and be restarted;"
                 .. " if it already does, update poggy_core. (%s)"):format(resource, tostring(res))
         end
-        if type(res) ~= "table" or not res.ok then
+        if (type(res) ~= "table" or not res.ok) and makeFolder() then
+            okCall, res = pcall(function()
+                return exports[resource]:PoggyWriteOwnFile(rel, data)
+            end)
+        end
+        if not okCall or type(res) ~= "table" or not res.ok then
             return false, tostring(type(res) == "table" and res.err or res)
         end
         how = "own bridge"
@@ -1359,7 +1376,7 @@ end
 local function aceAllowed(object)
     if IsPrincipalAceAllowed == nil then return false end
     local ok, allowed = pcall(IsPrincipalAceAllowed, "resource." .. GetCurrentResourceName(), object)
-    return ok and allowed == true
+    return ok and (allowed == true or allowed == 1)   -- the native answers 1, not true, on some server builds
 end
 
 --- The server.cfg lines poggy_core still needs to restart resources itself.
@@ -1694,6 +1711,15 @@ function Updates.WriteTest(resource, say)
         end
     end
 
+    do
+        -- poggy_core's own folders (update_backups, a new ui folder in an update).
+        local okO, whyO = writeFile(own, "_poggy_newfolder_test/probe.txt", data)
+        result(okO, "new folder in " .. own, okO and "folders can be created" or ("cannot: " .. tostring(whyO)))
+        if okO then
+            leftovers[#leftovers + 1] = (GetResourcePath(own) .. "/_poggy_newfolder_test"):gsub("//+", "/")
+        end
+    end
+
     if resource ~= own then
         local okB, whyB = writeFile(resource, name, data)
         result(okB, "own bridge -> " .. resource, okB and "read back OK" or tostring(whyB))
@@ -1706,7 +1732,8 @@ function Updates.WriteTest(resource, say)
         -- the folder made by hand on each server.
         local folderFile = "_poggy_newfolder_test/probe.txt"
         local okD, whyD = writeFile(resource, folderFile, data)
-        result(okD, "new folder via bridge", okD and "folders can be created" or ("cannot: " .. tostring(whyD)))
+        result(okD, "new folder via bridge", okD and "folders can be created"
+            or ("cannot: " .. tostring(whyD) .. " (its manifest needs: server_script '@poggy_core/server/sv_folders.js')"))
         if okD then
             leftovers[#leftovers + 1] = (GetResourcePath(resource) .. "/_poggy_newfolder_test"):gsub("//+", "/")
         end

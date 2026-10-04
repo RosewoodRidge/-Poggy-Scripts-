@@ -310,7 +310,7 @@ end
 local function aceAllowed(object)
     if IsPrincipalAceAllowed == nil then return false end
     local ok, allowed = pcall(IsPrincipalAceAllowed, "resource." .. me(), object)
-    return ok and allowed == true
+    return ok and (allowed == true or allowed == 1)   -- the native answers 1, not true, on some server builds
 end
 
 --- Run when poggy_core starts. Yields (Wait), so call it from a thread.

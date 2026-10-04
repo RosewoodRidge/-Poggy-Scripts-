@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.26.1"
+version "0.26.2"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -55,6 +55,7 @@ server_scripts {
     "server/sv_selftest.lua",
     "server/sv_configmerge.lua",
     "server/sv_settings_model.lua",  -- config files as editable settings (0.18.0); after sv_configmerge.lua
+    "server/sv_folders.js",          -- makes a missing folder in this resource (0.26.2); before sv_updates.lua, which asks it
     "server/sv_updates.lua",
     "server/sv_hub.lua",             -- the settings hub, server side (0.18.0); after sv_settings_model.lua
     "server/sv_hub_save.lua",        -- the hub's saving, history, roles, restarts; after sv_hub.lua
@@ -98,6 +99,7 @@ escrow_ignore {
     "client/*.lua",
     "client/lib/*.lua",
     "server/*.lua",
+    "server/*.js",
     "server/adapters/*.lua",
     "template/*.lua",
     "ui/*",

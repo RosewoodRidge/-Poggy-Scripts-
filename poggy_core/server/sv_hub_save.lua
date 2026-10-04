@@ -1032,7 +1032,7 @@ end
 
 local function aceAllowed(object)
     local ok, allowed = pcall(IsPrincipalAceAllowed, "resource." .. SELF, object)
-    return ok and allowed == true
+    return ok and (allowed == true or allowed == 1)   -- the native answers 1, not true, on some server builds
 end
 
 --- Write one config file: poggy_core's own directly, any other script's
@@ -1089,6 +1089,9 @@ function I.backup(folder, rel, text, stamp)
         return okCall and okSave and name or nil
     end
     if put("update_backups/") then return "folder" end
+    -- The folder is missing: sv_folders.js makes it (0.26.2), then try again.
+    local okMade, made = pcall(function() return exports[SELF]:PoggyMakeOwnFolder("update_backups") end)
+    if okMade and made == true and put("update_backups/") then return "folder" end
     local name = put("update_backups__")
     if name then
         Util.Warn("settings hub: poggy_core/update_backups is missing, so the backup went to poggy_core/%s. Make that folder (no restart needed).", name)
