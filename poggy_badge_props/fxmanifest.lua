@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_badge_props'
 author 'Poggy'
 description 'Poggy Badge Props – badges and armbands for Poggy Badge'
-version '1.0.0'
+version '1.0.1'
 poggy_core_min '0.13.0'
 
 dependencies {

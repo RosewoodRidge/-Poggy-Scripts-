@@ -31,7 +31,7 @@ For the grade that wears it (turn on advanced settings):
 | Field | What to put |
 |---|---|
 | Prop model | The size players start with, for example `p_poggy_armband_medic_s3` |
-| Starting bone | Left upper arm or Right upper arm |
+| Starting bone | Leave it unset for the left arm (Poggy Badge 1.5.0 or newer), or pick Right upper arm |
 | Sizes | All nine names, `p_poggy_armband_medic_s1` to `_s9`, smallest first |
 | Badge image | `poggy_armband_medic` |
 
