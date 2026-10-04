@@ -44,8 +44,11 @@ end
 --- The skin a script's page wears: theme-<poggyId>.css, or for the FiveM
 --- line of a script (poggy_tickets_fivem) the skin of the RedM one, since
 --- the page is the same page.
+local SKIN_OF = { poggy_scenes_2 = "poggy_scene" }   -- a product that is a new version of another wears its skin
+
 local function skinFor(poggyId)
     if hasSkin(poggyId) then return poggyId end
+    if SKIN_OF[poggyId] and hasSkin(SKIN_OF[poggyId]) then return SKIN_OF[poggyId] end
     local base = poggyId:gsub("_fivem$", "")
     if base ~= poggyId and hasSkin(base) then return base end
     return nil
