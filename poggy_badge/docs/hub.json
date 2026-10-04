@@ -184,6 +184,11 @@
               "tooltip": "Only for a prop that comes in several sizes, such as an armband: every size's model name, smallest first. The editor then shows a Size slider, and Prop model is the size a player starts with. The game cannot scale a prop, so each size is its own model.",
               "advanced": true
             },
+            "showProp": {
+              "label": "Prop held up by Show Badge",
+              "tooltip": "Only when the prop held in the hand should differ from the one worn: a medic wears an armband but shows a medic's badge. A prop model name. Leave it unset to hold up the Prop model.",
+              "advanced": true
+            },
             "useName": {
               "label": "Show character name",
               "tooltip": "Meant to switch the character's name on the badge flash on or off. The current display always shows the name.",

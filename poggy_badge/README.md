@@ -117,6 +117,7 @@ Players move the badge from there with the editor.
 | `prop` | The 3D prop model on the chest. |
 | `useName`, `useServerName` | Reserved. The flash currently always shows both. |
 | `sizes` | Optional. For a prop that comes in several sizes: every size's model name, smallest first, for example `sizes = { "p_poggy_armband_medic_s1", "p_poggy_armband_medic_s2" }`. The editor shows a Size slider; `prop` is the size a player starts with. |
+| `showProp` | Optional. The prop held in the hand by Show Badge, when it should differ from the one worn. A medic's armband that shows a badge: `prop = "p_poggy_armband_medic_s4"`, `showProp = "p_poggy_badge_doctor"`. Left out, `prop` is held up. |
 | `bone`, `offset`, `rotation` | Optional. Where this grade's prop starts, when it does not belong on the chest. An armband: `bone = "SKEL_L_UpperArm"`, with an `offset` and `rotation` as `vector3(x, y, z)`. Left out, the starting position above is used. |
 
 The shipped sets cover `sheriff`, `deputy`, `police` / `Police` (vorp_police's name), `marshal` / `usmarshal` and `pinkerton`, grades 0 to 5.

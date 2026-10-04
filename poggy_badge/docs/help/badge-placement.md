@@ -39,6 +39,16 @@ The game cannot stretch a prop, so an armband comes as several models, one per s
 - **Players:** type `/badge` and move the **Size** slider. Save a preset per outfit: a coat needs a bigger size than a shirt.
 - **Owners:** the slider shows when the grade lists its **Sizes** (advanced), smallest first. **Prop model** is the size players start with.
 
+## An armband wearer should show a badge, not the armband
+
+**Show Badge** holds up the prop the player wears. For an armband that looks odd: a medic should hold up a medic's badge.
+
+1. Open **Badges** → **Badge sets**, then the set and the grade that uses the armband.
+2. Turn on advanced settings and put the badge's model name in **Prop held up by Show Badge**.
+3. Save and restart.
+
+The armband stays on the arm; only the prop in the hand changes. **Badge image** is still the picture nearby players see.
+
 ## A streamed badge pack faces the wrong way
 
 Stock `s_` badges are fine with the shipped rotation. Custom packs often are not.

@@ -63,6 +63,10 @@ Config.showAnimDuration = 5000   -- ms the badge is held up before the outro pla
 --   sizes = { "model_small", "model_medium", "model_large" }   smallest first
 -- The editor then shows a Size slider. `prop` is the size a player starts with.
 --
+-- Optional, per grade, for a prop that should not be the one held up by Show Badge
+-- (a medic wears an armband but shows a medic's badge):
+--   showProp = "model_name"   the prop held in the hand; left out, `prop` is held up
+--
 -- Job names are matched EXACTLY (case-sensitive) against the character's
 -- job, so list every spelling your server uses.  A job that matches but has
 -- no entry for the player's grade gets no badge, so cover every grade the
