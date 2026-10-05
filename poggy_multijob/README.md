@@ -202,10 +202,32 @@ reason only when it returns `false`.
 Unemployed (and `none`, `unknown`, empty) can never be added. `Config.MaxJobs`
 is not enforced here either.
 
+### Through poggy_core (1.7.5, poggy_core 0.25.0)
+
+With poggy_core 0.25.0 or newer, poggy_multijob registers as poggy_core's
+**jobs provider** when it starts. Every Poggy script can then read this list
+without naming poggy_multijob:
+
+```lua
+local ok, jobs    = Poggy('jobs.of', { src = src })                      -- or { charId = '12' }
+local ok, holders = Poggy('jobs.holders', { job = 'sheriff', minGrade = 1 })
+local ok = Poggy('jobs.add', { charId = '12', job = 'doctor', grade = 0 })
+local ok = Poggy('jobs.remove', { charId = '12', job = 'doctor' })
+local ok = Poggy('jobs.setGrade', { charId = '12', job = 'doctor', grade = 2 })
+```
+
+`jobs.of` gives the job being worn (from the framework) first, then every
+other job on the list. `jobs.holders` lists everyone wearing the job or keeping
+it on their list, offline characters included. `jobs.add`, `jobs.remove` and
+`jobs.setGrade` follow exactly the rules of `AddJob`, `RemoveJob` and
+`SetJobGrade` above. With an older poggy_core nothing is registered, one line
+in the console says so, and everything else works as before.
+
 ---
 
 ## Changelog
 
+- **1.7.5** — Registers as poggy_core's jobs provider (poggy_core 0.25.0 or newer): other Poggy scripts see every job on a character's list, and everyone holding a job, offline characters included, through `jobs.of` and `jobs.holders`, and can add, remove or re-grade a job through the same rules as the exports. Nothing changes with an older poggy_core.
 - **1.7.3** — Every job change is captured: poggy_multijob listens to poggy_core's job-change relay (any framework, any script or admin command) and saves both the job left and the job taken. New server API for other scripts: `AddJob`, `RemoveJob`, `SetJobGrade`, `HasJob`, taking a server id or a character id (offline characters too). A removed or quit job is no longer saved straight back by the job change that follows it. Offline active-job changes now also work on QBR. The `/poggy` page has a **Shop jobs** tab showing Poggy Markets' shop jobs (the data and edits belong to poggy_markets). Saving a job is a single statement, so two saves at once cannot collide.
 - **1.7.2** — Poggy Hub support: settings, commands and help pages in `/poggy`. No gameplay changes.
 - **1.7.1** — `cid` is `VARCHAR(64)` (was `INT(11)`) so RSG citizenids fit; an existing table is converted on the first start and the server compares character ids as text everywhere.

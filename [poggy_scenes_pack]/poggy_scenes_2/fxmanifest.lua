@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_scenes_2'
 author 'Poggy'
 description 'Poggy Scenes 2.0 - real sign boards you type on, scene text, status tags and the /me box for RedM.'
-version '2.0.0'
+version '2.0.1'
 poggy_core_min '0.13.0'
 
 dependencies {

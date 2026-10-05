@@ -37,6 +37,3 @@ Tables. Checkers is played on the marble board with the game's own chips.
 `w` is white marble, `b` is black marble. Every prop's origin is under the middle of its
 base. The board is modelled with rank 1 towards +x and the a-file towards -y; a1 is a dark
 square.
-
-The models are made by `toolsadge-props` (`chess_sculpt.py`, `build_chess.py`,
-`bake_chess.py`, `chess_dds.py`, `export_chess.py`; Blender, then Sollumz_RDR and CodeX).

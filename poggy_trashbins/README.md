@@ -106,6 +106,8 @@ Check your character's group is in `Config.StaffGroups`, and that `Config.AllowS
 
 ## Changelog
 
+- **1.5.4** — The README links the Poggy store and the documentation page instead of the old store address.
+- **1.5.3** — The screens follow the Poggy theme chosen in poggy_core (0.23.0 or newer).
 - **1.5.2** — Poggy Hub support: settings, lists and help pages for `/poggy`. Bins no longer need `loot = Config.CommonLoot`: a bin without its own `loot` uses the shared list. Old configs that still have the line work as before.
 - **1.5.1** — The startup wipe and the staff wipe command no longer query the framework's inventory table directly (`character_inventories` does not exist on RSG, so the script errored at start). A wipe now registers the bin, destroys its contents with poggy_core's `storage.delete`, registers it again and confirms it is empty through `storage.items`, sweeping any leftovers with `storage.removeItem`. `oxmysql` is no longer a direct dependency (poggy_core still needs it). Behaviour on VORP is unchanged.
 - **1.5.0** — Layout to the owner's standard; every framework call through poggy_core.
@@ -113,4 +115,5 @@ Check your character's group is in `Config.StaffGroups`, and that `Config.AllowS
 ## Support
 
 - Discord: [https://discord.com/invite/rBarFeuzFj](https://discord.com/invite/rBarFeuzFj)
-- Store: [https://rosewoodridge.tebex.io/](https://rosewoodridge.tebex.io/)
+- Documentation: [https://poggy.app/documentation/poggy-trash-bins](https://poggy.app/documentation/poggy-trash-bins)
+- Store: [https://poggy.app/store/poggy-trash-bins](https://poggy.app/store/poggy-trash-bins)

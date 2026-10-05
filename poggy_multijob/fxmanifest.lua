@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_multijob'
 author 'Poggy'
 description 'Multijob System'
-version '1.7.4'
+version '1.7.5'
 poggy_core_min '0.14.0'
 
 dependencies {
@@ -32,6 +32,7 @@ server_scripts {
     'server/main.lua',
     'server/admin.lua',
     'server/api.lua',
+    'server/provider.lua',
 }
 
 ui_page 'ui/index.html'

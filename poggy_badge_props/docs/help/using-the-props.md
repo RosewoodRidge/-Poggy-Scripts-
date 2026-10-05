@@ -12,6 +12,10 @@ ensure poggy_badge_props
 ensure poggy_badge
 ```
 
+The pack runs no script and does not need poggy_core itself. Add or remove it with a server
+restart, never `ensure`/`stop` while players are in. Updates come as a new download from your
+Cfx portal, not through Poggy Core's updater.
+
 ## 2. Give a job a badge
 
 1. Open **/poggy** → **Poggy Badge** → **Badges** → **Badge sets**.

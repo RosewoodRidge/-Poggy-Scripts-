@@ -3,6 +3,17 @@
 Prop models for **Poggy Badge**: 37 badges and five armbands. Start this resource before
 `poggy_badge`, then use a model name below as the `prop` of a badge grade.
 
+```
+ensure poggy_core
+ensure poggy_badge_props
+ensure poggy_badge
+```
+
+It is a model pack only: no scripts, and it does not need poggy_core itself (Poggy Badge
+does). Add or remove it with a server restart, never `ensure`/`stop` while players are in:
+that can crash the game of anyone with a badge in view. Updates come as a new download
+from your Cfx portal, not through Poggy Core's updater.
+
 ## Badges
 
 | Prop model | What it is |
@@ -68,5 +79,3 @@ sizes = { "p_poggy_armband_medic_s1", "p_poggy_armband_medic_s2", "p_poggy_armba
 ```
 
 Players then pick the size that fits their outfit with the editor's Size slider.
-
-The models are made by `toolsadge-props` (Blender, then Sollumz_RDR and CodeX).

@@ -13,6 +13,7 @@ local allowscene2 = true
 -- NUI / placement state
 local myCharId   = -1       -- this player's character: from poggy_core:charLoadedLocal, and from the server (below)
 local editAny    = false    -- the admin group may change anyone's scene
+local removeAny  = false    -- the admin group and Config.removejobs may remove anyone's scene (the server decides)
 
 -- Framework calls go through Poggy(verb, payload) from poggy_core.
 
@@ -46,9 +47,10 @@ end
 -- The server says who this player is. The load event alone is not enough: it does not come again
 -- when the script is restarted with the player already in, and then no scene looked like their own.
 RegisterNetEvent('poggy_scene:whoami')
-AddEventHandler('poggy_scene:whoami', function(charid, admin)
+AddEventHandler('poggy_scene:whoami', function(charid, admin, removeAll)
     if tonumber(charid) and tonumber(charid) > 0 then myCharId = tonumber(charid) end
     editAny = admin == true
+    removeAny = removeAll == true or editAny
 end)
 
 RegisterNetEvent('poggy_scene:stopscene')
@@ -442,17 +444,15 @@ Citizen.CreateThread(function()
         end
 
         -- Permission check FIRST, then only fire the remove event for the nearest scene.
-        if nearestScene then
-            -- Own scenes are always removable.
-            -- Non-owned scenes require job permission (allowscene2 set by getstatus).
-            local isOwn      = tonumber(nearestScene.charid) == tonumber(myCharId)
-            local hasJobPerm = allowscene2
-            local canRemove  = isOwn or hasJobPerm
-
+        -- A player who may neither change nor remove the scene sees no prompt at all, and 4 stays
+        -- the game's own key. (The server checks every removal again.)
+        local isOwn     = nearestScene and tonumber(nearestScene.charid) == tonumber(myCharId)
+        local canEdit   = nearestScene and (isOwn or editAny)
+        local canRemove = nearestScene and (isOwn or removeAny)
+        if nearestScene and (canEdit or canRemove) then
             -- One key, 4. On a scene you may change (your own; any, for the admin group) it opens the
             -- Scene Editor on it, where there is also a Remove button. On someone else's it removes,
-            -- for those allowed to.
-            local canEdit = isOwn or editAny
+            -- for the jobs in Config.removejobs.
             drawtext(canEdit and (Config.Language.pressedit or "Press 4 To Edit") or Config.Language.pressg2,
                 0.15, 0.30, 0.1, 0.3, true, 255, 255, 255, 255, true, 10000)
             -- Suppress the quickselect so the game doesn't consume 4 as weapon-switch,
@@ -462,13 +462,9 @@ Citizen.CreateThread(function()
                 if canEdit then
                     openSceneNUI(nearestScene)
                     Wait(500)
-                elseif canRemove then
+                else
                     TriggerServerEvent("poggy_scene:removescene", nearestScene.id, nearestScene.charid, GetPlayers())
                     Wait(2500) -- cooldown to prevent accidental double-activation
-                else
-                    -- Job-locked: not the owner and no removal permission
-                    notify(Config.Language.notjob, 3000)
-                    Wait(2500)
                 end
             end
         end

@@ -6,16 +6,11 @@ lua54 'yes'
 poggy_id 'poggy_badge_props'
 author 'Poggy'
 description 'Poggy Badge Props – badges and armbands for Poggy Badge'
-version '1.0.1'
-poggy_core_min '0.13.0'
+version '1.0.2'
 
-dependencies {
-    'poggy_core',
-}
-
-shared_scripts {
-    '@poggy_core/template/poggy.lua',
-}
+-- A model pack only: no scripts and no poggy_core link, like Poggy Chess Props.
+-- A prop pack is never restarted while players are in, so it must not be something
+-- poggy_core's updater can restart.
 
 files {
     'stream/poggy_badge_props.ytyp',
