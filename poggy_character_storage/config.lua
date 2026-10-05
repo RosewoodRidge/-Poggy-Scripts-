@@ -468,9 +468,14 @@ Config.Translations = {
 
         -- Admin Shop
         ["adminshop_not_admin"] = "You must be an admin to use this command",
-        ["adminshop_loading"] = "Loading all items...",
+        ["adminshop_search"] = "Find an item",
+        ["adminshop_search_hint"] = "Part of its name, e.g. honey",
+        ["adminshop_search_again"] = "Search again",
+        ["adminshop_results"] = "%d found for \"%s\"",
+        ["adminshop_no_match"] = "Nothing matches \"%s\"",
+        ["adminshop_more"] = "%d more: type more of the name to narrow it down",
         ["adminshop_name"] = "Admin Item Shop",
-        ["adminshop_desc"] = "Opens a shop with every item on the server (admin only)",
+        ["adminshop_desc"] = "Search every item on the server and take it free (admin only)",
         
         -- Access Level System
         ["access_level_manager"] = "Manager",
@@ -642,9 +647,14 @@ Config.Translations = {
 
         -- Admin Shop
         ["adminshop_not_admin"] = "Debes ser administrador para usar este comando",
-        ["adminshop_loading"] = "Cargando todos los artículos...",
+        ["adminshop_search"] = "Buscar un artículo",
+        ["adminshop_search_hint"] = "Parte del nombre, p. ej. miel",
+        ["adminshop_search_again"] = "Buscar de nuevo",
+        ["adminshop_results"] = "%d encontrados para \"%s\"",
+        ["adminshop_no_match"] = "Nada coincide con \"%s\"",
+        ["adminshop_more"] = "%d más: escribe más del nombre para acotar",
         ["adminshop_name"] = "Tienda de Admin",
-        ["adminshop_desc"] = "Abre una tienda con todos los artículos del servidor (solo admin)",
+        ["adminshop_desc"] = "Busca cualquier artículo del servidor y tómalo gratis (solo admin)",
         
         -- Access Level System
         ["access_level_manager"] = "Gerente",
@@ -816,9 +826,14 @@ Config.Translations = {
 
         -- Admin Shop
         ["adminshop_not_admin"] = "Du musst Admin sein, um diesen Befehl zu verwenden",
-        ["adminshop_loading"] = "Alle Gegenstände werden geladen...",
+        ["adminshop_search"] = "Gegenstand suchen",
+        ["adminshop_search_hint"] = "Teil des Namens, z. B. Honig",
+        ["adminshop_search_again"] = "Neu suchen",
+        ["adminshop_results"] = "%d gefunden für \"%s\"",
+        ["adminshop_no_match"] = "Nichts passt zu \"%s\"",
+        ["adminshop_more"] = "%d weitere: mehr vom Namen eingeben, um einzugrenzen",
         ["adminshop_name"] = "Admin-Shop",
-        ["adminshop_desc"] = "Öffnet einen Shop mit allen Server-Gegenständen (nur Admin)",
+        ["adminshop_desc"] = "Jeden Gegenstand des Servers suchen und kostenlos nehmen (nur Admin)",
         
         -- Access Level System
         ["access_level_manager"] = "Manager",

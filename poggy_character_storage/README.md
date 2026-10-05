@@ -111,7 +111,7 @@ Command names can be changed in the config. The table shows the defaults.
 | `/deletestorage <id>` | Admins | Delete a player storage. Its container is unregistered, not emptied: the items stay in the inventory database, out of reach. |
 | `/storageadmin show` | Admins | Show every storage blip on the map. |
 | `/storageadmin hide` | Admins | Back to only the ones you can open. |
-| `/adminshop` | Admins | A free shop with every item on the server. |
+| `/adminshop [search]` | Admins | A free shop with every item on the server. It asks what to look for (or takes it after the command) and lists up to 50 matches. |
 | `/adminshop cache` | Admins | Rebuild that shop's item list. |
 
 To open a storage or an armory, walk up to it and press **G**.
@@ -180,6 +180,12 @@ price on the right and its description underneath.
 3. The script checks the player can carry it.
 4. The money is taken, then the item is given.
 5. If the inventory refuses the item, the money is refunded.
+
+`/adminshop` starts with a search instead of listing every item, because a
+menu of thousands of rows is slow to open. Type part of a name (`honey`) and
+it shows the items whose name or item id contains it, up to 50, those that
+start with it first. **Search again** at the top starts over;
+`/adminshop honey` searches straight away.
 
 An armory's `sellitems` is the name of an item list in the config, such as
 `"WeaponArmoryItems"`. Older configs that say `sellitems = Config.WeaponArmoryItems`

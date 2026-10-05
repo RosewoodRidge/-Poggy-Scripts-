@@ -71,10 +71,11 @@
       "command": "/adminshop",
       "configPath": "Config.adminShopCommand",
       "who": "Admins",
-      "description": "Opens a free shop with every item in the server's item list. Add \"cache\" to rebuild the item list after adding items. Cannot be run from the server console.",
-      "usage": "/adminshop [cache]",
+      "description": "A free shop for every item in the server's item list. It asks what you are looking for and shows only the items whose name matches (up to 50). Put the search after the command to skip the question. Add \"cache\" to rebuild the item list after adding items. Cannot be run from the server console.",
+      "usage": "/adminshop [search | cache]",
       "examples": [
         "/adminshop",
+        "/adminshop honey",
         "/adminshop cache"
       ]
     }
