@@ -13,6 +13,11 @@ ensure poggy_chess_props
 ensure poggy_chess
 ```
 
+It is a model pack only: no scripts, and it does not need poggy_core itself (Poggy Chess
+does). Add or remove it with a server restart, never `ensure`/`stop` while players are in:
+that crashes the game of anyone with a marble board in view. Updates come as a new download
+from your Cfx portal, not through Poggy Core's updater.
+
 Poggy Chess 2.2.0 or newer then uses the marble set at every table. To go back to the
 game's wooden set, turn off **Marble board and pieces** in `/poggy` → Chess & Checkers →
 Tables. Checkers is played on the marble board with the game's own chips.

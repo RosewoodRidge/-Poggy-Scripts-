@@ -20,5 +20,16 @@ pack is running. Checkers is played on the marble board with the game's own chip
 ## Going back to the wooden set
 
 Open **/poggy** → **Chess & Checkers** → **Tables** and turn off **Marble board and
-pieces**, then Save & Restart. Stopping this pack does the same: Poggy Chess falls back to
-the game's own set by itself.
+pieces**, then Save & Restart. Without this pack running, Poggy Chess uses the game's own
+set by itself.
+
+## Never stop or start it while players are in
+
+Stopping, starting or restarting this pack on a live server crashes the game of every
+player who has a marble board in view, and it stays broken until they quit RedM. Add or
+remove it with a server restart.
+
+## Updates
+
+This pack is not updated by Poggy Core. A new version is a new download from your Cfx
+portal.

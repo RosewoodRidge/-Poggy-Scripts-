@@ -6,16 +6,10 @@ lua54 'yes'
 poggy_id 'poggy_chess_props'
 author 'Poggy'
 description 'Poggy Chess Props – the marble board and pieces for Poggy Chess'
-version '1.0.0'
-poggy_core_min '0.13.0'
+version '1.0.1'
 
-dependencies {
-    'poggy_core',
-}
-
-shared_scripts {
-    '@poggy_core/template/poggy.lua',
-}
+-- A model pack only: no scripts and no poggy_core link. With the poggy_core bridge
+-- loaded, players' games slowed to a crawl and crashed before the loading screen.
 
 files {
     'stream/poggy_chess_props.ytyp',
