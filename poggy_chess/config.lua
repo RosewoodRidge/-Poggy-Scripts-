@@ -164,8 +164,10 @@ Config.AIOpponent = {
 -- The chess AI. Local levels play on the server's own engine; "api" levels ask
 -- chess-api.com (Stockfish) and use the server's engine when it cannot be reached.
 --   engine          "local" or "api"
---   localDepth      moves the server's engine looks ahead (1-3)
---   timeMs          most time the server's engine may think, in ms
+--   localDepth      moves each side the server's engine looks ahead (1-4); captures are always
+--                   followed to the end. 1 sees its own move, 3 sees five moves in a row
+--   timeMs          most time the server's engine may think, in ms (its own thinking only:
+--                   it pauses for the server in between, so a game may wait a little longer)
 --   depth           Stockfish search depth (1-18)
 --   apiThinkMs      Stockfish time limit, in ms (1-100)
 --   variants        moves Stockfish offers to choose from (1-5)

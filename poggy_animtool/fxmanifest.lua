@@ -6,7 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_animtool'
 author 'Poggy'
 description 'Poggy AnimTool - Timeline editor for RedM animation scenes (clips and keyframed props) with Lua export.'
-version '2.1.3'
+version '2.2.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -25,7 +26,9 @@ server_scripts {
     'server/server.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

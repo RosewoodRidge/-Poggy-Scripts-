@@ -1740,7 +1740,9 @@ end
 
 --- Restart (or start) one folder. Returns true or false, reason.
 function I.restartFolder(folder, startOnly)
-    if aceAllowed("command.ensure") then
+    -- `ensure` runs `stop` and `start` as commands of their own (ServerResources.cpp), each
+    -- checked on its own: poggy_core uses it only when all three are allowed (0.27.0).
+    if aceAllowed("command.ensure") and aceAllowed("command.start") and aceAllowed("command.stop") then
         ExecuteCommand("ensure " .. folder)
     else
         if not startOnly then

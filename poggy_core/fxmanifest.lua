@@ -7,7 +7,7 @@ lua54 "yes"
 poggy_id 'poggy_core'
 author "Poggy"
 description "Poggy Core — one documented framework API for RedM (VORP Core, RSG Core, QBCore RedM)"
-version "0.26.4"
+version "0.27.0"
 
 -- VORP, RSG and QBR adapters + standalone fallback. See README.md for what is
 -- and is not implemented yet. Adding a framework means adding one file under
@@ -23,6 +23,7 @@ shared_scripts {
 }
 
 client_scripts {
+    "client/cl_host.lua",            -- other scripts' screens in this page (0.27.0); first: wraps SetNuiFocus for every file after it
     "client/cl_core.lua",
     "client/cl_dispatch.lua",
     "client/cl_callbacks.lua",

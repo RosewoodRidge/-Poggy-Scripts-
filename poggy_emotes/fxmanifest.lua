@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_emotes'
 author 'Poggy'
 description 'A searchable emote menu with 330+ animations, favourites, recents, a live preview, and a Nearby tab for the chairs, bars and props around you.'
-version '1.1.2'
-poggy_core_min '0.13.0'
+version '1.2.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -38,7 +38,9 @@ server_scripts {
     'server/main.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

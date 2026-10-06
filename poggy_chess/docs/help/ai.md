@@ -6,8 +6,9 @@ A player sitting alone can play the AI. It takes the other chair (the ped in **A
 
 Each row in **Chess levels** is one difficulty in the start menu.
 
-- **local** levels play on the server's own engine. It looks a few moves ahead and makes deliberate slips (**Mistake chance**) so that it can lose.
-- **api** levels ask Stockfish at chess-api.com. They pick among Stockfish's suggestions to aim at a **Target winning chance**, so even these can be beaten. If chess-api.com cannot be reached in time, the server's own engine plays that move instead, and the game never stalls.
+- **local** levels play on the server's own engine. **Server engine depth** is how many moves each side it looks ahead (1-4), and it always follows captures to the end. Club (3) plays like a solid club player. The easier levels make deliberate slips (**Mistake chance**) so that they can lose.
+- The engine thinks in short steps and lets the server run in between, so several games against the AI never lag the server. **Server engine time** counts only its own thinking. With a chess clock running, it also keeps to a share of the time it has left.
+- **api** levels ask Stockfish at chess-api.com. They pick among Stockfish's suggestions to aim at a **Target winning chance**, so even these can be beaten. If chess-api.com cannot be reached in time, the server's own engine plays that move instead, and the game never stalls. Hints use Stockfish too, and the server's engine when Stockfish cannot be reached.
 - Everything happens on the server. A player's own game never chooses the AI's move.
 
 ## Checkers

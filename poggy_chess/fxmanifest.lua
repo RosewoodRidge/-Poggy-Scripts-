@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_chess'
 author 'Poggy'
 description 'Chess and checkers tables: play a friend or the AI, four checkers variants and house rules, wagers held safely, and a record of every game with a move-by-move review.'
-version '2.2.1'
-poggy_core_min '0.23.0'
+version '2.3.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -39,6 +39,7 @@ server_scripts {
     'server/sv_database.lua',
     'server/sv_chess.lua',
     'server/sv_checkers.lua',
+    'server/sv_engine.lua',
     'server/sv_ai.lua',
     'server/sv_wager.lua',
     'server/sv_ratings.lua',
@@ -48,7 +49,9 @@ server_scripts {
     'server/sv_main.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

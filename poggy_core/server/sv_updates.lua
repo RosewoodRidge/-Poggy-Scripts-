@@ -760,6 +760,37 @@ end
 -- "staged" "missing" "unpublished" "error".
 -- ---------------------------------------------------------------------------
 
+--- Does this resource load poggy_core's bridge (and so PoggyWriteOwnFile)?
+local function loadsBridge(res)
+    if type(GetNumResourceMetadata) ~= "function" then return true end   -- cannot tell: behave as before
+    for _, key in ipairs({ "shared_script", "server_script" }) do
+        local n = GetNumResourceMetadata(res, key) or 0
+        for i = 0, n - 1 do
+            local v = GetResourceMetadata(res, key, i)
+            if v and v:find("poggy_core/template/poggy.lua", 1, true) then return true end
+        end
+    end
+    return false
+end
+
+--- Is the published version escrowed while this folder has no .fxap to run it?
+--- Looks at up to three of its code files (configs and translations stay
+--- readable in an escrowed build, so they say nothing).
+local function encryptedForUnlicensed(res, info, source)
+    if LoadResourceFile(res, ".fxap") then return false end
+    local looked = 0
+    for _, f in ipairs(info.files or {}) do
+        local rel = f.rel or ""
+        if rel:sub(-4) == ".lua" and rel ~= "fxmanifest.lua" and not isConfig(rel) then
+            local ok, status, body = pcall(source.fetch, f)
+            if ok and status == 200 and type(body) == "string" and body:sub(1, 4) == "FXAP" then return true end
+            looked = looked + 1
+            if looked >= 3 then break end
+        end
+    end
+    return false
+end
+
 local function runOne(resource, mode, opts, say, source, quiet, run)
     -- `resource` is the feed id: the feed, index and file lists use it. The copy
     -- on this server is `localRes`, the folder that id lives in here.
@@ -795,6 +826,26 @@ local function runOne(resource, mode, opts, say, source, quiet, run)
     local remote = info.version
     local current = localVersion(localRes)
     local order = (remote and current) and compare(current, remote) or nil
+
+    -- A resource that does not load the bridge (a prop pack: models only, no
+    -- scripts) cannot be written to, and must never be restarted while players
+    -- are on: a prop pack stopped with its models placed crashes them. Its
+    -- updates come through the Cfx portal. Say so once and leave it alone
+    -- (0.27.0; until then every start tried, and listed each file as failed).
+    if localRes ~= GetCurrentResourceName() and not loadsBridge(localRes) then
+        if not (quiet and opts.onlyChanges) and order and order < 0 then
+            say(("%s %-24s ^9local v%s, published v%s: a prop pack, it updates through the Cfx portal (your Keymaster download), not here^7")
+                :format(ICON.missing, shown, tostring(current), tostring(remote)))
+        end
+        return "portal"
+    end
+
+    -- An escrowed version cannot run in a folder with no .fxap (a readable copy,
+    -- a development or test server): installing it would leave encrypted files
+    -- nothing can load. Left alone without a word, as if it were current (0.27.0).
+    if order and order < 0 and localRes ~= GetCurrentResourceName() and encryptedForUnlicensed(localRes, info, source) then
+        return "current"
+    end
 
     local status, verdict
     if not remote then
@@ -1382,7 +1433,7 @@ end
 --- The server.cfg lines poggy_core still needs to restart resources itself.
 local function missingAceLines()
     local lines = {}
-    for _, cmd in ipairs({ "refresh", "ensure" }) do
+    for _, cmd in ipairs({ "refresh", "ensure", "start", "stop" }) do
         if not aceAllowed("command." .. cmd) then
             lines[#lines + 1] = ("add_ace resource.%s command.%s allow"):format(GetCurrentResourceName(), cmd)
         end
@@ -1437,7 +1488,9 @@ local function restartResources(names, say)
         else
             ExecuteCommand("refresh")
             Wait(1000)
-            local useEnsure = aceAllowed("command.ensure")
+            -- `ensure` runs `stop` and `start` as commands of their own (ServerResources.cpp), each
+            -- checked on its own: poggy_core uses it only when all three are allowed (0.27.0).
+            local useEnsure = aceAllowed("command.ensure") and aceAllowed("command.start") and aceAllowed("command.stop")
             for _, name in ipairs(others) do
                 local state = GetResourceState(name)
                 if state ~= "started" then
@@ -1466,7 +1519,7 @@ local function restartResources(names, say)
                         say(("%s %-24s ^1restart failed: %s (state: %s)^7"):format(ICON.error, shownFolder(name),
                             refused or (how .. " did not bring it back"), tostring(after)))
                         if not useEnsure then
-                            say(("      ^3add_ace resource.%s command.ensure allow^7 ^9lets poggy_core use ensure; for now run: ensure %s^7")
+                            say(("      ^3add_ace resource.%s command.ensure allow^7 ^9(and command.start, command.stop) lets poggy_core use ensure; for now run: ensure %s^7")
                                 :format(own, name))
                         end
                     end

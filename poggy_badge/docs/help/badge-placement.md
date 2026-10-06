@@ -24,7 +24,7 @@ A quick way to find good numbers: put a badge where you want it with the editor,
 
 ## An armband should start on the arm
 
-A prop that does not belong on the chest can have its own starting position.
+An armband from the **Poggy Badge Props** pack starts on the left upper arm, the right way up, by itself. For the other arm, a different start, or another pack's armband, a grade can have its own starting position.
 
 1. Open **Badges** → **Badge sets**, then the set and the grade that uses the armband.
 2. Turn on advanced settings and set **Starting bone** to **Left upper arm** or **Right upper arm**.

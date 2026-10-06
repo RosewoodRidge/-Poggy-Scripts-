@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_scene'
 author 'Poggy'
 description 'Poggy Scene - A collection of scene-related utilities and features for RedM.'
-version '1.3.3'
-poggy_core_min '0.13.0'
+version '1.4.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -31,7 +31,9 @@ server_scripts {
     'server/hub.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- an on-screen display, so it loads when the player joins, as before.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

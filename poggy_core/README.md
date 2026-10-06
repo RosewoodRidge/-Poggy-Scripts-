@@ -63,6 +63,8 @@ ensure poggy_core
 # them back after `restart poggy_core`
 add_ace resource.poggy_core command.refresh allow
 add_ace resource.poggy_core command.ensure allow
+add_ace resource.poggy_core command.start allow
+add_ace resource.poggy_core command.stop allow
 ```
 
 No database import. Automatic updates are on from the moment you install (see
@@ -120,7 +122,7 @@ stopped with it and prints one line:
 
 Nothing is printed when nothing stopped with it. A script that does not come
 back is named in yellow with the `ensure` to run. The `ensure` goes through
-the `add_ace resource.poggy_core command.ensure allow` line from
+the `add_ace resource.poggy_core command.ensure allow` (and the same line for `command.start` and `command.stop`) line from
 [Install](#install); without it poggy_core falls back to `StartResource`.
 
 **Which scripts.** A dependent is any resource whose `fxmanifest.lua` declares
@@ -192,6 +194,8 @@ add_ace group.admin poggy.settings.takeover allow
 
 # lets the hub restart a script after you save (the updater uses the same line)
 add_ace resource.poggy_core command.ensure allow
+add_ace resource.poggy_core command.start allow
+add_ace resource.poggy_core command.stop allow
 ```
 
 Without the `command.ensure` line, restarts fall back to stopping and starting
@@ -383,6 +387,38 @@ A script's page asks for its theme again when its script sends it a message
 (opening a screen), at most every few seconds, which is how a new setting, or a
 theme changed in /poggy, reaches it without a restart. Pages that do not load
 theme.js (non-Poggy resources) are left alone.
+
+## Screens shown by poggy_core (0.27.0)
+
+RedM loads every resource's `ui_page` into one browser on every player's game
+when they join, and keeps it there all session, used or not. A server running
+many scripts with screens carries all of them at once; past a point the game
+gets slow or crashes. A Poggy script can hand its screen to poggy_core instead.
+
+In the script's `fxmanifest.lua`, replace `ui_page` with:
+
+```lua
+poggy_ui 'ui/index.html'        -- the same page ui_page named; keep it in files {}
+poggy_ui_idle '120'             -- optional: unload it after 120 s closed and quiet
+poggy_core_min '0.27.0'
+```
+
+Nothing else changes. The bridge (`template/poggy.lua`, 1.4.0) sees the
+manifest and sends the script's `SendNUIMessage`, `SendNuiMessage`,
+`SetNuiFocus` and `SetNuiFocusKeepInput` to poggy_core. poggy_core opens the
+page (`client/cl_host.lua`, `ui/hub/host.js`) the first time the script sends
+it a message or takes focus, in a frame of its own inside poggy_core's page,
+loaded from the script's own folder (`https://cfx-nui-<script>/<page>`). So the
+page's files, its `fetch` calls to the script's `RegisterNUICallback`, its
+`GetParentResourceName()` and its saved browser data are what they were.
+
+- A script with its own `ui_page` is never touched.
+- Don't send the page a message when the script starts: that opens it at once.
+- Without `poggy_ui_idle` a page stays loaded once opened (right for a screen
+  that shows something while closed to input, such as a tracker or a timer).
+- poggy_core's own menus and input boxes draw over a hosted screen and get the
+  keyboard while open; the screen gets it back when they close.
+- A script that stops takes its screen and any focus it held with it.
 
 ## Design rules
 
@@ -1316,6 +1352,8 @@ they are missing:
 ```cfg
 add_ace resource.poggy_core command.refresh allow
 add_ace resource.poggy_core command.ensure allow
+add_ace resource.poggy_core command.start allow
+add_ace resource.poggy_core command.stop allow
 ```
 
 To review updates before they go in, turn both switches off:

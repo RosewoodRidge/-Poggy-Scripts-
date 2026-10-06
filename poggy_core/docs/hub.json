@@ -323,7 +323,7 @@
     },
     "PoggyCoreConfig.RestartDependents": {
       "label": "Restart Poggy scripts with poggy_core",
-      "tooltip": "Restarting poggy_core stops every Poggy script. When on, poggy_core starts the ones that were running again once it is back. Needs 'add_ace resource.poggy_core command.ensure allow' in server.cfg. Never touches a fresh server start.",
+      "tooltip": "Restarting poggy_core stops every Poggy script. When on, poggy_core starts the ones that were running again once it is back. Needs 'add_ace resource.poggy_core command.ensure allow' (and the same for command.start and command.stop) in server.cfg. Never touches a fresh server start.",
       "tab": "general",
       "group": "Restarting"
     },
@@ -701,7 +701,7 @@
     },
     "PoggyCoreConfig.Updates.RestartUpdated": {
       "label": "Restart updated scripts",
-      "tooltip": "After installing, restarts each updated script so the new version runs. Needs 'add_ace resource.poggy_core command.refresh allow' and '... command.ensure allow' in server.cfg. poggy_core itself only updates on the next server restart.",
+      "tooltip": "After installing, restarts each updated script so the new version runs. Needs 'add_ace resource.poggy_core command.refresh allow' and '... command.ensure allow' (and the same for command.start and command.stop) in server.cfg. poggy_core itself only updates on the next server restart.",
       "tab": "updates",
       "group": "After installing"
     },

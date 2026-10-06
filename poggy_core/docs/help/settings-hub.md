@@ -15,6 +15,8 @@ To restart scripts from the hub, `server.cfg` also needs:
 
 ```
 add_ace resource.poggy_core command.ensure allow
+add_ace resource.poggy_core command.start allow
+add_ace resource.poggy_core command.stop allow
 ```
 
 ## Changing a setting

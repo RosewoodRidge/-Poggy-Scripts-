@@ -79,7 +79,7 @@
     first time PoggyReady() passes on the server).
 ]]
 
-local BRIDGE_VERSION = "1.3.0"
+local BRIDGE_VERSION = "1.4.0"
 
 local RESOURCE = GetCurrentResourceName()
 local VERSION  = GetResourceMetadata(RESOURCE, "version", 0) or "?"
@@ -399,4 +399,51 @@ if not IsDuplicityVersion() then
         local ok, t = pcall(function() return exports.poggy_core:ThemeFor(themeId) end)
         cb(ok and type(t) == "table" and t or {})
     end)
+end
+
+-- ---------------------------------------------------------------------------
+-- The script's screen, shown by poggy_core (poggy_core 0.27.0, bridge 1.4.0).
+--
+-- A script whose manifest has no ui_page but names its page for poggy_core,
+--     poggy_ui 'ui/index.html'
+-- has no frame of its own: RedM would load one for every script on every
+-- player's game, used or not. poggy_core shows the page instead, loaded the
+-- first time the script uses it (client/cl_host.lua, ui/hub/host.js). The
+-- script's code does not change: the four calls below now go to poggy_core,
+-- and the page's fetch calls still reach this script's RegisterNUICallback.
+-- A script that still has its own ui_page is not touched.
+-- ---------------------------------------------------------------------------
+if not IsDuplicityVersion()
+    and GetResourceMetadata(RESOURCE, "ui_page", 0) == nil
+    and GetResourceMetadata(RESOURCE, "poggy_ui", 0) ~= nil then
+
+    local said = false
+    local function host(name, ...)
+        local args = { ... }
+        local ok, res = pcall(function() return exports.poggy_core[name](exports.poggy_core, table.unpack(args)) end)
+        if not ok and not said then
+            said = true
+            print(("^1[%s] poggy_core could not show this script's screen (%s). It needs poggy_core 0.27.0 or newer.^7")
+                :format(RESOURCE, tostring(res)))
+        end
+        return ok and res or false
+    end
+
+    function SendNUIMessage(data)
+        return host("HostSend", data)
+    end
+
+    function SendNuiMessage(text)
+        local ok, data = pcall(json.decode, text)
+        if ok and data ~= nil then return host("HostSend", data) end
+        return false
+    end
+
+    function SetNuiFocus(hasFocus, hasCursor)
+        host("HostFocus", hasFocus and true or false, hasCursor and true or false)
+    end
+
+    function SetNuiFocusKeepInput(keep)
+        host("HostKeepInput", keep and true or false)
+    end
 end

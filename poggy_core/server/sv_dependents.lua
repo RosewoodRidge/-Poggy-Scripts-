@@ -380,7 +380,9 @@ function Dependents.Restore()
         return {}, "disabled"
     end
 
-    local useEnsure = aceAllowed("command.ensure")
+    -- `ensure` runs `stop` and `start` as commands of their own (ServerResources.cpp), each
+    -- checked on its own: poggy_core uses it only when all three are allowed (0.27.0).
+    local useEnsure = aceAllowed("command.ensure") and aceAllowed("command.start") and aceAllowed("command.stop")
     for _, folder in ipairs(wanted) do
         if useEnsure then
             ExecuteCommand("ensure " .. folder)
@@ -389,6 +391,12 @@ function Dependents.Restore()
         end
     end
     Wait(SETTLE_MS)
+    -- Anything ensure did not bring back (a refused ACL, most often): the native.
+    local retried = false
+    for _, folder in ipairs(wanted) do
+        if state(folder) == "stopped" then pcall(StartResource, folder); retried = true end
+    end
+    if retried then Wait(SETTLE_MS) end
 
     local restarted, failed = {}, {}
     for _, folder in ipairs(wanted) do
@@ -410,7 +418,7 @@ function Dependents.Restore()
             :format(f.folder, own, f.state, f.folder))
     end
     if #failed > 0 and not useEnsure then
-        log(("   ^9add_ace resource.%s command.ensure allow^7 ^9in server.cfg lets poggy_core use ensure^7"):format(own))
+        log(("   ^9add_ace resource.%s command.ensure allow (and command.start, command.stop) in server.cfg lets poggy_core use ensure^7"):format(own))
     end
     return restarted, "restarted"
 end

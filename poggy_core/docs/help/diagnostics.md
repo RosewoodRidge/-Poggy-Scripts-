@@ -72,4 +72,4 @@ More on the **Bans** help page.
 
 - **Framework shows as standalone:** run `poggycore detect`. Your framework core may have started after poggy_core, or *Force a framework* is set.
 - **Updates never install:** run `poggycore update nettest`, then check *Automatic updates* is on.
-- **Scripts do not restart after an update or a hub save:** add `add_ace resource.poggy_core command.ensure allow` (and `command.refresh` for updates) to `server.cfg`.
+- **Scripts do not restart after an update or a hub save:** add `add_ace resource.poggy_core command.ensure allow` (and the same line for `command.start` and `command.stop`) (and `command.refresh` for updates) to `server.cfg`.

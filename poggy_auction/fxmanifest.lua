@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_auction'
 author 'Poggy'
 description 'Auction house where players list, bid on, buy out and collect items, with a supply catalogue and want requests.'
-version '1.3.3'
-poggy_core_min '0.17.0'
+version '1.4.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -38,7 +38,9 @@ server_scripts {
     'server/discord.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

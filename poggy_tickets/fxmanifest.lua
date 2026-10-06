@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_tickets'
 author 'Poggy'
 description 'Player tickets and help requests, with a staff panel: your own staff roles, staff chat, claim, escalate, reply, teleport, warn, kick, ban, Discord.'
-version '1.1.3'
-poggy_core_min '0.19.0'        -- ban.add, ban.remove, ban.list, player.kick, player.identifiers
+version '1.2.0'
+poggy_core_min '0.27.0'        -- ban.add, ban.remove, ban.list, player.kick, player.identifiers
 
 dependencies {
     'poggy_core',
@@ -42,7 +42,9 @@ server_scripts {
     'server/sv_callbacks.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

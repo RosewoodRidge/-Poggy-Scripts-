@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_fishing_journal'
 author 'Poggy'
 description 'Fishing journal with a discoverable fish map and seasonal fish.'
-version '1.2.3'
-poggy_core_min '0.13.0'
+version '1.3.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -30,7 +30,9 @@ server_scripts {
     'server/server.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- it loads the first time the script opens it, not on every player's game at join.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',

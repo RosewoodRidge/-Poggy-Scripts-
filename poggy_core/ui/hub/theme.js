@@ -41,6 +41,16 @@
     if (window.__poggyTheme) return;             // loaded twice: once is enough
     window.__poggyTheme = true;
 
+    // A page shown by poggy_core (0.27.0, ui/hub/host.js) sits one frame deeper
+    // than a script's own ui_page. Its name comes from its own address
+    // (https://cfx-nui-<script>/...), set here, before the page's own scripts
+    // run: most of them ask GetParentResourceName() once, at load.
+    if (window.parent !== window.top) {
+        var host = /^cfx-nui-(.+)$/.exec(location.hostname || '');
+        var hosted = host ? host[1] : (location.protocol === 'nui:' ? location.hostname : null);
+        if (hosted) window.GetParentResourceName = function () { return hosted; };
+    }
+
     var me = document.currentScript;
     var BASE = (me && me.src) ? me.src.replace(/[^\/]*$/, '') : 'https://cfx-nui-poggy_core/ui/hub/';
     var RESOURCE = (typeof GetParentResourceName === 'function') ? GetParentResourceName() : null;

@@ -38,7 +38,7 @@ PoggyCoreConfig.FrameworkTimeout = 30000
 --- Every Poggy script depends on poggy_core, so `restart poggy_core` stops all
 --- of them and FXServer does not start them again. With this on, poggy_core
 --- starts them itself once it is back (`ensure <script>`, through the same
---- `add_ace resource.poggy_core command.ensure allow` line the updater uses),
+--- `add_ace resource.poggy_core command.ensure allow` (and the same line for `command.start` and `command.stop`) line the updater uses),
 --- and prints one line naming them.
 ---
 --- It only ever starts scripts that were running when poggy_core stopped: it
@@ -185,6 +185,8 @@ PoggyCoreConfig.Updates = {
     -- This needs two lines in server.cfg (poggy_core prints them if missing):
     --     add_ace resource.poggy_core command.refresh allow
     --     add_ace resource.poggy_core command.ensure allow
+    --     add_ace resource.poggy_core command.start allow
+    --     add_ace resource.poggy_core command.stop allow
     -- poggy_core never restarts itself: its own update takes effect on the next
     -- server restart (or `refresh` then `ensure poggy_core` by hand).
     RestartUpdated       = true,
@@ -300,6 +302,8 @@ PoggyCoreConfig.Theme = {
 --- editing needs poggy.settings.takeover. Restarting a script from the hub
 --- needs this line in server.cfg (the updater uses the same one):
 ---     add_ace resource.poggy_core command.ensure allow
+---     add_ace resource.poggy_core command.start allow
+---     add_ace resource.poggy_core command.stop allow
 PoggyCoreConfig.Hub = {
     Command         = "poggy",  -- the chat command that opens the hub
     IdleMinutes     = 10,       -- a script's lock is released after this long with no activity

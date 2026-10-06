@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_scenes_2'
 author 'Poggy'
 description 'Poggy Scenes 2.0 - real sign boards you type on, scene text, status tags and the /me box for RedM.'
-version '2.0.1'
-poggy_core_min '0.13.0'
+version '2.1.0'
+poggy_core_min '0.27.0'
 
 dependencies {
     'poggy_core',
@@ -33,7 +33,9 @@ server_scripts {
     'server/hub.lua',
 }
 
-ui_page 'ui/index.html'
+-- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
+-- an on-screen display, so it loads when the player joins, as before.
+poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',
