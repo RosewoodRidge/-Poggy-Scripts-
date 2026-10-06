@@ -1202,11 +1202,94 @@
         return out;
     }
 
+    /** Does hub.json declare fields under this pattern (npc.coords under npc)? */
+    function hasFieldsUnder(listMeta, pattern) {
+        var fields = (listMeta && listMeta.fields) || {};
+        return Object.keys(fields).some(function (f) { return f.indexOf(pattern + '.') === 0; });
+    }
+
+    /**
+     * A field hub.json marks "switch": off (false), on (true), or a table of
+     * its own settings, which also means on (a store's clerk: npc = false,
+     * npc = true, npc = { coords = ..., heading = ... }). One switch, and
+     * while it is on, the settings under it, set or not. Changing one of them
+     * while the value is still `true` turns it into a table holding that one
+     * setting. Before 0.26.4 the settings only showed once the file already
+     * had a table, so a clerk switched on in /poggy could never be moved.
+     */
+    function renderSwitch(target, ctx, k) {
+        var path = childPathOf(ctx.path, k);
+        var pattern = childPattern(ctx.pattern, k, false);
+        var fm = fieldMeta(ctx.listMeta, pattern);
+        var box = h('div.ph-switchgrp');
+        var kept = null;   // the settings last switched off, back if it is switched on again
+        function isOn(x) { return x === true || PH.isPlainObj(x); }
+        function draw() {
+            PH.clear(box);
+            var x = S.get(path);
+            box.appendChild(F.field({
+                path: path, value: isOn(x), meta: fm, label: fm.label || PH.readable(k), tooltip: fm.tooltip || '', stack: true,
+                commit: function (on) {
+                    var cur = S.get(path);
+                    if (!on && PH.isPlainObj(cur)) kept = PH.clone(cur);
+                    return S.set(path, on ? (kept || true) : false);
+                },
+                onChange: function () { draw(); if (ctx.onChange) ctx.onChange(); },
+            }));
+            if (!isOn(x)) return;
+            var body = h('div.ph-switchgrp__body');
+            if (PH.isPlainObj(x)) {
+                renderObject(body, {
+                    path: path, value: x, pattern: pattern, listMeta: ctx.listMeta,
+                    file: ctx.file, depth: ctx.depth + 1, onChange: ctx.onChange,
+                });
+            } else {
+                var grid = h('div.ph-rowgrid');
+                unsetKeys({}, pattern, ctx.listMeta).forEach(function (sk) {
+                    grid.appendChild(unsetField(ctx.listMeta, pattern, path, sk, ctx.onChange, function (val) {
+                        // Still `true`: the first change makes the table. After
+                        // that (the person is still typing) it is a plain set.
+                        var cur = S.get(path);
+                        if (PH.isPlainObj(cur)) return S.set(childPathOf(path, sk), val);
+                        var t = {};
+                        t[sk] = val;
+                        return S.set(path, t);
+                    }));
+                });
+                body.appendChild(grid);
+            }
+            box.appendChild(body);
+        }
+        draw();
+        target.appendChild(box);
+    }
+
+    /** A declared field the value does not have yet, marked "Not set". */
+    function unsetField(listMeta, basePattern, basePath, k, onChange, commit) {
+        var pattern = childPattern(basePattern, k, false);
+        var fm = fieldMeta(listMeta, pattern);
+        var em = fieldMeta(listMeta, pattern + '[]');
+        if ((em.picker) && !fm.picker && (fm.any || fm.default === undefined)) fm = Object.assign({}, fm, { picker: em.picker });
+        return F.field({
+            path: childPathOf(basePath, k), value: unsetValueOf(fm, listMeta, pattern), meta: fm,
+            label: fm.label || PH.readable(k), tooltip: fm.tooltip || '',
+            stack: true, unset: true, onChange: onChange, commit: commit,
+        });
+    }
+
     function renderObject(host, ctx) {
         var v = ctx.value;
         var skip = {};
         (ctx.skipKeys || []).forEach(function (k) { skip[k] = true; });
         var keys = orderedKeys(v, ctx.pattern, ctx.listMeta).filter(function (k) { return !skip[k]; });
+        // Switch fields (above) draw their own switch and the settings under it.
+        var switches = ctx.pattern === undefined ? [] : keys.filter(function (k) {
+            var pattern = childPattern(ctx.pattern, k, false);
+            var x = v[k];
+            return fieldMeta(ctx.listMeta, pattern).switch === true && hasFieldsUnder(ctx.listMeta, pattern) &&
+                (typeof x === 'boolean' || PH.isPlainObj(x));
+        });
+        keys = keys.filter(function (k) { return switches.indexOf(k) === -1; });
         var plain = keys.filter(function (k) { var x = v[k]; return !PH.isPlainObj(x) && !(Array.isArray(x) && x.some(function (y) { return y && typeof y === 'object' && !PH.isVec(y) && !PH.isHash(y); })); });
         var nested = keys.filter(function (k) { return plain.indexOf(k) === -1; });
         // A field hub.json declares but this row does not have (an ingredient
@@ -1222,15 +1305,7 @@
             });
         }
         function renderUnset(target, k) {
-            var pattern = childPattern(ctx.pattern, k, false);
-            var fm = fieldMeta(ctx.listMeta, pattern);
-            var em = fieldMeta(ctx.listMeta, pattern + '[]');
-            if ((em.picker) && !fm.picker && (fm.any || fm.default === undefined)) fm = Object.assign({}, fm, { picker: em.picker });
-            target.appendChild(F.field({
-                path: childPathOf(ctx.path, k), value: unsetValueOf(fm, ctx.listMeta, pattern), meta: fm,
-                label: fm.label || PH.readable(k), tooltip: fm.tooltip || '',
-                stack: true, unset: true, onChange: ctx.onChange,
-            }));
+            target.appendChild(unsetField(ctx.listMeta, ctx.pattern, ctx.path, k, ctx.onChange));
         }
 
         if (ctx.big && plain.length > 24) {
@@ -1239,11 +1314,13 @@
                 g.keys.forEach(function (k) { renderKey(sec.body, k); });
                 host.appendChild(sec.el);
             });
+            switches.forEach(function (k) { renderSwitch(host, ctx, k); });
         } else {
             var grid = h('div.ph-rowgrid');
             plain.forEach(function (k) { renderKey(grid, k); });
             unset.forEach(function (k) { renderUnset(grid, k); });
-            if (plain.length || unset.length) host.appendChild(grid);
+            switches.forEach(function (k) { renderSwitch(grid, ctx, k); });
+            if (plain.length || unset.length || switches.length) host.appendChild(grid);
             // A position kept as separate numbers (x, y, z, maybe h / heading):
             // the same tools a vector3 has, under the last of its boxes.
             var axis = {};
@@ -1275,7 +1352,7 @@
             });
             host.appendChild(sec.el);
         });
-        if (!plain.length && !nested.length && !unset.length) host.appendChild(h('div.ph-coll__empty', 'No other fields.'));
+        if (!plain.length && !nested.length && !unset.length && !switches.length) host.appendChild(h('div.ph-coll__empty', 'No other fields.'));
     }
 
     function nest(title, sub, open) {

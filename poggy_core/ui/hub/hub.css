@@ -1155,6 +1155,11 @@ html { font-size: clamp(13.5px, calc(8.8px + 0.42vw), 21px); }
 .ph-rowgrid > .ph-field { border-bottom: 1px solid var(--ph-rule); }
 /* Wide values (coordinates, lists, long text) take the whole row. */
 .ph-rowgrid > .ph-field.is-wide { grid-column: 1 / -1; }
+/* A switch with its settings under it (hub.json "switch": a store's clerk). */
+.ph-rowgrid > .ph-switchgrp { grid-column: 1 / -1; border-bottom: 1px solid var(--ph-rule); }
+.ph-switchgrp > .ph-field { border-bottom: 0; }
+.ph-switchgrp__body { margin: 0 0 .7rem .35rem; padding-left: .9rem; border-left: 2px solid var(--ph-rule); }
+.ph-switchgrp__body .ph-rowgrid > .ph-field:last-child { border-bottom: 0; }
 
 .ph-nest { margin-top: .9rem; border: 1px solid var(--ph-rule); border-radius: 3px; background: rgba(0, 0, 0, 0.16); }
 .ph-nest.is-filtered { display: none; }

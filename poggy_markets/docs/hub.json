@@ -1459,7 +1459,8 @@
         },
         "npc": {
           "label": "Clerk",
-          "tooltip": "false = no clerk. true = a clerk of the type's model (or the fallback clerk) on the prompt. A table sets the clerk's model, position and heading. Left out, the type's clerk is used."
+          "tooltip": "Off = no clerk. On = a clerk of the type's model (or the fallback clerk), standing on the prompt until you set a Clerk position below. Left out of the file, the type's clerk is used.",
+          "switch": true
         },
         "npc.model": {
           "label": "Clerk model",
@@ -1486,7 +1487,8 @@
         },
         "npc.grounded": {
           "label": "Snap to ground",
-          "tooltip": "On = the clerk is placed on the ground. Leave off under a roof, which is most stores."
+          "tooltip": "On = the clerk is placed on the ground. Leave off under a roof, which is most stores.",
+          "default": false
         },
         "jobLock": {
           "label": "Job lock",

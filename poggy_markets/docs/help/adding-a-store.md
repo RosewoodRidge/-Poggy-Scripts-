@@ -29,8 +29,12 @@ Run `/pmhere` with no type to see every type name in the console.
 | Clerk position (`npc.coords`) | Where the **clerk** stands, behind the counter. Left out, the clerk stands on the prompt. |
 | For-sale position (`purchaseCoords`) | Where the **FOR SALE** prompt appears. |
 
+Switch **Clerk** on and its settings appear right under it: stand where the
+clerk should be, press **Use my position** under **Clerk position**, then set
+**Clerk heading**. Until you set a position, the clerk stands on the prompt.
+
 Most town shops need no clerk: the game already has a shopkeeper there.
-Set **Clerk** to `false` for those.
+Switch **Clerk** off for those.
 
 ## Selling a storefront to players
 

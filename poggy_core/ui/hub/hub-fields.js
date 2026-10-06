@@ -2089,7 +2089,8 @@
      * A whole field row.
      * spec: { path, value, label, tooltip, meta, node (top-level node, optional),
      *         stack (label above control), roleable, readonly, onChange(),
-     *         unset (the file has no line for this yet: `value` is what it means until set) }
+     *         unset (the file has no line for this yet: `value` is what it means until set),
+     *         commit (optional: makes the change instead of S.set(path, value)) }
      * Returns the element; el.refresh() re-reads the working value.
      */
     F.field = function (spec) {
@@ -2108,7 +2109,7 @@
 
         spec.get = function () { return S.get(spec.path); };
         var commit = function (v) {
-            var ok = S.set(spec.path, v);
+            var ok = spec.commit ? spec.commit(v) : S.set(spec.path, v);
             updateBadges();
             if (spec.onChange) spec.onChange(v);
             return ok;
