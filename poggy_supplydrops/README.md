@@ -14,7 +14,7 @@ Both run on their own schedule. Admins can also start them by command.
 - Weighted loot tables for drops, with weapons supported.
 - Cash, gold or item rewards for hunts.
 - A clue penalty: reveal the riddle and lose part of the reward.
-- Map blips, notifications and five colour themes for the hunt window.
+- Map blips and notifications; the hunt window follows the Poggy theme chosen in Poggy Core.
 - Separate Discord webhooks for drops and hunts.
 - Works on every framework poggy_core supports.
 
@@ -71,7 +71,7 @@ Every setting can be changed in game with **`/poggy`** (the Poggy Hub). You can 
 | `Config.EnableSupplyDrops`, `Config.EnableScavengerHunts` | Turn each feature on or off. |
 | `Config.RandomEvent` | The automatic schedule: waits and cooldowns, in milliseconds. |
 | `Config.Supply` | Balloon behaviour, blip, distances, how long a drop lasts, the loot and the locations. |
-| `Config.Scavenger` | Hunt window theme, clue penalty, blip, distances, how long a hunt lasts, the rewards and the hunts. |
+| `Config.Scavenger` | Clue penalty, blip, distances, how long a hunt lasts, the rewards and the hunts. |
 | `Config.NotificationDuration`, `Config.ShowCollectedByNotifications` | How long collect messages stay, and whether everyone hears who collected a drop. |
 | `Config.Discord` | One webhook for drops, one for hunts. |
 | `translations.lua` | Every message. English, Spanish and French ship; pick one with `Config.Language`. |

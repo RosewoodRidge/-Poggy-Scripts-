@@ -353,34 +353,6 @@
       "label": "Scavenger hunts",
       "tab": "hunts"
     },
-    "Config.Scavenger.Theme": {
-      "label": "Window theme",
-      "tooltip": "The colour scheme of the hunt window that /clue opens.",
-      "tab": "hunts",
-      "group": "Hunt window",
-      "options": [
-        {
-          "value": "Crimson",
-          "label": "Crimson"
-        },
-        {
-          "value": "Twilight",
-          "label": "Twilight"
-        },
-        {
-          "value": "Oceanic",
-          "label": "Oceanic"
-        },
-        {
-          "value": "Forest",
-          "label": "Forest"
-        },
-        {
-          "value": "Monochrome",
-          "label": "Monochrome"
-        }
-      ]
-    },
     "Config.Scavenger.UI": {
       "label": "Clue",
       "tab": "hunts"

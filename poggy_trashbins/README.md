@@ -85,7 +85,7 @@ Each bin's storage is saved under its `storageid`. Give every bin a different on
 | `translations.lua` | **Open**, every player-facing message |
 | `client/main.lua` | Escrowed |
 | `server/main.lua` | Escrowed |
-| `ui/progressbar.html` | Escrowed |
+| `ui/index.html`, `ui/app.js`, `ui/app.css` | Readable (the progress bar, drawn with Poggy Core's screen kit) |
 
 ## Troubleshooting
 

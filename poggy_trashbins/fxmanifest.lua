@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_trashbins'
 author 'Poggy'
 description 'Poggy Trash Bins'
-version '1.6.0'
-poggy_core_min '0.27.0'
+version '1.7.0'
+poggy_core_min '0.28.0'
 
 dependencies {
     'poggy_core',
@@ -27,12 +27,16 @@ server_scripts {
     'server/main.lua',
 }
 
--- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
--- it loads the first time the script opens it, not on every player's game at join.
-poggy_ui 'ui/progressbar.html'
+-- The screen is shown by poggy_core, not as a page of this script's own: it loads
+-- the first time a bin is searched, not on every player's game at join. It is
+-- drawn with poggy_core's Poggy UI kit (0.28.0): the source is ui-src/ in
+-- poggy-src, built into ui/ by tools/ui-vue.
+poggy_ui 'ui/index.html'
 
 files {
-    'ui/progressbar.html',
+    'ui/index.html',
+    'ui/app.js',
+    'ui/app.css',
     'docs/icon.png',
 }
 

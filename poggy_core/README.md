@@ -420,6 +420,33 @@ page's files, its `fetch` calls to the script's `RegisterNUICallback`, its
   keyboard while open; the screen gets it back when they close.
 - A script that stops takes its screen and any focus it held with it.
 
+### The Poggy UI kit (0.28.0)
+
+Every Poggy screen is moving to Vue, a few scripts per release, all drawn from
+one kit that poggy_core serves. The others keep working as they are until their
+turn. poggy_core ships, in `ui/hub/`:
+
+| File | What it is |
+|---|---|
+| `vue.runtime.global.prod.js` | Vue 3.5.13 (MIT), runtime only (`window.Vue`) |
+| `poggy-ui.js` | the kit (`window.PoggyUI`): window, tabs, buttons, inputs, the ◄ ► switcher, rows, groups, a sortable table, progress bar, picture viewer, HUD panel, and `post` / `onMessage` / `onKey` |
+| `poggy-ui.css` | the Poggy look: the theme tokens and every `.pg-*` class |
+
+A screen on the kit is a few `.vue` files compiled into the script's `ui/app.js`
+and `ui/app.css`; Vue and the kit are never copied into a script. Its page marks
+itself `<html data-pg-native>`, so `theme.js` gives it the owner's theme but none
+of the old per-script skins. The kit only grows: nothing released is removed or
+renamed, so a script built on an older kit runs on a newer poggy_core.
+
+```lua
+poggy_core_min '0.28.0'
+poggy_ui 'ui/index.html'
+files { 'ui/index.html', 'ui/app.js', 'ui/app.css' }
+```
+
+How to write one, and the component list: `ui-src/README.md` in the poggy_core
+source (Poggy's development tree; the built files above are what ships).
+
 ## Design rules
 
 These are promises, not preferences. Code against them.

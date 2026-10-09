@@ -142,9 +142,6 @@ Config.Supply = {
 -- Scavenger Hunt Configuration
 Config.Scavenger = {
     
-    -- UI Theme. Available themes: Crimson, Twilight, Oceanic, Forest, Monochrome
-    Theme = "Oceanic", 
-
     -- Blip settings when a hunt is active
     Blip = {
         Sprite = "blip_treasure",

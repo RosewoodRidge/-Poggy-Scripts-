@@ -125,7 +125,7 @@ Config.JobPresets = {
 
 The shipped **shop owner** jobs are examples, not stock jobs. Rename or delete them to match your server.
 
-The panel's category filter knows the group keys `police`, `medical`, `business` and `shops`. A group with any other key still shows under **All Categories**.
+The panel's category switcher lists every group by its `name`, whatever its key.
 
 ### Text
 

@@ -355,7 +355,7 @@ Config.TrashBins = {
 Config.SearchTimeMin = 5000 -- 5 seconds
 Config.SearchTimeMax = 10000 -- 10 seconds
 
--- Progress bar (ui/progressbar.html, drawn by the script while searching)
+-- Progress bar (ui/index.html, drawn by the script while searching)
 Config.UseScriptProgressbar = true -- Set to false to hide the search progress bar
 
 -- Player-facing text lives in translations.lua.

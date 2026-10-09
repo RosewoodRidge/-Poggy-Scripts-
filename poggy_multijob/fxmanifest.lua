@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_multijob'
 author 'Poggy'
 description 'Multijob System'
-version '1.8.0'
-poggy_core_min '0.27.0'
+version '1.9.0'
+poggy_core_min '0.28.0'
 
 dependencies {
     'poggy_core',
@@ -35,16 +35,17 @@ server_scripts {
     'server/provider.lua',
 }
 
--- The admin screen is shown by poggy_core (0.27.0), not as a page of this
--- script's own: it is loaded only when /mjadmin opens it, and unloaded again
--- after two minutes closed.
+-- The admin screen is shown by poggy_core, not as a page of this script's own:
+-- it is loaded only when /mjadmin opens it, and unloaded again after two
+-- minutes closed. It is drawn with poggy_core's Poggy UI kit (0.28.0): the
+-- source is ui-src/ in poggy-src, built into ui/ by tools/ui-vue.
 poggy_ui 'ui/index.html'
 poggy_ui_idle '120'
 
 files {
     'ui/index.html',
-    'ui/style.css',
-    'ui/script.js',
+    'ui/app.js',
+    'ui/app.css',
     'docs/icon.png',
 }
 

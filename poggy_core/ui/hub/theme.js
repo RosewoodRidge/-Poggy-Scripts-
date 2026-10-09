@@ -22,6 +22,9 @@
         re-attached: re-attaching them is what made pages flash their old
         look in 0.23.0 (crafting, 23 September 2026), not the asking.
 
+   A page built on the Poggy UI kit (0.28.0, <html data-pg-native>) gets the
+   tokens but never a skin: it is drawn in the Poggy look already.
+
    A script on the owner's "keep its own look" list gets nothing: no skin,
    no class, no colours. With no answer at all (an older poggy_core or
    bridge), the page keeps the Rosewood defaults in theme.css.
@@ -211,7 +214,10 @@
         // skin === false: poggy_core ships no skin for this script (nothing to
         // ask for); undefined (the defaults, before the answer): try it.
         var sid = skinName(theme.skinId) || id;           // poggy_tickets_fivem wears poggy_tickets' skin
-        var skin = (sid && theme.skin !== false) ? BASE + 'theme-' + sid + '.css' : null;
+        // A page built on the Poggy UI kit (0.28.0) is native: <html data-pg-native>.
+        // Its script's skin is for the script's older page, and would restyle this one.
+        var native = root.hasAttribute('data-pg-native');
+        var skin = (sid && theme.skin !== false && !native) ? BASE + 'theme-' + sid + '.css' : null;
         link('pg-theme-base', BASE + 'theme.css');
         link('pg-theme-skin', skin);
         state.enabled = true; state.id = id; state.rev = theme.rev; state.skin = skin;
