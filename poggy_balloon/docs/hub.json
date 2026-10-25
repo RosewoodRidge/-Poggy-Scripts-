@@ -1,15 +1,23 @@
 {
   "label": "Poggy Balloon",
-  "tagline": "Hot air balloon taxis, self-flown rentals and passengers who stay in the basket",
+  "tagline": "Hot air balloon taxis, self-flown rentals, owned balloons and passengers who stay in the basket",
   "category": "World",
-  "description": "Balloon operators across the map fly players to any waypoint for a fare, or rent them a balloon to fly themselves. Captains get proper climb, descend, boost and brake controls, and up to four passengers ride with sitting animations instead of ragdolling.",
+  "description": "Balloon operators across the map fly players to any waypoint for a fare, rent them a balloon to fly themselves, or sell them their own balloon to call to the nearest road with B or /balloon. Captains get proper climb, descend, boost and brake controls, and up to four passengers ride with sitting animations instead of ragdolling.",
   "readme": "README.md",
   "help": [
     {"title": "Adding a balloon station", "file": "docs/help/adding-a-station.md"},
-    {"title": "Tuning taxi flights and rentals", "file": "docs/help/tuning-flights.md"}
+    {"title": "Tuning taxi flights and rentals", "file": "docs/help/tuning-flights.md"},
+    {"title": "Owned balloons", "file": "docs/help/owned-balloons.md"}
   ],
 
   "commands": [
+    {
+      "command": "/balloon",
+      "who": "Everyone who owns a balloon",
+      "description": "Brings your own balloon to the nearest road, the same as the call key (B by default). You must be within the road distance of a road. /balloon away puts it away. Rename it with Command name under Owned balloons; turn it off by leaving that empty.",
+      "usage": "/balloon | /balloon away",
+      "examples": ["/balloon", "/balloon away"]
+    },
     {
       "command": "/spawnballoon",
       "who": "Admins",
@@ -80,6 +88,7 @@
     {"id": "locations", "label": "Locations", "icon": "map"},
     {"id": "taxi", "label": "Taxi rides", "icon": "navigation"},
     {"id": "rental", "label": "Rentals & flying", "icon": "balloon"},
+    {"id": "ownership", "label": "Owned balloons", "icon": "owner"},
     {"id": "economy", "label": "Economy & prices", "icon": "coins"},
     {"id": "text", "label": "Text & language", "icon": "globe"},
     {"id": "advanced", "label": "Advanced", "icon": "cog"}
@@ -118,6 +127,97 @@
       "tooltip": "Turn off to remove the Rent a Balloon option at every station.",
       "tab": "general",
       "group": "Services"
+    },
+    "Config.Ownership.Enabled": {
+      "label": "Owned balloons on",
+      "tooltip": "Players can buy a balloon at any station and call it to the nearest road. Turn off to remove Buy, Take Out and Sell from every station, the call key and the command. Balloons already bought stay saved.",
+      "tab": "general",
+      "group": "Services"
+    },
+    "Config.Ownership": {"label": "Owned balloons", "tab": "ownership"},
+    "Config.Ownership.Price": {
+      "label": "Balloon price",
+      "tooltip": "What buying a balloon costs at a station, taken from the player's cash. One balloon per character.",
+      "tab": "economy",
+      "group": "Prices",
+      "min": 0,
+      "max": 100000,
+      "step": 1,
+      "unit": "$"
+    },
+    "Config.Ownership.SellBackPercent": {
+      "label": "Sell-back share",
+      "tooltip": "How much of the price a player paid comes back when they sell their balloon at a station, in percent. 0 removes the Sell option.",
+      "tab": "economy",
+      "group": "Prices",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%"
+    },
+    "Config.Ownership.CallCommand": {
+      "label": "Command name",
+      "tooltip": "The command that calls a player's balloon, without the slash. balloon gives /balloon and /balloon away. Leave it empty for no command. Players need a restart to see a new name.",
+      "tab": "ownership",
+      "group": "Calling the balloon"
+    },
+    "Config.Ownership.CallKey": {
+      "label": "Call key",
+      "tooltip": "Control hash of the key that calls the balloon. Default 0x4CC0E2FE (B). 0 = no key. Find hashes in the rdr3_discoveries controls list. It does nothing for players who own no balloon, inside a vehicle, or on a taxi ride.",
+      "tab": "ownership",
+      "group": "Calling the balloon"
+    },
+    "Config.Ownership.CallKeyLabel": {
+      "label": "Call key name",
+      "tooltip": "The key's name in messages (Press B ...). Change it together with Call key.",
+      "tab": "ownership",
+      "group": "Calling the balloon"
+    },
+    "Config.Ownership.RoadDistance": {
+      "label": "Road distance",
+      "tooltip": "How close to a road or trail a player must be to call their balloon, in metres. Farther away they are told they are not near a road.",
+      "tab": "ownership",
+      "group": "Calling the balloon",
+      "min": 10,
+      "max": 500,
+      "step": 5,
+      "unit": "metres"
+    },
+    "Config.Ownership.CallCooldownSeconds": {
+      "label": "Call cooldown",
+      "tooltip": "How long a player waits between calls, in seconds.",
+      "tab": "ownership",
+      "group": "Calling the balloon",
+      "min": 0,
+      "max": 600,
+      "step": 1,
+      "unit": "seconds"
+    },
+    "Config.Ownership.OnlyOwnerFlies": {
+      "label": "Only the owner flies it",
+      "tooltip": "On: anyone else who takes the captain's seat of a player's balloon is moved out. Passengers can always ride along. Off: anyone may fly it.",
+      "tab": "ownership",
+      "group": "The balloon"
+    },
+    "Config.Ownership.Blip": {
+      "label": "Map blip",
+      "tooltip": "Show the owner's balloon on their map while it is out.",
+      "tab": "ownership",
+      "group": "The balloon"
+    },
+    "Config.Ownership.BlipSprite": {
+      "label": "Blip icon",
+      "tooltip": "The blip sprite hash. 531267562 is the balloon icon.",
+      "tab": "ownership",
+      "group": "The balloon",
+      "advanced": true
+    },
+    "Config.Ownership.BalloonModel": {
+      "label": "Owned balloon model",
+      "tooltip": "The vehicle model of owned balloons. The captain controls only work on hotairballoon01, so leave this unless you know your model.",
+      "tab": "advanced",
+      "group": "Models",
+      "advanced": true
     },
     "Config.BalloonTaxi": {"label": "Taxi rides", "tab": "taxi"},
     "Config.BalloonTaxi.CruisingAltitude": {

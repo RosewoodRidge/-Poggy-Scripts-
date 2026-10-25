@@ -5,12 +5,13 @@ lua54 'yes'
 
 poggy_id 'poggy_balloon'
 author 'Poggy'
-description 'Hot air balloons with an NPC taxi service to waypoints, self-piloted rentals and passenger animations.'
-version '1.6.2'
+description 'Hot air balloons with an NPC taxi service to waypoints, self-piloted rentals, owned balloons you call to the road, and passenger animations.'
+version '1.7.0'
 poggy_core_min '0.14.0'
 
 dependencies {
     'poggy_core',
+    'oxmysql',
 }
 
 shared_scripts {
@@ -29,12 +30,15 @@ client_scripts {
     'client/balloon_taxi.lua',
     'client/balloon_spawn.lua',
     'client/balloon_rental.lua',
+    'client/balloon_owned.lua',
 }
 
 server_scripts {
+    '@oxmysql/lib/MySQL.lua',
     'server/balloon_server.lua',
     'server/balloon_taxi_server.lua',
     'server/balloon_rental_server.lua',
+    'server/balloon_owned_server.lua',
 }
 
 files {

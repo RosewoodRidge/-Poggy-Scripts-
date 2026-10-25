@@ -102,6 +102,27 @@ Config.BalloonRental = {
 }
 
 -- ===============================================
+-- OWNED BALLOONS
+-- ===============================================
+-- A character can buy one balloon at any station, then call it to the
+-- nearest road from anywhere with the call key or the command. Passengers
+-- board it like any other balloon; only the owner can take the captain's seat.
+Config.Ownership = {
+    Enabled = true,                   -- Master toggle: Buy / Take Out / Sell at stations, the call key and command
+    Price = 500,                      -- What a balloon costs at a station (cash)
+    SellBackPercent = 50,             -- Share of the price paid back when selling it at a station (0 = cannot sell)
+    CallCommand = "balloon",          -- /balloon calls it to the nearest road; /balloon away puts it away ("" = no command)
+    CallKey = 0x4CC0E2FE,             -- B key (INPUT_SPECIAL_ABILITY_SECONDARY) calls it; 0 = no key
+    CallKeyLabel = "B",               -- The key's name in messages; change it with CallKey
+    RoadDistance = 75.0,              -- How close to a road the player must be to call it (metres)
+    CallCooldownSeconds = 15,         -- Wait between calls
+    OnlyOwnerFlies = true,            -- false = anyone may take the captain's seat of someone's balloon
+    Blip = true,                      -- Show the balloon on the map while it is out
+    BlipSprite = 531267562,           -- Balloon icon
+    BalloonModel = "hotairballoon01", -- Balloon model for owned balloons
+}
+
+-- ===============================================
 -- BALLOON TAXI NPC LOCATIONS
 -- ===============================================
 Config.BalloonTaxi.Locations = {

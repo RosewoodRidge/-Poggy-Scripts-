@@ -1,6 +1,6 @@
 # Poggy Balloon
 
-Hot air balloons for RedM: NPC taxi rides to any waypoint, self-flown rentals, and passengers who sit properly in the basket.
+Hot air balloons for RedM: NPC taxi rides to any waypoint, self-flown rentals, balloons players own and call to the road, and passengers who sit properly in the basket.
 
 No more passengers ragdolling in the basket, and no more captains standing still.
 
@@ -21,6 +21,14 @@ No more passengers ragdolling in the basket, and no more captains standing still
 - **Timer.** The player is warned before the rental runs out, then the balloon is taken back.
 - **Per station.** Turn rentals on or off for each station.
 
+### Owned balloons
+
+- **Buy one at any station.** One balloon per character, saved in the database. Set the price in `/poggy`.
+- **Call it anywhere.** Press **B** or type `/balloon` and it is brought to the nearest road. Too far from a road (75 metres by default) and you are told so.
+- **Take it out at a station** without needing a road, put it away with `/balloon away`, or sell it back for part of the price.
+- **Bring your friends.** Up to four passengers ride in your balloon; only you can take the captain's seat.
+- **On the map.** Your balloon has its own blip while it is out.
+
 ### Flying and riding
 
 - **Captain controls.** Move, climb (Shift), descend (Ctrl), boost, brake and altitude lock.
@@ -40,6 +48,7 @@ English, French, Spanish and German included. Add more in `translations.lua`.
 | Resource | Why |
 |---|---|
 | **poggy_core** 0.14.0 or newer | Money, character checks, prompts, notifications and the station menu, on VORP, RSG or QBR |
+| **oxmysql** | Saves owned balloons. The table is created when the script starts; there is nothing to import. |
 
 No menu resource (such as vorp_menu) is needed.
 
@@ -48,12 +57,21 @@ No menu resource (such as vorp_menu) is needed.
 ## Installation
 
 1. Put the `poggy_balloon` folder in your `resources` folder.
-2. Add it to `server.cfg`, after poggy_core:
+2. Add it to `server.cfg`, after oxmysql and poggy_core:
    ```
+   ensure oxmysql
    ensure poggy_core
    ensure poggy_balloon
    ```
 3. Restart the server.
+
+### Updating to 1.7.0
+
+1.7.0 adds a `sql` folder, and a server cannot create folders for itself. Before the update installs, run this once in PowerShell (change the path to your `poggy_balloon` folder):
+
+```powershell
+New-Item -ItemType Directory -Force "C:\txData\resources\[Poggy]\poggy_balloon\sql"
+```
 
 ### Upgrading from `poggy-balloon`
 
@@ -83,6 +101,16 @@ The folder was renamed from `poggy-balloon` to `poggy_balloon`.
 2. Pick **Rent a Balloon**. The price is taken from your cash.
 3. Get in as the pilot and fly anywhere until the rental ends.
 
+### Owning a balloon
+
+1. Talk to any operator and pick **Buy a Balloon**. The price is taken from your cash.
+2. Anywhere near a road, press **B** or type `/balloon`. Your balloon is brought to the nearest road and shown on your map.
+3. At a station, pick **Take Out Your Balloon** to have it brought out there instead.
+4. `/balloon away` puts it away. Calling it again moves it to the road nearest you.
+5. Pick **Sell Your Balloon** at a station to sell it back (half the price by default).
+
+Friends board as passengers the usual way. Only the owner can fly it.
+
 ### Flying as captain
 
 | Control | Action |
@@ -108,6 +136,8 @@ Walk up to a balloon and hold **F** (Enter as Passenger). Up to four passengers 
 
 | Command | Who | What it does |
 |---|---|---|
+| `/balloon` | Everyone who owns a balloon | Brings your balloon to the nearest road. Same as the **B** key. |
+| `/balloon away` | Everyone who owns a balloon | Puts your balloon away. |
 | `/spawnballoon` | Admins (see Permissions) | Spawns a balloon next to you. |
 | `/spawnballoon_local` | Everyone, only when Admin only is off | Spawns a balloon next to you. |
 | `/balloon_server_status` | ACE `command.balloon_server_status` | Prints every balloon and its seats to the server console. |
@@ -140,6 +170,14 @@ Every setting can be changed in game with **/poggy** (Poggy Hub). You can also e
 | `Config.BalloonRental.Price` | `50` | Price of one rental ($). |
 | `Config.BalloonRental.RentalDurationMinutes` | `60` | Rental length (minutes). |
 | `Config.BalloonRental.WarningTimeMinutes` | `5` | Warning before the rental ends (minutes). |
+| `Config.Ownership.Enabled` | `true` | Owned balloons on or off (Buy / Take Out / Sell, the call key and `/balloon`). |
+| `Config.Ownership.Price` | `500` | What a balloon costs ($). |
+| `Config.Ownership.SellBackPercent` | `50` | Share of the price paid back on selling (0 = cannot sell). |
+| `Config.Ownership.CallKey` | `0x4CC0E2FE` (B) | Key that calls your balloon (control hash; 0 = no key). Change `CallKeyLabel` with it. |
+| `Config.Ownership.CallCommand` | `"balloon"` | The call command (`""` = none). |
+| `Config.Ownership.RoadDistance` | `75.0` | How close to a road you must be to call it (metres). |
+| `Config.Ownership.CallCooldownSeconds` | `15` | Wait between calls. |
+| `Config.Ownership.OnlyOwnerFlies` | `true` | Only the owner may take the captain's seat. |
 | `Config.Flight` | — | Captain climb and descend speeds. |
 | `Config.Controls` | — | Keys for the taxi prompts (control hashes). |
 | `Config.BalloonTaxi.Locations` | 8 stations | Operator position, balloon spawn point, blip, rentals on/off. |
@@ -197,6 +235,12 @@ A ride did not close properly. In the server console run `balloon_taxi_server_de
 **No operators or blips.**
 Check that the taxi or rentals are turned on. An operator only appears when a player is within 100 metres.
 
+**"You're not near a road." when calling my balloon.**
+Walk to a road or trail, or raise `Config.Ownership.RoadDistance`. At a station, use **Take Out Your Balloon**.
+
+**I got pulled out of the captain's seat.**
+That balloon belongs to another player. Ride as a passenger, or set `Config.Ownership.OnlyOwnerFlies = false`.
+
 **The captain cannot climb.**
 Keep **Scripted climb** on (`Config.Flight.ScriptedAscent = true`). The game's own burner key does not register on current game builds.
 
@@ -231,11 +275,14 @@ poggy_balloon/
 │   ├── balloonanimations.lua
 │   ├── balloon_taxi.lua       taxi service
 │   ├── balloon_spawn.lua
-│   └── balloon_rental.lua     rentals
+│   ├── balloon_rental.lua     rentals
+│   └── balloon_owned.lua      owned balloons: call key, /balloon
 ├── server/
 │   ├── balloon_server.lua        seat tracking
 │   ├── balloon_taxi_server.lua   fares, /spawnballoon
-│   └── balloon_rental_server.lua rentals and expiry
+│   ├── balloon_rental_server.lua rentals and expiry
+│   └── balloon_owned_server.lua  buying, selling, calling
+├── sql/install.sql             owned balloons table (created automatically)
 └── docs/                       Poggy Hub card and help pages
 ```
 
@@ -249,7 +296,7 @@ This resource combines and extends code from:
 - [kibook's balloon controls](https://github.com/kibook/redm-ballooncontrols)
 - [PersePixel's balloon crap](https://github.com/PersePixels/balloon-crap)
 
-Taxi service, rentals and translations by Poggy.
+Taxi service, rentals, owned balloons and translations by Poggy.
 
 ## Licence
 
