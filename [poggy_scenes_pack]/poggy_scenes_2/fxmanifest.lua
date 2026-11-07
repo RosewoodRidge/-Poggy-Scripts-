@@ -6,8 +6,8 @@ lua54 'yes'
 poggy_id 'poggy_scenes_2'
 author 'Poggy'
 description 'Poggy Scenes 2.0 - real sign boards you type on, scene text, status tags and the /me box for RedM.'
-version '2.1.0'
-poggy_core_min '0.27.0'
+version '2.2.0'
+poggy_core_min '0.28.0'
 
 dependencies {
     'poggy_core',
@@ -33,14 +33,15 @@ server_scripts {
     'server/hub.lua',
 }
 
--- The screen is shown by poggy_core (0.27.0), not as a page of this script's own:
--- an on-screen display, so it loads when the player joins, as before.
+-- The screen is shown by poggy_core, not as a page of this script's own: an on-screen
+-- display (the /me box), so it loads when the player joins, as before. It is Vue on the
+-- Poggy UI kit (poggy_core 0.28.0): ui/app.js and ui/app.css are built from ui-src/.
 poggy_ui 'ui/index.html'
 
 files {
     'ui/index.html',
-    'ui/style.css',
-    'ui/script.js',
+    'ui/app.js',
+    'ui/app.css',
     'ui/sym_*.png',              -- the sign symbols, as the editor shows them
     'docs/icon.png',
 }

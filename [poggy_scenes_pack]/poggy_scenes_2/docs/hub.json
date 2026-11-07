@@ -261,6 +261,16 @@
       "step": 1,
       "unit": "metres"
     },
+    "Config.meoverheadheight": {
+      "label": "Overhead text height",
+      "tooltip": "How many metres to raise /me, /do, /id and /cash text. 0 leaves it where it has always been, at the character's middle; about 0.9 puts it just above the head. A minus number brings it down.",
+      "tab": "mebox",
+      "group": "Overhead text",
+      "min": -1,
+      "max": 2,
+      "step": 0.05,
+      "unit": "metres"
+    },
     "Config.meboxdistance": {
       "label": "/me box distance",
       "tooltip": "How close, in metres, another player must be for their /me to land in your /me box. Your own /me always appears.",
@@ -322,38 +332,6 @@
       "picker": "color",
       "tab": "appearance",
       "tooltip": "Name colour in the /me box for players with this job."
-    },
-    "Config.uitheme": {
-      "label": "Editor theme",
-      "tooltip": "Colour scheme of the Scene and Status editors. The /me box is not themed.",
-      "tab": "appearance",
-      "group": "Editor",
-      "options": [
-        {
-          "value": "amber-frontier",
-          "label": "Amber Frontier (Old West sepia and gold)"
-        },
-        {
-          "value": "steel-blue",
-          "label": "Steel Blue (dark navy)"
-        },
-        {
-          "value": "ivory-noir",
-          "label": "Ivory Noir (black and white)"
-        },
-        {
-          "value": "lavender-dusk",
-          "label": "Lavender Dusk (soft purple)"
-        },
-        {
-          "value": "crimson-dusk",
-          "label": "Crimson Dusk (deep red)"
-        },
-        {
-          "value": "emerald-ridge",
-          "label": "Emerald Ridge (forest green)"
-        }
-      ]
     },
     "Config.Language": {
       "label": "Player text",

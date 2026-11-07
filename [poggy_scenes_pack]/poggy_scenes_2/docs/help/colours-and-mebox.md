@@ -1,8 +1,8 @@
-# Colours, themes and the /me box
+# Colours, the look and the /me box
 
-## Editor theme
+## The look
 
-**Appearance** → **Editor theme** changes the look of the Scene and Status editors. Six themes are included. Restart the script to apply it.
+The Scene and Status editors and the /me box wear the server's Poggy theme: **Poggy Core** → **Theme**. The text and sign previews keep the game's own colours on every theme.
 
 ## Colour swatches
 
@@ -39,5 +39,7 @@ Players control their own box with `/mebox auto`, `persist`, `off`, `move`, `sma
 ## Overhead text
 
 **Overhead text time** and **Overhead text distance** control the floating text from `/me`, `/do`, `/id` and `/cash`.
+
+**Overhead text height** raises it, in metres. 0 (the default) leaves it at the character's middle, where it has always been; about 0.9 puts it just above the head. A minus number brings it down.
 
 Status tags and scene text use **Scene and status view distance** (General tab) instead.

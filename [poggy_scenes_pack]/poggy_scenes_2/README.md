@@ -49,7 +49,7 @@ Players place coloured floating text in the world, wear a status tag above their
 
 | Resource | Why |
 |---|---|
-| **poggy_core** 0.13.0 or newer | Characters, jobs, groups, cash and notifications, on VORP, RSG or QBR |
+| **poggy_core** 0.28.0 or newer | Characters, jobs, groups, cash and notifications, on VORP, RSG or QBR |
 | [oxmysql](https://github.com/overextended/oxmysql) | Stores scenes and status presets |
 | `/assetpacks` | Built into the server (FXServer); nothing to install |
 
@@ -275,6 +275,7 @@ Every setting can be changed in game with **/poggy** (Poggy Hub). You can also e
 |---|---|---|
 | `Config.meoverheadduration` | `10` | Seconds the text floats above a character. |
 | `Config.meoverheadradius` | `20` | How far away (metres) it can be seen. |
+| `Config.meoverheadheight` | `0.0` | Metres to raise the text. `0` leaves it at the character's middle, where it has always been; about `0.9` puts it just above the head. A minus number brings it down. |
 
 ### /me box
 
@@ -293,27 +294,15 @@ Every setting can be changed in game with **/poggy** (Poggy Hub). You can also e
 | Setting | What it does |
 |---|---|
 | `Config.sceneColors` | The colour swatches in the editors, in order. Each has a game colour `code`, a `hex` colour for the button and a `title`. |
-| `Config.uitheme` | Editor colour scheme. See below. |
 | `Config.Language` | Player messages and the prefixes for `/do`, `/status`, `/cash` and `/id`. |
 
 `Config.webhook` is in the file but not used: nothing is sent to Discord.
 
 ---
 
-## UI themes
+## The look
 
-Set `Config.uitheme`. Players see it after the script restarts.
-
-| Theme | Look |
-|---|---|
-| `"amber-frontier"` | Old West gold and amber (default) |
-| `"steel-blue"` | Dark navy with steel-blue accents |
-| `"ivory-noir"` | Black and white |
-| `"lavender-dusk"` | Soft lavender and purple |
-| `"crimson-dusk"` | Deep red |
-| `"emerald-ridge"` | Forest green |
-
-The `/me` box is not themed. It always matches the chat overlay style.
+The Scene and Status editors and the `/me` box wear the server's Poggy theme (`/poggy` → Poggy Core → Theme), like every Poggy screen. The text and sign previews keep the game's own colours on every theme.
 
 ---
 

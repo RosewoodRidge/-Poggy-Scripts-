@@ -40,6 +40,7 @@ Config.meboxDefaultNameColor = "#eeebe4" -- fallback name color
 -- ── Overhead /me Display (floating text above peds) ──────────────────────
 Config.meoverheadduration = 10   -- seconds overhead /me, /do text stays visible above ped
 Config.meoverheadradius   = 20   -- world-unit radius to see overhead /me texts
+Config.meoverheadheight   = 0.0  -- metres to raise overhead /me texts (0 = as before; about 0.9 = just above the head)
 
 -- ── ME Box History & Dissipation ─────────────────────────────────────────
 Config.meboxhistory       = 50   -- max messages kept in scroll-back buffer
@@ -94,17 +95,6 @@ Config.signs = {
     preload         = true,   -- once a player's character has loaded, fetch the sign props in the background so the
                               -- first sign they see or make appears at once. false = fetch each when first needed
 }
-
--- ── UI Theme ──────────────────────────────────────────────────────────────
--- Controls the color scheme of the Scene / Status editor panels.
--- Available themes (the color in the name tells you what you get):
---   "amber-frontier"   Old West sepia amber & gold (default)
---   "steel-blue"       Modern dark navy with steel blue accents
---   "ivory-noir"       Black & white, no color tint
---   "lavender-dusk"    Soft pastel lavender & purple
---   "crimson-dusk"     Deep red, dramatic
---   "emerald-ridge"    Forest green, earthy
-Config.uitheme = "amber-frontier"
 
 Config.Language = {
     helloworld = "Aim And Press G To Register Scene",

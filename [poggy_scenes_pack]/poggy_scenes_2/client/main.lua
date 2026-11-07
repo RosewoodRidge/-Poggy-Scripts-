@@ -579,6 +579,13 @@ end
 -- Compatibility shim kept in case anything external still calls Display().
 function Display(mePlayer, text) AddDisplay(mePlayer, text, false) end
 
+-- Where /me, /do, /id and /cash text sits: the character's middle, as it always has, raised by
+-- Config.meoverheadheight metres (0 = unchanged; about 0.9 puts it just above the head).
+function OverheadAnchor(ped)
+    local pc = GetEntityCoords(ped, false)
+    return vector3(pc.x, pc.y, pc.z + (tonumber(Config.meoverheadheight) or 0.0))
+end
+
 -- Preload the sprite dict for rounded backgrounds, then run the centralized render loop.
 Citizen.CreateThread(function()
     RequestStreamedTextureDict('feeds', false)
@@ -600,7 +607,7 @@ Citizen.CreateThread(function()
             else
                 local ped = GetPlayerPed(playerIdx)
                 if DoesEntityExist(ped) then
-                    local pc = GetEntityCoords(ped, false)
+                    local pc = OverheadAnchor(ped)
                     -- Vdist2 returns squared distance; use Config.meoverheadradius.
                     local meRad = Config.meoverheadradius or 20
                     if Vdist2(myCoords, pc) < (meRad * meRad) then
@@ -796,7 +803,7 @@ Citizen.CreateThread(function()
     )
 
     -- Load saved mebox position from KVP and send to NUI
-    SendNUIMessage({ type = 'load_colors', colors = Config.sceneColors, historyMax = Config.meboxhistory or 50, theme = Config.uitheme or 'amber-frontier' })
+    SendNUIMessage({ type = 'load_colors', colors = Config.sceneColors, historyMax = Config.meboxhistory or 50 })
 
     local savedTop  = GetResourceKvpString('mebox_pos_top')
     local savedLeft = GetResourceKvpString('mebox_pos_left')
