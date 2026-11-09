@@ -169,6 +169,16 @@ Config.Roles = {
         viewAnalytics = true, viewSoldItems = true, manageStaff    = false,
         changeSettings = false,
     },
+    -- Only with Config.Wages on.  A clerk has no back office: at the shop they
+    -- get a small card to clock in and out.  Switch anything on here and they
+    -- get the manager instead, with those parts.
+    clerk = {
+        viewDashboard = false, viewInventory = false, depositItems   = false,
+        setPrices     = false, removeStock   = false, manageBuyList  = false,
+        viewLedger    = false, depositLedger = false, withdrawLedger = false,
+        viewAnalytics = false, viewSoldItems = false, manageStaff    = false,
+        changeSettings = false,
+    },
 }
 
 -- ---------------------------------------------------------------------------
@@ -284,6 +294,42 @@ Config.Transfers = {
 
     -- Seconds the other player has to accept.
     offerSeconds = 60,
+}
+
+-- ---------------------------------------------------------------------------
+--  Shop wages
+--  ---------------------------------------------------------------------------
+--  OFF by default.  When on, hired staff clock in at the shop and are paid from
+--  that shop's ledger.  No money is created.  Each shop owner sets each hired
+--  person's hourly wage and, if they want one, a most-per-day limit, in the
+--  manager's Employees tab.  It also adds the Clerk role (Config.Roles.clerk):
+--  staff with no back office, who clock in from a small card at the shop.
+--
+--  Owners are not paid, and neither is anyone who reaches a shop only through
+--  their job: they have not been hired, so the owner cannot set their wage.
+-- ---------------------------------------------------------------------------
+Config.Wages = {
+    enabled = false,
+
+    -- How often, in minutes, someone on duty is paid.  They are also paid
+    -- when they clock out.
+    payEveryMinutes = 10,
+
+    -- How close to the shop (metres) staff must be to clock in and stay on duty.
+    stayWithin = 40.0,
+
+    -- Minutes someone can be too far away before they are clocked out.  Time
+    -- away is only paid if they come back within this.
+    awayGraceMinutes = 5,
+
+    -- Minutes without moving before someone is clocked out.  Time in the
+    -- shop's manager counts as working.  0 = never.
+    idleMinutes = 15,
+
+    -- true = wages stop, and staff are clocked out, rather than take the ledger
+    -- below one tax payment (Config.Tax.amount), so that paying staff cannot
+    -- get a shop repossessed.
+    keepTaxInLedger = true,
 }
 
 -- ===========================================================================

@@ -428,6 +428,59 @@
       "step": 5,
       "unit": "s"
     },
+    "Config.Wages": {
+      "label": "Shop wages",
+      "tooltip": "Hired staff clock in at the shop and are paid from that shop's ledger. Each shop owner sets the wage and any daily limit in the manager's Employees tab.",
+      "tab": "shops"
+    },
+    "Config.Wages.enabled": {
+      "label": "Shop wages on",
+      "tooltip": "On = staff can clock in and be paid from the shop's ledger, and owners can hire Clerks, who have no back office. No money is created. Off = no clocking in, no wages.",
+      "tab": "shops",
+      "group": "Shop wages"
+    },
+    "Config.Wages.payEveryMinutes": {
+      "label": "Pay every (minutes)",
+      "tooltip": "How often someone on duty is paid. They are also paid when they clock out.",
+      "tab": "shops",
+      "group": "Shop wages",
+      "min": 1,
+      "max": 120,
+      "step": 1
+    },
+    "Config.Wages.stayWithin": {
+      "label": "Stay within (metres)",
+      "tooltip": "How close to the shop staff must be to clock in and stay on duty.",
+      "tab": "shops",
+      "group": "Shop wages",
+      "min": 5,
+      "max": 500,
+      "step": 5
+    },
+    "Config.Wages.awayGraceMinutes": {
+      "label": "Time away allowed (minutes)",
+      "tooltip": "How long someone can be too far from the shop before they are clocked out. Time away is only paid if they come back within this.",
+      "tab": "shops",
+      "group": "Shop wages",
+      "min": 0,
+      "max": 60,
+      "step": 1
+    },
+    "Config.Wages.idleMinutes": {
+      "label": "Idle limit (minutes)",
+      "tooltip": "Minutes without moving before someone is clocked out. Time in the shop's manager counts as working. 0 = never.",
+      "tab": "shops",
+      "group": "Shop wages",
+      "min": 0,
+      "max": 240,
+      "step": 1
+    },
+    "Config.Wages.keepTaxInLedger": {
+      "label": "Keep tax money in the ledger",
+      "tooltip": "On = wages stop and staff are clocked out rather than take the ledger below one tax payment, so paying staff cannot get a shop repossessed.",
+      "tab": "shops",
+      "group": "Shop wages"
+    },
     "Config.PlayerShops.blipSprite": {
       "label": "Player shop blip",
       "tooltip": "Map blip sprite hash for player shops. An owner can pick their own sprite name in the manager, which overrides this.",
@@ -792,6 +845,89 @@
       "tooltip": "Can rename the shop, change its blip, upgrade storage, relocate it and set its webhook. Admins can always do everything.",
       "tab": "access",
       "group": "Shop employee can"
+    },
+    "Config.Roles.clerk": {
+      "label": "Shop clerk can",
+      "tooltip": "What a shop clerk can do. All off by default: a clerk only clocks in and out, from a small card at the shop. Switch anything on and they get the manager, with those parts. Clerks exist only with shop wages on.",
+      "tab": "access"
+    },
+    "Config.Roles.clerk.viewDashboard": {
+      "label": "View dashboard",
+      "tooltip": "Can see the shop's dashboard (takings, best sellers, low stock). Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.viewInventory": {
+      "label": "View stock",
+      "tooltip": "Can see the shop's stock and storage. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.depositItems": {
+      "label": "Stock items",
+      "tooltip": "Can put items from their own inventory into the shop. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.setPrices": {
+      "label": "Set prices",
+      "tooltip": "Can change item prices and show or hide items. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.removeStock": {
+      "label": "Remove stock",
+      "tooltip": "Can take items out of the shop into their own inventory, including items players sold to it. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.manageBuyList": {
+      "label": "Manage buy list",
+      "tooltip": "Can choose what the shop buys from the public, and for how much. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.viewLedger": {
+      "label": "View ledger",
+      "tooltip": "Can see the shop's money. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.depositLedger": {
+      "label": "Deposit money",
+      "tooltip": "Can put their own money into the shop's ledger. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.withdrawLedger": {
+      "label": "Withdraw money",
+      "tooltip": "Can take money out of the shop's ledger. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.viewAnalytics": {
+      "label": "View analytics",
+      "tooltip": "Can see the sales charts and transaction history. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.viewSoldItems": {
+      "label": "View sold items",
+      "tooltip": "Can see the items players sold to the shop. Collecting them needs Remove stock. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.manageStaff": {
+      "label": "Manage staff",
+      "tooltip": "Can hire and fire staff and change their role. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
+    },
+    "Config.Roles.clerk.changeSettings": {
+      "label": "Change settings",
+      "tooltip": "Can rename the shop, change its blip, upgrade storage, relocate it and set its webhook. Admins can always do everything.",
+      "tab": "access",
+      "group": "Shop clerk can"
     },
     "Config.ShopJobs": {
       "label": "Shop jobs",

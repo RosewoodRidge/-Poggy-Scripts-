@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS `shop_sales_log` (
     `quantity`         INT(11)      NOT NULL DEFAULT 1,
     `unit_price`       DOUBLE       NOT NULL DEFAULT 0,
     `total_price`      DOUBLE       NOT NULL DEFAULT 0,
-    `transaction_type` ENUM('sale','purchase','withdraw','deposit','tax','ghost')
+    `transaction_type` ENUM('sale','purchase','withdraw','deposit','tax','ghost','wage')
                                     NOT NULL DEFAULT 'sale',
     `created_at`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -104,12 +104,12 @@ CREATE TABLE IF NOT EXISTS `shop_sales_log` (
     KEY `idx_type`      (`transaction_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- poggy_markets logs two transaction kinds syn_stores did not have.  Without
--- this, tax collection and ghost sales fail to write a log row.  It only runs
+-- poggy_markets logs transaction kinds syn_stores did not have.  Without this,
+-- tax collection, ghost sales and wages fail to write a log row.  It only runs
 -- when the column's type is not already this enum.
 ALTER TABLE `shop_sales_log`
     MODIFY COLUMN `transaction_type`
-    ENUM('sale','purchase','withdraw','deposit','tax','ghost')
+    ENUM('sale','purchase','withdraw','deposit','tax','ghost','wage')
     NOT NULL DEFAULT 'sale';
 
 ALTER TABLE `shop_sales_log` ADD COLUMN `shop_type` TINYINT NOT NULL DEFAULT 1;

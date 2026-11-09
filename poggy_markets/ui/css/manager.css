@@ -590,6 +590,7 @@ select.input-field option {
 .txn-sale     { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
 .txn-purchase { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--border-accent); }
 .txn-withdraw { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+.txn-wage     { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
 .txn-deposit  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
 .txn-ghost    { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
 .txn-tax      { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
@@ -1893,3 +1894,19 @@ select.input-field option {
     margin: 0;
     color: var(--green);
 }
+
+
+/* ============================================================================
+   SHOP WAGES
+   ============================================================================ */
+
+.wage-strip { display: flex; align-items: center; gap: 10px; }
+.wage-strip .btn-action { white-space: nowrap; padding: 5px 12px; font-size: 12px; }
+.wage-strip .btn-action:disabled,
+.pm-prompt-btn:disabled { opacity: 0.45; cursor: default; }
+
+.emp-pay { display: flex; gap: 6px; }
+.emp-pay .input-field { width: 50%; min-width: 0; padding: 4px 6px; font-size: 12px; }
+.emp-pay-note { margin-top: 4px; font-size: 11px; color: var(--text-secondary); }
+
+.pm-prompt-box.wage-card { width: min(480px, 90vw); }

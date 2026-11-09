@@ -20,8 +20,12 @@
     var overlay, titleEl, textEl, inputEl, form, confirmBtn, cancelBtn;
     var mode = 'prompt';   // 'prompt' (text back) or 'confirm' (yes / no back)
 
-    function build() {
-        if (overlay) return;
+    var styled = false;
+
+    // Shared with the clerk's clock card (js/wages.js), so one box has one look.
+    function addStyle() {
+        if (styled) return;
+        styled = true;
 
         var style = document.createElement('style');
         style.textContent = [
@@ -49,6 +53,12 @@
             '.pm-prompt-btn.cancel:hover{color:var(--text-primary,#f0f0f5)}'
         ].join('');
         document.head.appendChild(style);
+    }
+    window.PMPromptStyle = addStyle;
+
+    function build() {
+        if (overlay) return;
+        addStyle();
 
         overlay = document.createElement('div');
         overlay.className = 'pm-prompt-overlay';

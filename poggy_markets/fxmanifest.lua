@@ -6,7 +6,7 @@ lua54 'yes'
 poggy_id 'poggy_markets'
 author 'Poggy'
 description 'Player-owned stores, dynamic pricing and a commodities exchange for RedM.'
-version '1.7.0'
+version '1.8.0'
 poggy_core_min '0.27.0'
 
 dependencies {
@@ -42,6 +42,7 @@ server_scripts {
     'server/trade.lua',
     'server/shops.lua',
     'server/jobs.lua',
+    'server/wages.lua',
     'server/ui.lua',
     'server/admin.lua',
     'server/pricing.lua',
@@ -62,6 +63,7 @@ files {
     'ui/js/manager.js',
     'ui/js/exchange.js',
     'ui/js/prompt.js',
+    'ui/js/wages.js',
     'ui/js/admin.js',
     'ui/js/skin.js',
     'ui/css/skin-*.css',

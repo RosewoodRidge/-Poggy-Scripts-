@@ -27,6 +27,10 @@ filters.
 employee. Employees restock and take deposits. Managers do everything except
 change the shop's settings. You can rewrite the permission table.
 
+**Staff who get paid.** Optional wages: staff clock in at the shop and are paid
+from its ledger. Owners set each person's hourly wage and daily limit, and can
+hire Clerks who never see the back office.
+
 **No second NPC file.** A store's clerk is part of the store. Delete the store
 and the clerk goes too. Clerks spawn when a player is near and are removed when
 they leave.
@@ -274,6 +278,16 @@ Settings: `config/ghostbuyer.lua`.
 
 **Staff roles.** `Config.Roles` sets what an owner, a manager and an employee
 can do in the manager. Admins can do everything in every shop.
+
+**Shop wages.** Set `Config.Wages.enabled = true`. Hired staff clock in at the
+shop and are paid from its ledger every `payEveryMinutes` and at clock-out; no
+money is created. Each owner sets a person's hourly wage and optional daily
+limit in the Employees tab. The daily total is read from the wage rows in
+`shop_sales_log` against the database's date, so a restart cannot reset it.
+`stayWithin`, `awayGraceMinutes` and `idleMinutes` clock out people who leave
+or stand idle, and `keepTaxInLedger` stops wages before the ledger falls below
+one tax payment. It also adds the Clerk role (`Config.Roles.clerk`): every
+permission off, so a clerk gets a clock card instead of the manager.
 
 **poggy_markets does not touch anyone's job unless you tell it to.** With
 `Config.ShopJobs.enabled = false` (the default), shop access comes only from

@@ -1273,10 +1273,25 @@
         var jobEmployees    = (data && data.jobEmployees)    ? data.jobEmployees    : [];
         var onlinePlayers   = (data && data.onlinePlayers)   ? data.onlinePlayers   : [];
 
+        // Shop wages: the Pay column and the Clerk role exist only when they are on.
+        var wages = (data && data.wages && data.wages.enabled) ? data.wages : null;
+        var wt    = wages ? (wages.text || {}) : {};
+        var payTh = $('#emp-pay-th');
+        if (payTh) {
+            payTh.textContent = wt.column || '';
+            payTh.classList.toggle('hidden', !wages);
+        }
+        var hireClerk = $('#emp-role-clerk');
+        if (hireClerk) {
+            hireClerk.textContent = wt.clerk || '';
+            hireClerk.hidden = hireClerk.disabled = !wages;
+            if (!wages && $('#emp-role-select').value === 'clerk') $('#emp-role-select').value = 'employee';
+        }
+
         // ── Current employees table ──
         var html = '';
         if (directEmployees.length === 0 && jobEmployees.length === 0) {
-            html = '<tr><td class="empty-cell" colspan="4">No employees yet.</td></tr>';
+            html = '<tr><td class="empty-cell" colspan="' + (wages ? 5 : 4) + '">No employees yet.</td></tr>';
         } else {
             // Job-based employees (read-only)
             jobEmployees.forEach(function (emp) {
@@ -1284,6 +1299,7 @@
                     '<td>' + escapeHtml(emp.name || ('ID: ' + emp.charidentifier)) + '</td>' +
                     '<td><span class="emp-role-badge role-' + (emp.role || 'employee') + '">' + capitalize(emp.role || 'employee') + '</span></td>' +
                     '<td><span class="emp-source-badge emp-source-job">Via Job</span></td>' +
+                    (wages ? '<td></td>' : '') +
                     '<td><em style="color:var(--text-secondary);font-size:11px">Managed via job</em></td>' +
                     '</tr>';
             });
@@ -1303,9 +1319,22 @@
                         '<select class="input-field emp-role-change" data-char="' + cid + '" style="padding:4px 6px;font-size:12px">' +
                             '<option value="employee"' + (emp.role === 'employee' ? ' selected' : '') + '>Employee</option>' +
                             '<option value="manager"' + (emp.role === 'manager'  ? ' selected' : '') + '>Manager</option>' +
+                            ((wages || emp.role === 'clerk') ? '<option value="clerk"' + (emp.role === 'clerk' ? ' selected' : '') + '>' + escapeHtml(wt.clerk || 'Clerk') + '</option>' : '') +
                         '</select>' + gradeNote +
                     '</td>' +
                     '<td><span class="emp-source-badge emp-source-direct">Direct</span></td>' +
+                    (wages ?
+                        '<td>' +
+                            '<div class="emp-pay">' +
+                                '<input type="number" min="0" step="0.01" class="input-field emp-wage" data-char="' + cid + '"' +
+                                    ' value="' + (emp.wage > 0 ? emp.wage : '') + '"' +
+                                    ' placeholder="' + escapeHtml(wt.wage) + '" title="' + escapeHtml(wt.wageTip) + '">' +
+                                '<input type="number" min="0" step="0.01" class="input-field emp-daily" data-char="' + cid + '"' +
+                                    ' value="' + (emp.dailyMax > 0 ? emp.dailyMax : '') + '"' +
+                                    ' placeholder="' + escapeHtml(wt.daily) + '" title="' + escapeHtml(wt.dailyTip) + '">' +
+                            '</div>' +
+                            '<div class="emp-pay-note">' + escapeHtml(emp.payNote || '') + '</div>' +
+                        '</td>' : '') +
                     '<td style="display:flex;gap:6px">' +
                         '<button class="btn-submit emp-save-role-btn" data-char="' + cid + '" style="padding:5px 10px;font-size:11px">Save</button>' +
                         '<button class="btn-outline emp-remove-btn" data-char="' + cid + '" style="padding:5px 10px;font-size:11px;color:var(--red);border-color:var(--red)">Remove</button>' +
@@ -1326,6 +1355,12 @@
                 });
                 var role  = sel ? sel.value : 'employee';
                 sendNUI('setEmployeeRole', { shopId: State.shopId, charId: charId, role: role });
+                if (wages) {
+                    var wageVal = '', dailyVal = '';
+                    $$('.emp-wage').forEach(function (i) { if (i.getAttribute('data-char') === charId) wageVal = i.value; });
+                    $$('.emp-daily').forEach(function (i) { if (i.getAttribute('data-char') === charId) dailyVal = i.value; });
+                    sendNUI('setEmployeePay', { shopId: State.shopId, charId: charId, wage: wageVal, dailyMax: dailyVal });
+                }
             });
         });
 
